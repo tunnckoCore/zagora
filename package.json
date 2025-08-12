@@ -1,8 +1,12 @@
 {
   "name": "zagora",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "license": "Apache-2.0",
   "description": "A minimalist, type-safe, error-safe typed functions in 214 lines of TypeScript based on Zod v4. No batteries, just functions. Simple alternative to oRPC and tRPC.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tunnckoCore/zagora.git"
+  },
   "type": "module",
   "exports": {
     ".": {
