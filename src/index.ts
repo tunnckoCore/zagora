@@ -99,7 +99,7 @@ export class FluentBuilder<
     // compute minimum required prefix length
     let minRequired = 0;
     for (let i = items.length - 1; i >= 0; --i) {
-      if (!isOmittable(items[i])) {
+      if (!isOmittable((items as any)[i])) {
         minRequired = i + 1;
         break;
       }
@@ -111,7 +111,8 @@ export class FluentBuilder<
       const prefix = items.slice(0, k) as any;
       tupleParsers.push(z.tuple(prefix));
     }
-    const inputParser = tupleParsers.length === 1 ? tupleParsers[0] : z.union(tupleParsers as any);
+    const inputParser =
+      tupleParsers.length === 1 ? (tupleParsers[0] as any) : z.union(tupleParsers as any);
     const runtimeErrSchema =
       errSchema && !(errSchema instanceof Object && !('parse' in errSchema))
         ? (errSchema as z.ZodTypeAny)
@@ -125,7 +126,7 @@ export class FluentBuilder<
       const provided = parsed.data as unknown[];
       const finalArgs: unknown[] = [...provided];
       for (let i = provided.length; i < items.length; ++i) {
-        const p = items[i].safeParse(undefined);
+        const p = (items as any)[i].safeParse(undefined);
         if (!p.success) return [null, p.error as unknown as Error] as const;
         finalArgs.push(p.data);
       }
@@ -140,8 +141,8 @@ export class FluentBuilder<
             // errors map
             if (errSchema && typeof errSchema === 'object' && !('parse' in errSchema)) {
               for (const k of Object.keys(errSchema)) {
-                const s = (errSchema as Record<string, z.ZodTypeAny>)[k];
-                const r = s.safeParse(maybeErr);
+                const sch = (errSchema as Record<string, z.ZodTypeAny>)[k];
+                const r = (sch as any).safeParse(maybeErr);
                 if (r.success) return [null, r.data] as const;
               }
               return [
@@ -174,8 +175,8 @@ export class FluentBuilder<
       } catch (err: unknown) {
         if (errSchema && typeof errSchema === 'object' && !('parse' in errSchema)) {
           for (const k of Object.keys(errSchema)) {
-            const s = (errSchema as Record<string, z.ZodTypeAny>)[k];
-            const r = s.safeParse(err);
+            const sch = (errSchema as Record<string, z.ZodTypeAny>)[k];
+            const r = (sch as any).safeParse(err);
             if (r.success) return [null, r.data] as const;
           }
           return [null, err instanceof Error ? err : new Error(String(err ?? 'unknown'))] as const;

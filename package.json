@@ -1,6 +1,6 @@
 {
   "name": "zagora",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "license": "Apache-2.0",
   "description": "A minimalist, type-safe, error-safe typed functions in 214 lines of TypeScript based on Zod v4. No batteries, just functions. Simple alternative to oRPC and tRPC.",
   "repository": {
