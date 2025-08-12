@@ -1,0 +1,47 @@
+{
+  "name": "zagora",
+  "version": "0.1.3",
+  "license": "Apache-2.0",
+  "description": "A minimalist, type-safe, error-safe typed functions in 214 lines of TypeScript based on Zod v4. No batteries, just functions. Simple alternative to oRPC and tRPC.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./source": "./src/index.ts",
+    "./index.ts": "./src/index.ts"
+  },
+  "module": "dist/index.ts",
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown src/index.ts --dts",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tsdown": "^0.14.1",
+    "typescript": "^5.9.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "keywords": [
+    "minimal",
+    "rpc",
+    "procedures",
+    "typescript",
+    "typesafe",
+    "type-safe",
+    "error-safe",
+    "functions",
+    "funcs",
+    "fn"
+  ]
+}
