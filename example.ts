@@ -98,7 +98,6 @@ const getPrices = zagora()
     }
   });
 
-
 // Test 1: Success case
 console.log("1. Success case:");
 const [result1, error1, isDefined1] = await getPrices({
@@ -110,11 +109,9 @@ console.log("Result:", result1 ? "Got gas prices data" : null);
 console.log("Error:", error1);
 console.log();
 
-if (error1 && isDefined1) {
-  if (error1.type === 'NetworkError') {
-    console.log("Network error occurred with code:", error1.code);
-    console.log("Error url:", error1.url);
-  }
+if (error1 && isDefined1 && error1.type === "NetworkError") {
+  console.log("Network error occurred with code:", error1.code);
+  console.log("Error url:", error1.url);
 }
 
 // Test 2: Rate limit error

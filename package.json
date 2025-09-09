@@ -1,8 +1,8 @@
 {
   "name": "zagora",
-  "version": "0.1.5",
+  "version": "0.2.1",
   "license": "Apache-2.0",
-  "description": "A minimalist way to create type-safe and error-safe functions in TypeScript - with input/output validation and typed errors based on StandardSchema-compiliant validation libraries. No batteries, just functions. Simple but robust alternative to oRPC and tRPC, no network layer.",
+  "description": "A minimalist & robust way to create type-safe and error-safe never throwing functions & libraries in TypeScript - with input/output validation and typed errors. Based on StandardSchema-compliant validation libraries. No batteries, no routers, it's just functions that you can export and use. Simple but robust alternative to oRPC and tRPC, no network layer.",
   "repository": {
     "type": "git",
     "url": "https://github.com/tunnckoCore/zagora.git"

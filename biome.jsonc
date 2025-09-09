@@ -2,5 +2,33 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": [
     "ultracite"
-  ]
+  ],
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noImplicitAnyLet": "off",
+        "noExplicitAny": "off",
+        "useAwait": "off",
+        "noConsole": "warn"
+      },
+      "correctness": {
+        "noUnusedVariables": "warn",
+      },
+      "performance": {
+        "useTopLevelRegex": "off",
+        "noNamespaceImport": "warn",
+        "noDelete": "warn"
+      },
+      "style": {
+        "noMagicNumbers": "off",
+        "noExportedImports": "off",
+        "noNestedTernary": "off",
+        "useReadonlyClassProperties": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn",
+        "useOptionalChain": "info"
+      }
+    }
+  }
 }
