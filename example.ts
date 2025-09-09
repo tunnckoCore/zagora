@@ -135,3 +135,67 @@ console.log("Result:", result3);
 console.log("Error:", error3);
 console.log("Error type:", (error3 as any)?.type);
 console.log();
+
+// == EXAMPLE FETCH WRAPPER
+
+export const zagoraFetch = zagora()
+  .input(
+    z.tuple([
+      z.string(),
+      z
+        .object({
+          method: z.enum(["GET", "POST", "PUT", "DELETE"]),
+          headers: z.record(z.string(), z.string()).optional(),
+          body: z.any().optional(),
+        })
+        .default({
+          method: "GET",
+        }),
+    ])
+  )
+  .output(
+    z
+      .object({
+        userId: z.number().min(1),
+        id: z.number().min(1),
+        title: z.string().min(1),
+        completed: z.boolean(),
+      })
+      .strict()
+  )
+  .errors({
+    fetchError: z
+      .object({
+        message: z.string(),
+        code: z.number(),
+      })
+      .default({
+        message: "Unknown error",
+        code: 500,
+      }),
+  })
+  .handler(async (url, reqInit, errors) => {
+    const resp = await fetch(url, reqInit);
+
+    if (!resp.ok) {
+      return errors.fetchError({
+        message: `HTTP error ${resp.status}: ${resp.statusText}`,
+        code: resp.status,
+      });
+    }
+
+    const data = (await resp.json()) as any;
+
+    // return { ...data, foo: 123 }; // should fail output validation
+    return data;
+  });
+
+const [data2, err2, isDefined2] = await zagoraFetch(
+  "https://jsonplaceholder.typicode.com/todos/1"
+);
+
+console.log({
+  data2,
+  err2: (err2 as any)?.issues,
+  isDefined2,
+});

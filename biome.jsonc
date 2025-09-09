@@ -1,8 +1,6 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": [
-    "ultracite"
-  ],
+  "extends": ["ultracite"],
   "linter": {
     "rules": {
       "suspicious": {
@@ -13,6 +11,7 @@
       },
       "correctness": {
         "noUnusedVariables": "warn",
+        "noUnusedFunctionParameters": "off"
       },
       "performance": {
         "useTopLevelRegex": "off",
