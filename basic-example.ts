@@ -1,5 +1,5 @@
 import z from "zod";
-import { zagora } from "./src";
+import { zagora } from "./src/index.ts";
 
 const SpeedSchema = z.enum(["slow", "normal", "fast"]);
 
