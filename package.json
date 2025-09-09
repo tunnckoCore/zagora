@@ -2,7 +2,7 @@
   "name": "zagora",
   "version": "0.1.5",
   "license": "Apache-2.0",
-  "description": "A minimalist, type-safe, error-safe typed functions in 214 lines of TypeScript based on Zod v4. No batteries, just functions. Simple alternative to oRPC and tRPC.",
+  "description": "A minimalist way to create type-safe and error-safe functions in TypeScript - with input/output validation and typed errors based on StandardSchema-compiliant validation libraries. No batteries, just functions. Simple but robust alternative to oRPC and tRPC, no network layer.",
   "repository": {
     "type": "git",
     "url": "https://github.com/tunnckoCore/zagora.git"
@@ -23,18 +23,22 @@
   ],
   "scripts": {
     "build": "tsdown src/index.ts --dts",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
-    "zod": "^4.0.17"
+    "@standard-schema/spec": "^1.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.2.3",
     "@types/bun": "latest",
-    "tsdown": "^0.14.1",
-    "typescript": "^5.9.2"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.2"
+    "arktype": "2.1.22",
+    "tsdown": "0.14.1",
+    "typescript": "5.9.2",
+    "ultracite": "5.3.4",
+    "valibot": "1.1.0",
+    "zod": "4.1.5"
   },
   "keywords": [
     "minimal",
