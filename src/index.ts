@@ -1,150 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import type {
+  MaybeAsyncValidateError,
+  MaybeAsyncValidateOutput,
+  OverloadedByPrefixes,
+  ZagoraBaseResult,
+  ZagoraConfig,
+  ZagoraErrorHelpers,
+  ZagoraInferInput,
+  ZagoraMetadata,
+} from "./types.ts";
+import { createDualResult, ZagoraError } from "./utils.ts";
 
-/* ZagoraError class that wraps unexpected errors */
-export class ZagoraError extends Error {
-  readonly type = "ZAGORA_ERROR" as const;
-  readonly issues?: readonly StandardSchemaV1.Issue[];
-  override readonly cause?: unknown;
-  readonly reason: string;
-
-  constructor(
-    message: string,
-    options?: {
-      issues?: readonly StandardSchemaV1.Issue[];
-      cause?: unknown;
-      reason?: string;
-    }
-  ) {
-    super(message);
-    this.name = "ZagoraError";
-    this.issues = options?.issues;
-    this.cause = options?.cause;
-    this.reason = options?.reason || "Unknown or internal error";
-  }
-
-  static fromIssues(issues: readonly StandardSchemaV1.Issue[]) {
-    const message = issues.map((issue) => issue.message).join(", ");
-    return new ZagoraError(message, {
-      issues,
-      reason: "Failure caused by validation",
-    });
-  }
-
-  static fromCaughtError(caught: unknown, reason?: string) {
-    const message = caught instanceof Error ? caught.message : String(caught);
-    return new ZagoraError(reason || message, { cause: caught, reason });
-  }
-}
-
-function createDualResult<TData, TErr, TIsDefined extends boolean>(
-  data: TData,
-  error: TErr,
-  isDefined: TIsDefined
-): Result<TData, TErr, TIsDefined> {
-  const tuple = [data, error, isDefined] as [TData, TErr, TIsDefined];
-  const result = tuple as Result<TData, TErr, TIsDefined>;
-  result.data = data;
-  result.error = error;
-  result.isDefined = isDefined;
-  return result;
-}
-
-/* Dual return format that supports both object and tuple destructuring */
-type Result<TData, TErr, TIsDefined extends boolean> = [
-  TData,
-  TErr,
-  TIsDefined,
-] & {
-  data: TData;
-  error: TErr;
-  isDefined: TIsDefined;
-};
-
-// convert union -> intersection helper
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
-  k: infer I
-) => void
-  ? I
-  : never;
-
-/* Given `T` a tuple type, produce an intersection of function
-  types that act as overloads for each prefix of T. */
-type IsOptional<T> = undefined extends T ? true : false;
-type AllOptional<T extends any[]> = T extends [infer H, ...infer R]
-  ? IsOptional<H> extends true
-    ? AllOptional<R>
-    : false
-  : true;
-
-type OverloadedByPrefixes<T extends any[], R> = UnionToIntersection<
-  ValuePrefixes<T> extends infer P
-    ? P extends any[]
-      ? P extends []
-        ? AllOptional<T> extends true
-          ? (...args: P) => R
-          : never
-        : (...args: P) => R
-      : never
-    : never
->;
-
-type ValidateOutput = [unknown, null] | [null, ZagoraError];
-type MaybeAsyncValidateOutput<TIsSync extends boolean> = TIsSync extends true
-  ? ValidateOutput
-  : Promise<ValidateOutput>;
-
-type ValidateError = { error: unknown; isTyped: boolean };
-type MaybeAsyncValidateError<TIsSync extends boolean> = TIsSync extends true
-  ? ValidateError
-  : Promise<ValidateError>;
-
-/* prefixes of a value-tuple (mutable) */
-type ValuePrefixes<T extends any[]> = T extends [infer H, ...infer R]
-  ? [] | [H, ...ValuePrefixes<R>]
-  : [];
-
-/* Helper types for StandardSchema */
-type InferInput<T extends StandardSchemaV1> = StandardSchemaV1.InferInput<T>;
-type InferOutput<T extends StandardSchemaV1> = StandardSchemaV1.InferOutput<T>;
-
-/* Error helper type - creates functions that return [null, error] tuples */
-type ErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
-  [K in keyof T]: (
-    error: Omit<InferInput<T[K]>, "type">
-  ) => [null, InferOutput<T[K]>];
-};
-
-type BaseResult<
-  Output extends StandardSchemaV1 | null = null,
-  ErrSchema extends Record<string, StandardSchemaV1> | null = null,
-> = ErrSchema extends Record<string, StandardSchemaV1>
-  ?
-      | Result<
-          Output extends StandardSchemaV1 ? InferOutput<Output> : unknown,
-          null,
-          false
-        > // success
-      | Result<
-          null,
-          {
-            [K in keyof ErrSchema]: InferOutput<ErrSchema[K]>;
-          }[keyof ErrSchema],
-          true
-        > // typed error
-      | Result<null, ZagoraError, false> // untyped error
-  :
-      | Result<
-          Output extends StandardSchemaV1 ? InferOutput<Output> : unknown,
-          null,
-          false
-        > // success
-      | Result<null, ZagoraError, false>; // untyped error
-
-export type ZagoraConfig = {
-  errorsFirst?: boolean;
-};
+export * from "./types.ts";
 
 export function zagora(): Zagora<null, null, null, undefined>;
 export function zagora<C extends ZagoraConfig>(
@@ -155,13 +24,6 @@ export function zagora<C extends ZagoraConfig>(
 ): Zagora<null, null, null, C | undefined> {
   return new Zagora(config);
 }
-
-type ZagoraMetadata<THandler extends unknown = unknown> = {
-  inputSchema: StandardSchemaV1 | null;
-  outputSchema: StandardSchemaV1 | null;
-  errorSchema: Record<string, StandardSchemaV1> | null;
-  handlerFn: THandler;
-};
 
 export class Zagora<
   InputSchema extends StandardSchemaV1 | null = null,
@@ -240,16 +102,16 @@ export class Zagora<
     IS extends StandardSchemaV1 = InputSchema extends StandardSchemaV1
       ? InputSchema
       : never,
-    OutputArgs = InferInput<IS>,
+    OutputArgs = ZagoraInferInput<IS>,
   >(
     impl: ErrSchema extends Record<string, StandardSchemaV1>
       ? Config extends { errorsFirst: true }
         ? OutputArgs extends readonly any[]
-          ? (...args: [ErrorHelpers<ErrSchema>, ...OutputArgs]) => any
-          : (errors: ErrorHelpers<ErrSchema>, arg: OutputArgs) => any
+          ? (...args: [ZagoraErrorHelpers<ErrSchema>, ...OutputArgs]) => any
+          : (errors: ZagoraErrorHelpers<ErrSchema>, arg: OutputArgs) => any
         : OutputArgs extends readonly any[]
-          ? (...args: [...OutputArgs, ErrorHelpers<ErrSchema>]) => any
-          : (arg: OutputArgs, errors: ErrorHelpers<ErrSchema>) => any
+          ? (...args: [...OutputArgs, ZagoraErrorHelpers<ErrSchema>]) => any
+          : (arg: OutputArgs, errors: ZagoraErrorHelpers<ErrSchema>) => any
       : OutputArgs extends readonly any[]
         ? (...args: OutputArgs) => any
         : (arg: OutputArgs) => any
@@ -273,16 +135,16 @@ export class Zagora<
     IS extends StandardSchemaV1 = InputSchema extends StandardSchemaV1
       ? InputSchema
       : never,
-    OutputArgs = InferInput<IS>,
+    OutputArgs = ZagoraInferInput<IS>,
   >(
     impl: ErrSchema extends Record<string, StandardSchemaV1>
       ? Config extends { errorsFirst: true }
         ? OutputArgs extends readonly any[]
-          ? (...args: [ErrorHelpers<ErrSchema>, ...OutputArgs]) => any
-          : (errors: ErrorHelpers<ErrSchema>, arg: OutputArgs) => any
+          ? (...args: [ZagoraErrorHelpers<ErrSchema>, ...OutputArgs]) => any
+          : (errors: ZagoraErrorHelpers<ErrSchema>, arg: OutputArgs) => any
         : OutputArgs extends readonly any[]
-          ? (...args: [...OutputArgs, ErrorHelpers<ErrSchema>]) => any
-          : (arg: OutputArgs, errors: ErrorHelpers<ErrSchema>) => any
+          ? (...args: [...OutputArgs, ZagoraErrorHelpers<ErrSchema>]) => any
+          : (arg: OutputArgs, errors: ZagoraErrorHelpers<ErrSchema>) => any
       : OutputArgs extends readonly any[]
         ? (...args: OutputArgs) => any
         : (arg: OutputArgs) => any
@@ -408,7 +270,7 @@ export class Zagora<
       }
     };
 
-    type HandlerResult = BaseResult<Output, ErrSchema>;
+    type HandlerResult = ZagoraBaseResult<Output, ErrSchema>;
 
     // Forward (call-site) signatures
     type InputArgs = StandardSchemaV1.InferInput<IS>;
@@ -540,7 +402,7 @@ export class Zagora<
       }
     };
 
-    type HandlerResult = Promise<BaseResult<Output, ErrSchema>>;
+    type HandlerResult = Promise<ZagoraBaseResult<Output, ErrSchema>>;
 
     // Forward (call-site) signatures
     type InputArgs = StandardSchemaV1.InferInput<IS>;
