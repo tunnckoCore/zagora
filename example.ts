@@ -43,14 +43,18 @@ const errorSchemas = {
   }),
 };
 
-// Create zagora instance with error schemas
-
-// Main handler example
-const getPrices = zagora()
+// "contract" means just access to the Zagora instance
+const getPricesContract = zagora()
   .errors(errorSchemas)
   .input(InputSchema)
-  .output(SuccessSchema)
-  .handler(async ({ speed, num, includeDetails }, err) => {
+  .output(SuccessSchema);
+
+// on "~zagora" property you can access the metadata like input/output/error schemas,
+// and the handler function if it's after the `.handler` call.
+// getPricesContract["~zagora"].inputSchema;
+
+const getPrices = getPricesContract.handler(
+  async ({ speed, num, includeDetails }, err) => {
     // Simulate rate limiting
     if (num && num > 1000) {
       return err.rateLimit({
@@ -96,7 +100,12 @@ const getPrices = zagora()
       // This will be automatically wrapped in ZagoraError since we didn't handle it with our typed errors
       throw new Error(`Failed to fetch gas prices: ${error}`);
     }
-  });
+  }
+);
+
+// here the `handlerFn` has properly-inferred input and output types
+// const handlerFn = getPrices['~zagora'].handlerFn;
+// type HandlerReturnType = Awaited<ReturnType<typeof handlerFn>>;
 
 // Test 1: Success case
 console.log("1. Success case:");

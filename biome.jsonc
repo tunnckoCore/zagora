@@ -7,7 +7,7 @@
         "noImplicitAnyLet": "off",
         "noExplicitAny": "off",
         "useAwait": "off",
-        "noConsole": "warn"
+        "noConsole": "off"
       },
       "correctness": {
         "noUnusedVariables": "warn",

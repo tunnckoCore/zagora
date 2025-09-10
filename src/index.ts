@@ -156,19 +156,28 @@ export function zagora<C extends ZagoraConfig>(
   return new Zagora(config);
 }
 
+type ZagoraMetadata<THandler extends unknown = unknown> = {
+  inputSchema: StandardSchemaV1 | null;
+  outputSchema: StandardSchemaV1 | null;
+  errorSchema: Record<string, StandardSchemaV1> | null;
+  handlerFn: THandler;
+};
+
 export class Zagora<
   InputSchema extends StandardSchemaV1 | null = null,
   Output extends StandardSchemaV1 | null = null,
   ErrSchema extends Record<string, StandardSchemaV1> | null = null,
   Config extends ZagoraConfig | undefined = undefined,
 > {
-  private _input: InputSchema | null = null;
-  private _output: Output | null = null;
-  private _error: ErrSchema | null = null;
+  private _inputSchema: InputSchema | null = null;
+  private _outputSchema: Output | null = null;
+  private _errorSchema: ErrSchema | null = null;
   private _config: Config;
 
+  "~zagora": ZagoraMetadata;
+
   constructor(config?: Config) {
-    this._error = null;
+    this._errorSchema = null;
     this._config = (config || undefined) as Config;
   }
 
@@ -177,9 +186,17 @@ export class Zagora<
     schema: T
   ): Zagora<T, Output, ErrSchema, Config> {
     const next = new Zagora<T, Output, ErrSchema, Config>(this._config);
-    (next as any)._input = schema;
-    (next as any)._output = this._output;
-    (next as any)._error = this._error;
+    (next as any)._inputSchema = schema;
+    (next as any)._outputSchema = this._outputSchema;
+    (next as any)._errorSchema = this._errorSchema;
+
+    this["~zagora"] = {
+      inputSchema: schema,
+      outputSchema: this._outputSchema,
+      errorSchema: this._errorSchema,
+      handlerFn: null,
+    };
+
     return next;
   }
 
@@ -187,9 +204,17 @@ export class Zagora<
     const next = new Zagora<InputSchema, NewOut, ErrSchema, Config>(
       this._config
     );
-    (next as any)._input = this._input;
-    (next as any)._output = schema;
-    (next as any)._error = this._error;
+    (next as any)._inputSchema = this._inputSchema;
+    (next as any)._outputSchema = schema;
+    (next as any)._errorSchema = this._errorSchema;
+
+    this["~zagora"] = {
+      inputSchema: this._inputSchema,
+      outputSchema: schema,
+      errorSchema: this._errorSchema,
+      handlerFn: null,
+    };
+
     return next;
   }
 
@@ -197,10 +222,18 @@ export class Zagora<
     schema: NewErr
   ): Zagora<InputSchema, Output, NewErr, Config> {
     const next = new Zagora<InputSchema, Output, NewErr, Config>(this._config);
-    (next as any)._input = this._input;
-    (next as any)._output = this._output;
-    (next as any)._error = schema;
-    return next as any;
+    (next as any)._inputSchema = this._inputSchema;
+    (next as any)._outputSchema = this._outputSchema;
+    (next as any)._errorSchema = schema;
+
+    this["~zagora"] = {
+      inputSchema: this._inputSchema,
+      outputSchema: this._outputSchema,
+      errorSchema: schema,
+      handlerFn: null,
+    };
+
+    return next;
   }
 
   handler<
@@ -221,7 +254,21 @@ export class Zagora<
         ? (...args: OutputArgs) => any
         : (arg: OutputArgs) => any
   ) {
-    return this.createHandlerAsync(impl);
+    const handlerFn = this.createHandlerAsync(impl);
+
+    this["~zagora"] = {
+      inputSchema: this._inputSchema,
+      outputSchema: this._outputSchema,
+      errorSchema: this._errorSchema,
+      handlerFn,
+    };
+
+    (handlerFn as any)["~zagora"] = this["~zagora"];
+
+    return Object.assign(handlerFn, this) as typeof handlerFn &
+      Zagora<IS, Output, ErrSchema, Config> & {
+        "~zagora": ZagoraMetadata<typeof handlerFn>;
+      };
   }
 
   handlerSync<
@@ -242,7 +289,21 @@ export class Zagora<
         ? (...args: OutputArgs) => any
         : (arg: OutputArgs) => any
   ) {
-    return this.createHandlerSync(impl);
+    const handlerFn = this.createHandlerSync(impl);
+
+    this["~zagora"] = {
+      inputSchema: this._inputSchema,
+      outputSchema: this._outputSchema,
+      errorSchema: this._errorSchema,
+      handlerFn,
+    };
+
+    (handlerFn as any)["~zagora"] = this["~zagora"];
+
+    return Object.assign(handlerFn, this) as typeof handlerFn &
+      Zagora<IS, Output, ErrSchema, Config> & {
+        "~zagora": ZagoraMetadata<typeof handlerFn>;
+      };
   }
 
   private createHandlerSync<
@@ -250,16 +311,16 @@ export class Zagora<
       ? InputSchema
       : never,
   >(impl: any) {
-    if (!this._input) {
+    if (!this._inputSchema) {
       throw new Error(".input(...) must be called first");
     }
-    if (!this._output) {
+    if (!this._outputSchema) {
       throw new Error(".output(...) must be called first");
     }
 
-    const inputSchema = this._input as StandardSchemaV1;
-    const outputSchema = this._output as StandardSchemaV1;
-    const errSchema = this._error;
+    const inputSchema = this._inputSchema as StandardSchemaV1;
+    const outputSchema = this._outputSchema as StandardSchemaV1;
+    const errSchema = this._errorSchema;
 
     // Create synchronous wrapper function
     const wrapper = (...rawArgs: unknown[]) => {
@@ -381,16 +442,16 @@ export class Zagora<
       ? InputSchema
       : never,
   >(impl: any) {
-    if (!this._input) {
+    if (!this._inputSchema) {
       throw new Error(".input(...) must be called first");
     }
-    if (!this._output) {
+    if (!this._outputSchema) {
       throw new Error(".output(...) must be called first");
     }
 
-    const inputSchema = this._input as StandardSchemaV1;
-    const outputSchema = this._output as StandardSchemaV1;
-    const errSchema = this._error;
+    const inputSchema = this._inputSchema as StandardSchemaV1;
+    const outputSchema = this._outputSchema as StandardSchemaV1;
+    const errSchema = this._errorSchema;
 
     // Create asynchronous wrapper function
     const wrapper = async (...rawArgs: unknown[]) => {
