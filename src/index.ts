@@ -42,9 +42,9 @@ function createDualResult<TData, TErr, TIsDefined extends boolean>(
   data: TData,
   error: TErr,
   isDefined: TIsDefined
-): DualResult<TData, TErr, TIsDefined> {
+): Result<TData, TErr, TIsDefined> {
   const tuple = [data, error, isDefined] as [TData, TErr, TIsDefined];
-  const result = tuple as DualResult<TData, TErr, TIsDefined>;
+  const result = tuple as Result<TData, TErr, TIsDefined>;
   result.data = data;
   result.error = error;
   result.isDefined = isDefined;
@@ -52,7 +52,7 @@ function createDualResult<TData, TErr, TIsDefined extends boolean>(
 }
 
 /* Dual return format that supports both object and tuple destructuring */
-type DualResult<TData, TErr, TIsDefined extends boolean> = [
+type Result<TData, TErr, TIsDefined extends boolean> = [
   TData,
   TErr,
   TIsDefined,
@@ -121,26 +121,26 @@ type BaseResult<
   ErrSchema extends Record<string, StandardSchemaV1> | null = null,
 > = ErrSchema extends Record<string, StandardSchemaV1>
   ?
-      | DualResult<
+      | Result<
           Output extends StandardSchemaV1 ? InferOutput<Output> : unknown,
           null,
           false
         > // success
-      | DualResult<
+      | Result<
           null,
           {
             [K in keyof ErrSchema]: InferOutput<ErrSchema[K]>;
           }[keyof ErrSchema],
           true
         > // typed error
-      | DualResult<null, ZagoraError, false> // untyped error
+      | Result<null, ZagoraError, false> // untyped error
   :
-      | DualResult<
+      | Result<
           Output extends StandardSchemaV1 ? InferOutput<Output> : unknown,
           null,
           false
         > // success
-      | DualResult<null, ZagoraError, false>; // untyped error
+      | Result<null, ZagoraError, false>; // untyped error
 
 export type ZagoraConfig = {
   errorsFirst?: boolean;
