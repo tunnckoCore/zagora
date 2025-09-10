@@ -263,8 +263,6 @@ export class Zagora<
       handlerFn,
     };
 
-    (handlerFn as any)["~zagora"] = this["~zagora"];
-
     return Object.assign(handlerFn, this) as typeof handlerFn &
       Zagora<IS, Output, ErrSchema, Config> & {
         "~zagora": ZagoraMetadata<typeof handlerFn>;
@@ -297,8 +295,6 @@ export class Zagora<
       errorSchema: this._errorSchema,
       handlerFn,
     };
-
-    (handlerFn as any)["~zagora"] = this["~zagora"];
 
     return Object.assign(handlerFn, this) as typeof handlerFn &
       Zagora<IS, Output, ErrSchema, Config> & {
