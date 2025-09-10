@@ -14,6 +14,7 @@ import type {
 import { createDualResult, ZagoraError } from "./utils.ts";
 
 export * from "./types.ts";
+export * from "./utils.ts";
 
 export function zagora(): Zagora<null, null, null, undefined>;
 export function zagora<C extends ZagoraConfig>(
