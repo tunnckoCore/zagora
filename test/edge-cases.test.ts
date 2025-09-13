@@ -164,7 +164,7 @@ test("Valibot tuple with default values - both args provided", async () => {
   expect(resHello).toEqual({ foo: "slow-456" });
 });
 
-test("Tuple without defaults - all args required", async () => {
+test("Tuple without defaults - all args required - zod", async () => {
   const SpeedSchema = z.enum(["slow", "normal", "fast"]);
 
   const hello = zagora()
@@ -182,6 +182,33 @@ test("Tuple without defaults - all args required", async () => {
 
   expect(errHello).toBe(null);
   expect(resHello).toEqual({ foo: "fast-456" });
+});
+
+test("Tuple without defaults - all args required - valibot", async () => {
+  const SpeedSchema = v.picklist(["slow", "normal", "fast"]);
+
+  const hello = zagora()
+    .input(v.tuple([SpeedSchema, v.string()]))
+    .output(
+      v.object({
+        foo: v.pipe(v.string(), v.minLength(1)),
+      })
+    )
+    .handler(async (speed, retry) => {
+      return { foo: `${speed}-${retry}` };
+    });
+
+  const [resHello, errHello] = await hello("fast", "sasa");
+
+  expect(errHello).toBe(null);
+  expect(resHello).toEqual({ foo: "fast-sasa" });
+
+  // @ts-expect-error should type error, we are missing required argument
+  const [_, errHello2] = await hello("fast");
+
+  console.log({ errHello2 });
+  expect(errHello2).not.toBeNull();
+  expect(errHello2).toBeInstanceOf(Error);
 });
 
 test("Tuple without defaults - missing required arg should fail", async () => {
