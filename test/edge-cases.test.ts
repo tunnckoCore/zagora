@@ -87,7 +87,7 @@ test("Zod tuple with multiple defaults", async () => {
   expect(resHello).toEqual({ foo: "normal-123-bruh" });
 });
 
-test("Valibot tuple with default values - basic case", async () => {
+test("Valibot tuple with optional and default value", async () => {
   const SpeedSchema = v.picklist(["slow", "normal", "fast"]);
 
   const hello = zagora()
@@ -113,6 +113,37 @@ test("Valibot tuple with default values - basic case", async () => {
   expect(resHello).toEqual({ foo: "fast-123" });
 });
 
+test("Valibot tuple with optional without default", async () => {
+  const SpeedSchema = v.picklist(["slow", "normal", "fast"]);
+
+  const hello = zagora()
+    .input(v.tuple([SpeedSchema, v.optional(v.number())]))
+    .output(
+      v.object({
+        foo: v.pipe(v.string(), v.minLength(1)),
+      })
+    )
+    .handler(async (speed, retry) => {
+      return { foo: `${speed}-${retry}` };
+    });
+
+  // TODO: expected error for valibot; for zod it works; it does work for per-arg type validation
+  // const [resHello, errHello] = await hello("fast"); // would signal incorrectly at `hello` for missing second arg
+  // const [resHello, errHello] = await hello("fast", "sasa"); // would signal `"sasa"` that it expects number
+  // const [resHello, errHello] = await hello("fast", 123); // would not type error, all args are fine and provided
+
+  // @ts-expect-error expected for valibot
+  const [resHello, errHello] = await hello("slow");
+
+  expect(errHello).toBe(null);
+  expect(resHello).toEqual({ foo: "slow-undefined" });
+
+  const [resHello2, errHello2] = await hello("slow", 222);
+
+  expect(errHello2).toBe(null);
+  expect(resHello2).toEqual({ foo: "slow-222" });
+});
+
 test("Valibot tuple with default values - both args provided", async () => {
   const SpeedSchema = v.picklist(["slow", "normal", "fast"]);
 
@@ -133,7 +164,7 @@ test("Valibot tuple with default values - both args provided", async () => {
   expect(resHello).toEqual({ foo: "slow-456" });
 });
 
-test("Tuple without defaults - should not break existing functionality", async () => {
+test("Tuple without defaults - all args required", async () => {
   const SpeedSchema = z.enum(["slow", "normal", "fast"]);
 
   const hello = zagora()
