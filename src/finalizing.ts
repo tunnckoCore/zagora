@@ -191,8 +191,14 @@ export class Zagora<
       }
     };
 
+    type IsOnlyPromise<T> = [T] extends [never]
+      ? false
+      : Exclude<T, Promise<any>> extends never
+        ? true
+        : false;
+
     type ImplReturn = ReturnType<Impl>;
-    type HandlerResult = ImplReturn extends Promise<any>
+    type HandlerResult = IsOnlyPromise<ImplReturn> extends true
       ? Promise<
           ZagoraResult<
             TOutputSchema extends undefined ? AnySchema : TOutputSchema,
