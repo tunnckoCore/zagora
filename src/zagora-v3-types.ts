@@ -44,6 +44,19 @@ export type ValuePrefixes<T extends any[]> = T extends [infer H, ...infer R]
   ? [] | [H, ...ValuePrefixes<R>]
   : [];
 
+// NOTE: possible fix
+// export type OverloadedByPrefixes<T extends any[], R> = UnionToIntersection<
+//   ValuePrefixes<T> extends infer P
+//     ? P extends any[]
+//       ? P extends []
+//         ? AllOptional<T> extends true
+//           ? (...args: P) => R
+//           : never
+//         : (...args: P) => R
+//       : never
+//     : never
+// >;
+
 export type OverloadedByPrefixes<
   T extends any[],
   R,
