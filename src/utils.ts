@@ -189,17 +189,18 @@ export function validateInput(
     > {
   // Handle tuple defaults if needed
   const processedArgs = handleTupleDefaults(schema, rawArgs);
+  // console.log("valibot processed tuple defaults:::", processedArgs);
+
   const processResult = (res: any) => {
     if (!res.issues) {
-      const validatedValue = res.value;
-      const args = Array.isArray(validatedValue)
-        ? validatedValue
-        : [validatedValue];
+      // const validatedValue = res.value;
+      // const args = Array.isArray(validatedValue)
+      //   ? validatedValue
+      //   : [validatedValue];
 
-      return { data: args as unknown[], error: null, isDefined: false };
+      return { data: res.value, error: null, isDefined: false };
     }
 
-    console.log("inside processing...", res.issues);
     return {
       data: null,
       error: ZagoraError.fromIssues(res.issues, "Input validation failed..."),
@@ -207,24 +208,38 @@ export function validateInput(
     };
   };
 
+  const schemaAny = schema as any;
+  const isTupleSchema =
+    (schemaAny._def && schemaAny._def.type === "tuple") ||
+    schemaAny.type === "tuple";
+
+  const isArraySchema =
+    (schemaAny._def && schemaAny._def.type === "array") ||
+    schemaAny.type === "array";
+
+  const isPrimitiveSchema = !isTupleSchema;
+
+  // console.log({
+  //   isTupleSchema,
+  //   isArraySchema,
+  //   isPrimitiveSchema,
+  // });
+  let args = processedArgs as any;
+
+  // NOTE: if z.array() then it should allow func([1,2,3]);
+  // NOTE: if z.string() then func('foo');
+  // NOTE: if z.tuple(z.string(), z.number()) then func('foo', 123);
+  if (isPrimitiveSchema || isArraySchema) {
+    args = args[0];
+  }
+
   // Try tuple validation first
-  const result = schema["~standard"].validate(processedArgs);
+  const result = schema["~standard"].validate(args);
   if (result instanceof Promise) {
     return result.then((res) => processResult(res));
   }
 
-  // if (result.issues) {
   return processResult(result);
-  // }
-
-  // Try single argument validation if tuple validation failed
-  // const singleValue = processedArgs[0];
-  // const singleResult = schema["~standard"].validate(singleValue);
-  // if (singleResult instanceof Promise) {
-  //   return singleResult.then((res) => processResult(res));
-  // }
-
-  // return processResult(singleResult);
 }
 
 export function createResult<
@@ -249,10 +264,13 @@ export function handleTupleDefaults(
 ): unknown[] {
   // Check if this might be a tuple schema by examining the schema structure
   const schemaAny = schema as any;
+  const isZodTuple = schemaAny._def && schemaAny._def.type === "tuple";
+  const isValibotTuple = schemaAny.type === "tuple";
+  // console.log("is tuple when valibot tuple", schemaAny);
 
   // Try to detect if this is a StandardSchema tuple schema
-  if (schemaAny._def && schemaAny._def.type === "tuple") {
-    const tupleItems = schemaAny._def.items;
+  if (isZodTuple || isValibotTuple) {
+    const tupleItems = schemaAny?._def?.items || schemaAny.items;
 
     if (tupleItems && Array.isArray(tupleItems)) {
       const result = [...rawArgs];
@@ -262,15 +280,25 @@ export function handleTupleDefaults(
         const itemSchema = tupleItems[i];
 
         if (itemSchema && itemSchema.type === "default" && itemSchema._def) {
+          // console.log("only zod");
           const defaultValue =
             typeof itemSchema._def.defaultValue === "function"
               ? itemSchema._def.defaultValue()
               : itemSchema._def.defaultValue;
 
           result[i] = defaultValue;
+        } else if (
+          itemSchema &&
+          isValibotTuple &&
+          itemSchema.type === "optional"
+        ) {
+          // console.log("only valibot");
+
+          result[i] = itemSchema.default;
         }
       }
 
+      // console.log("handle tuples...", result);
       return result;
     }
   }

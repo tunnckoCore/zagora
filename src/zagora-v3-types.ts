@@ -44,18 +44,6 @@ export type ValuePrefixes<T extends any[]> = T extends [infer H, ...infer R]
   ? [] | [H, ...ValuePrefixes<R>]
   : [];
 
-// export type OverloadedByPrefixes<T extends any[], R> = UnionToIntersection<
-//   ValuePrefixes<T> extends infer P
-//     ? P extends any[]
-//       ? P extends []
-//         ? AllOptional<T> extends true
-//           ? (...args: P) => R
-//           : never
-//         : (...args: P) => R
-//       : never
-//     : never
-// >;
-
 export type OverloadedByPrefixes<
   T extends any[],
   R,
@@ -93,15 +81,18 @@ export type ZagoraDef<
   errorsSchema?: TErrorsSchema;
 };
 
-export type Result<TOutput, TError, TIsDefined extends boolean> = [
-  TOutput,
-  TError,
-  TIsDefined,
-] & {
+export type ResultObj<TOutput, TError, TIsDefined extends boolean> = {
   data: TOutput;
   error: TError;
   isDefined: TIsDefined;
 };
+
+export type Result<TOutput, TError, TIsDefined extends boolean> = [
+  TOutput,
+  TError,
+  TIsDefined,
+] &
+  Prettify<ResultObj<TOutput, TError, TIsDefined>>;
 
 // typescript prettify type
 export type Prettify<T> = {

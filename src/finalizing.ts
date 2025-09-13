@@ -1,5 +1,4 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import z from "zod";
 import {
   createErrorHelpers,
   createResult,
@@ -75,29 +74,34 @@ export class Zagora<
 
   handler<
     TFuncInput extends StandardSchemaV1 = TInputSchema extends undefined
-      ? never
+      ? any
       : TInputSchema,
-    OutArgs = InferSchemaInput<TFuncInput>,
-  >(
-    impl: TErrorsSchema extends Record<string, StandardSchemaV1>
-      ? OutArgs extends readonly any[]
-        ? (...args: [...OutArgs, ZagoraErrorHelpers<TErrorsSchema>]) => any
-        : (arg: OutArgs, errors: ZagoraErrorHelpers<TErrorsSchema>) => any
-      : OutArgs extends readonly any[]
-        ? (...args: OutArgs) => any
-        : (arg: OutArgs) => any
-  ) {
+    TOutArgs = InferSchemaInput<TFuncInput>,
+    Impl extends (...args: any[]) => any = TErrorsSchema extends Record<
+      string,
+      StandardSchemaV1
+    >
+      ? TOutArgs extends readonly any[]
+        ? (...args: [...TOutArgs, ZagoraErrorHelpers<TErrorsSchema>]) => any
+        : (arg: TOutArgs, errors: ZagoraErrorHelpers<TErrorsSchema>) => any
+      : TOutArgs extends readonly any[]
+        ? (...args: TOutArgs) => any
+        : (arg: TOutArgs) => any,
+  >(impl: Impl) {
     const isAsync = isAsyncFunction(impl);
+    // type IsAsyncFn = typeof impl extends (...args: any[]) => Promise<any>
+    //   ? true
+    //   : false;
 
     const inputSchema = this["~zagora"].inputSchema || undefined;
     const outputSchema = this["~zagora"].outputSchema || undefined;
     const errorsSchema = this["~zagora"].errorsSchema || undefined;
 
-    let processedInputValidation: unknown[];
+    // let processedInputValidation: unknown[];
 
-    const wrapper = (...rawArgs: unknown[]) => {
+    const wrapper = (rawArgs: any, processed: any) => {
       if (
-        processedInputValidation === undefined &&
+        processed === "____$$MAGIC_VALUE_" &&
         inputSchema &&
         inputSchema["~standard"]
       ) {
@@ -109,21 +113,21 @@ export class Zagora<
               return res;
             }
 
-            processedInputValidation = res.data;
-            return wrapper(...rawArgs);
+            return wrapper(rawArgs, res.data);
           });
         }
 
         if (inputResult.error) {
           return inputResult;
         }
-        processedInputValidation = inputResult.data;
-        return wrapper(...rawArgs);
+        return wrapper(rawArgs, inputResult.data);
       }
+
+      const processedInput = processed || rawArgs;
 
       try {
         const finalArgs = [
-          ...processedInputValidation,
+          ...processedInput,
           errorsSchema ? createErrorHelpers(errorsSchema, isAsync) : null,
         ].filter(Boolean);
 
@@ -135,7 +139,7 @@ export class Zagora<
               return (
                 handleError(data, errorsSchema) ??
                 (outputSchema
-                  ? generalValidator(outputSchema, data)
+                  ? generalValidator(outputSchema, data, null, true)
                   : { data, error: null, isDefined: false })
               );
             })
@@ -159,7 +163,7 @@ export class Zagora<
         }
 
         const outputResult = outputSchema
-          ? (generalValidator(outputSchema, rawResult) as
+          ? (generalValidator(outputSchema, rawResult, null, true) as
               | {
                   data: InferSchemaOutput<typeof outputSchema>;
                   error: null;
@@ -187,7 +191,8 @@ export class Zagora<
       }
     };
 
-    type HandlerResult = ReturnType<typeof wrapper> extends Promise<infer R>
+    type ImplReturn = ReturnType<Impl>;
+    type HandlerResult = ImplReturn extends Promise<any>
       ? Promise<
           ZagoraResult<
             TOutputSchema extends undefined ? AnySchema : TOutputSchema,
@@ -217,7 +222,7 @@ export class Zagora<
     };
 
     const forwardImpl = ((...args: any[]) => {
-      const resp = wrapper(...(args as unknown[]));
+      const resp = wrapper(args as unknown[], "____$$MAGIC_VALUE_");
 
       if (resp instanceof Promise) {
         return resp.then((x) => createResult(x.data, x.error, x.isDefined));
@@ -238,74 +243,74 @@ export class Zagora<
 
 // ===== EXAMPLE USAGES
 
-const zag = new Zagora();
+// const zag = new Zagora();
 
-const foo = zag
-  .input(
-    z.tuple([
-      z.string(),
-      z
-        .object({
-          name: z.string(),
-          age: z.number().min(0),
-          username: z.string().optional(),
-        })
-        // .strict()
-        .default({
-          name: "barry",
-          age: 0,
-          // username: undefined,
-        }),
-    ])
-  )
-  // .input(z.string())
-  .output(z.string())
-  .errors({
-    AUTH_ERROR: z.object({
-      type: z.literal("AUTH_ERROR"),
-      userId: z.uuid(),
-      email: z.email().default("sasa@example.com"),
-    }),
-    RATE_LIMIT_ERROR: z.object({
-      type: z.literal("RATE_LIMIT_ERROR"),
-      userId: z.uuid(),
-      email: z.email().default("sasa@example.com"),
-      retryAfter: z.number().min(300),
-      attempts: z.number().min(10),
-    }),
-  })
-  .handler((mode, opts, errors) => {
-    if (mode === "login") {
-      return errors.AUTH_ERROR({
-        userId: crypto.randomUUID(),
-        // sasa: 121,
-        // email: "sasa@example.com",
-      });
-    }
+// const foo = zag
+//   .input(
+//     z.tuple([
+//       z.string(),
+//       z
+//         .object({
+//           name: z.string(),
+//           age: z.number().min(0),
+//           username: z.string().optional(),
+//         })
+//         // .strict()
+//         .default({
+//           name: "barry",
+//           age: 0,
+//           // username: undefined,
+//         }),
+//     ])
+//   )
+//   // .input(z.string())
+//   .output(z.string())
+//   .errors({
+//     AUTH_ERROR: z.object({
+//       type: z.literal("AUTH_ERROR"),
+//       userId: z.uuid(),
+//       email: z.email().default("sasa@example.com"),
+//     }),
+//     RATE_LIMIT_ERROR: z.object({
+//       type: z.literal("RATE_LIMIT_ERROR"),
+//       userId: z.uuid(),
+//       email: z.email().default("sasa@example.com"),
+//       retryAfter: z.number().min(300),
+//       attempts: z.number().min(10),
+//     }),
+//   })
+//   .handler((mode, opts, errors) => {
+//     if (mode === "login") {
+//       return errors.AUTH_ERROR({
+//         userId: crypto.randomUUID(),
+//         // sasa: 121,
+//         // email: "sasa@example.com",
+//       });
+//     }
 
-    if (mode === "auth") {
-      return errors.RATE_LIMIT_ERROR({
-        userId: crypto.randomUUID(),
-        email: "random@user.com",
-        retryAfter: 300,
-        attempts: 10,
-      });
-    }
+//     if (mode === "auth") {
+//       return errors.RATE_LIMIT_ERROR({
+//         userId: crypto.randomUUID(),
+//         email: "random@user.com",
+//         retryAfter: 300,
+//         attempts: 10,
+//       });
+//     }
 
-    console.log({ opts, mode, errors });
-    return `foo-${mode}`;
-  });
+//     // console.log({ opts, mode, errors });
+//     return `foo-${mode}`;
+//   });
 
-// NOTE (works): should type error when there is a second required argument,
-// defined in the tuple input schema.
-// NOTE (works): should not type error when there's second arg but has set as optional/default.
-const bar = foo("foobie");
+// // NOTE (works): should type error when there is a second required argument,
+// // defined in the tuple input schema.
+// // NOTE (works): should not type error when there's second arg but has set as optional/default.
+// const bar = foo("foobie");
 
-console.log(
-  "foo::::",
-  {
-    data: bar.data,
-    error: bar.error,
-  },
-  "<<<"
-);
+// console.log(
+//   "foo::::",
+//   {
+//     data: bar.data,
+//     error: bar.error,
+//   },
+//   "<<<"
+// );

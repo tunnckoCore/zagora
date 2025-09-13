@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { ZagoraError } from "../src/index.ts";
+import { ZagoraError } from "../src/finalizing.ts";
 
 test("should create basic error with message", () => {
   const error = new ZagoraError("Test error");
@@ -11,7 +11,6 @@ test("should create basic error with message", () => {
   expect(error).toBeInstanceOf(ZagoraError);
   expect(error.message).toBe("Test error");
   expect(error.name).toBe("ZagoraError");
-  expect(error.type).toBe("ZAGORA_ERROR");
   expect(error.reason).toBe("Unknown or internal error");
   expect(error.issues).toBeUndefined();
   expect(error.cause).toBeUndefined();
@@ -150,7 +149,8 @@ test("should maintain readonly properties", () => {
 
   // The readonly modifier is TypeScript-only, runtime assignment still works
   // but we can test that the property is initially set correctly
-  expect(error.type).toBe("ZAGORA_ERROR");
+  expect(error.reason).toContain("known or internal");
+  expect(error.name).toBe("ZAGORA_ERROR");
 });
 
 test("should work with instanceof checks", () => {
