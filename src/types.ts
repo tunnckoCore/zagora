@@ -9,7 +9,8 @@ export type ZagoraMetadata<THandler = unknown> = {
 };
 
 export type ZagoraConfig = {
-  errorsFirst?: boolean;
+  errorsFirst: boolean;
+  anySchema: StandardSchemaV1;
 };
 
 /* Dual return format that supports both object and tuple destructuring */
