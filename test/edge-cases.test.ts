@@ -206,9 +206,8 @@ test("Tuple without defaults - all args required - valibot", async () => {
   // @ts-expect-error should type error, we are missing required argument
   const [_, errHello2] = await hello("fast");
 
-  console.log({ errHello2 });
   expect(errHello2).not.toBeNull();
-  expect(errHello2).toBeInstanceOf(Error);
+  expect(errHello2?.reason).toContain("Input validation failed");
 });
 
 test("Tuple without defaults - missing required arg should fail", async () => {
