@@ -11,93 +11,108 @@ import type {
   ZagoraInferInput,
   ZagoraMetadata,
 } from "./types.ts";
-import { createDualResult, toPascalCase, ZagoraError } from "./utils.ts";
+import {
+  createDualResult,
+  defaultAnySchema,
+  toPascalCase,
+  ZagoraError,
+} from "./utils.ts";
 
 // biome-ignore lint/performance/noBarrelFile: bruh, shut up
 export * from "./types.ts";
 export * from "./utils.ts";
 
-export function zagora(): Zagora<null, null, null, undefined>;
+export function zagora(): Zagora<
+  StandardSchemaV1,
+  StandardSchemaV1,
+  null,
+  ZagoraConfig
+>;
 export function zagora<C extends ZagoraConfig>(
   config: C
-): Zagora<null, null, null, C>;
+): Zagora<StandardSchemaV1, StandardSchemaV1, null, C>;
 export function zagora<C extends ZagoraConfig>(
   config?: C
-): Zagora<null, null, null, C | undefined> {
+): Zagora<StandardSchemaV1, StandardSchemaV1, null, C> {
   return new Zagora(config);
 }
 
 export class Zagora<
-  InputSchema extends StandardSchemaV1 | null = null,
-  Output extends StandardSchemaV1 | null = null,
+  InputSchema extends StandardSchemaV1 = StandardSchemaV1,
+  OutputSchema extends StandardSchemaV1 = StandardSchemaV1,
   ErrSchema extends Record<string, StandardSchemaV1> | null = null,
-  Config extends ZagoraConfig | undefined = undefined,
+  Config extends ZagoraConfig = ZagoraConfig,
 > {
-  private _inputSchema: InputSchema | null = null;
-  private _outputSchema: Output | null = null;
+  private _inputSchema: StandardSchemaV1;
+  private _outputSchema: StandardSchemaV1;
   private _errorSchema: ErrSchema | null = null;
   private _config: Config;
 
   "~zagora": ZagoraMetadata;
 
   constructor(config?: Config) {
+    this._config = {
+      ...config,
+      errorsFirst: false,
+      anySchema: defaultAnySchema(),
+    } as unknown as Required<Config>;
+
+    this._inputSchema = this._config.anySchema;
+    this._outputSchema = this._config.anySchema;
     this._errorSchema = null;
-    this._config = (config || undefined) as Config;
   }
 
   // Accept a single schema - object, tuple, primitive, etc.
   input<T extends StandardSchemaV1>(
     schema: T
-  ): Zagora<T, Output, ErrSchema, Config> {
-    const next = new Zagora<T, Output, ErrSchema, Config>(this._config);
-    (next as any)._inputSchema = schema;
-    (next as any)._outputSchema = this._outputSchema;
-    (next as any)._errorSchema = this._errorSchema;
+  ): Zagora<T, OutputSchema, ErrSchema, Config> {
+    const that = new Zagora<T, OutputSchema, ErrSchema, Config>(this._config);
+    that._inputSchema = schema;
+    that._outputSchema = this._outputSchema;
+    that._errorSchema = this._errorSchema;
 
-    this["~zagora"] = {
+    that["~zagora"] = {
       inputSchema: schema,
-      outputSchema: this._outputSchema,
-      errorSchema: this._errorSchema,
+      outputSchema: that._outputSchema,
+      errorSchema: that._errorSchema,
       handlerFn: null,
     };
 
-    return next;
+    return that;
   }
 
-  output<NewOut extends StandardSchemaV1>(schema: NewOut) {
-    const next = new Zagora<InputSchema, NewOut, ErrSchema, Config>(
-      this._config
-    );
-    (next as any)._inputSchema = this._inputSchema;
-    (next as any)._outputSchema = schema;
-    (next as any)._errorSchema = this._errorSchema;
+  output<T extends StandardSchemaV1>(schema: T) {
+    const that = new Zagora<InputSchema, T, ErrSchema, Config>(this._config);
+    that._inputSchema = this._inputSchema;
+    that._outputSchema = schema;
+    that._errorSchema = this._errorSchema;
 
-    this["~zagora"] = {
-      inputSchema: this._inputSchema,
+    that["~zagora"] = {
+      inputSchema: that._inputSchema,
       outputSchema: schema,
-      errorSchema: this._errorSchema,
+      errorSchema: that._errorSchema,
       handlerFn: null,
     };
 
-    return next;
+    return that;
   }
 
-  errors<NewErr extends Record<string, StandardSchemaV1>>(
-    schema: NewErr
-  ): Zagora<InputSchema, Output, NewErr, Config> {
-    const next = new Zagora<InputSchema, Output, NewErr, Config>(this._config);
-    (next as any)._inputSchema = this._inputSchema;
-    (next as any)._outputSchema = this._outputSchema;
-    (next as any)._errorSchema = schema;
+  errors<T extends Record<string, StandardSchemaV1>>(
+    schema: T
+  ): Zagora<InputSchema, OutputSchema, T, Config> {
+    const that = new Zagora<InputSchema, OutputSchema, T, Config>(this._config);
+    that._inputSchema = this._inputSchema;
+    that._outputSchema = this._outputSchema;
+    that._errorSchema = schema;
 
-    this["~zagora"] = {
-      inputSchema: this._inputSchema,
-      outputSchema: this._outputSchema,
+    that["~zagora"] = {
+      inputSchema: that._inputSchema,
+      outputSchema: that._outputSchema,
       errorSchema: schema,
       handlerFn: null,
     };
 
-    return next;
+    return that;
   }
 
   handler<
@@ -128,7 +143,7 @@ export class Zagora<
     };
 
     return Object.assign(handlerFn, this) as typeof handlerFn &
-      Zagora<IS, Output, ErrSchema, Config> & {
+      Zagora<IS, OutputSchema, ErrSchema, Config> & {
         "~zagora": ZagoraMetadata<typeof handlerFn>;
       };
   }
@@ -161,7 +176,7 @@ export class Zagora<
     };
 
     return Object.assign(handlerFn, this) as typeof handlerFn &
-      Zagora<IS, Output, ErrSchema, Config> & {
+      Zagora<IS, OutputSchema, ErrSchema, Config> & {
         "~zagora": ZagoraMetadata<typeof handlerFn>;
       };
   }
@@ -172,14 +187,14 @@ export class Zagora<
       : never,
   >(impl: any) {
     if (!this._inputSchema) {
-      throw new Error(".input(...) must be called first");
+      throw new ZagoraError(".input(...) must be called first");
     }
     if (!this._outputSchema) {
-      throw new Error(".output(...) must be called first");
+      throw new ZagoraError(".output(...) must be called first");
     }
 
-    const inputSchema = this._inputSchema as StandardSchemaV1;
-    const outputSchema = this._outputSchema as StandardSchemaV1;
+    const inputSchema = this._inputSchema;
+    const outputSchema = this._outputSchema;
     const errSchema = this._errorSchema;
 
     // Create synchronous wrapper function
@@ -272,7 +287,7 @@ export class Zagora<
       }
     };
 
-    type HandlerResult = ZagoraBaseResult<Output, ErrSchema>;
+    type HandlerResult = ZagoraBaseResult<OutputSchema, ErrSchema>;
 
     // Forward (call-site) signatures
     type InputArgs = StandardSchemaV1.InferInput<IS>;
@@ -303,14 +318,14 @@ export class Zagora<
       : never,
   >(impl: any) {
     if (!this._inputSchema) {
-      throw new Error(".input(...) must be called first");
+      throw new ZagoraError(".input(...) must be called first");
     }
     if (!this._outputSchema) {
-      throw new Error(".output(...) must be called first");
+      throw new ZagoraError(".output(...) must be called first");
     }
 
-    const inputSchema = this._inputSchema as StandardSchemaV1;
-    const outputSchema = this._outputSchema as StandardSchemaV1;
+    const inputSchema = this._inputSchema;
+    const outputSchema = this._outputSchema;
     const errSchema = this._errorSchema;
 
     // Create asynchronous wrapper function
@@ -350,12 +365,9 @@ export class Zagora<
           if (maybeErr != null) {
             // Validate error against schemas if defined
             if (errSchema) {
-              const {
-                data: validatedError,
-                isTyped,
-                error: er,
-              } = await this.validateError(errSchema, maybeErr, false);
-              if (isTyped || (!isTyped && er)) {
+              const { error: validatedError, isTyped } =
+                await this.validateError(errSchema, maybeErr, false);
+              if (isTyped) {
                 return createDualResult(null, validatedError, true);
               }
               return createDualResult(
@@ -407,7 +419,7 @@ export class Zagora<
       }
     };
 
-    type HandlerResult = Promise<ZagoraBaseResult<Output, ErrSchema>>;
+    type HandlerResult = Promise<ZagoraBaseResult<OutputSchema, ErrSchema>>;
 
     // Forward (call-site) signatures
     type InputArgs = StandardSchemaV1.InferInput<IS>;
@@ -526,11 +538,13 @@ export class Zagora<
         // Fill in defaults for missing elements
         for (let i = rawArgs.length; i < tupleItems.length; i++) {
           const itemSchema = tupleItems[i];
+
           if (itemSchema && itemSchema.type === "default" && itemSchema._def) {
             const defaultValue =
               typeof itemSchema._def.defaultValue === "function"
                 ? itemSchema._def.defaultValue()
                 : itemSchema._def.defaultValue;
+
             result[i] = defaultValue;
           }
         }
@@ -579,56 +593,41 @@ export class Zagora<
     errSchema: Record<string, StandardSchemaV1>,
     maybeErr: unknown,
     isSync: TIsSync
-  ) {
+  ): MaybeAsyncValidateError<TIsSync> {
     // Try to validate against each error schema
     for (const [_key, errorSchema] of Object.entries(errSchema)) {
       const result = errorSchema["~standard"].validate(maybeErr);
-      const handledMaybe = this.handleMaybePromise(result, isSync);
+      if (result instanceof Promise) {
+        if (isSync) {
+          throw new ZagoraError(
+            "Cannot use async error schema validation in handlerSync"
+          );
+        }
 
-      if (handledMaybe) {
-        return handledMaybe;
+        return result.then((res) => {
+          if (!res.issues) {
+            return { error: (res as any).value, isTyped: true };
+          }
+          return { error: maybeErr, isTyped: false };
+        }) as MaybeAsyncValidateError<TIsSync>;
+      }
+      if (!result.issues) {
+        return {
+          error: (result as any).value,
+          isTyped: true,
+        } as MaybeAsyncValidateError<TIsSync>;
       }
     }
-
     // If no schema matched, return error as-is (will be marked as untyped)
     return {
-      data: maybeErr,
+      error: maybeErr,
       isTyped: false,
-    };
+    } as MaybeAsyncValidateError<TIsSync>;
   }
 
-  private handleMaybePromise<TIsSync extends boolean>(
-    result: any,
-    isSync: TIsSync,
-    errorMessage?: string
-  ) {
-    if (result instanceof Promise) {
-      if (isSync) {
-        throw new ZagoraError(
-          errorMessage ||
-            "Cannot use async error schema validation in error helpers"
-        );
-      }
-
-      return result.then((res) => {
-        if (!res.issues) {
-          return { data: (res as any).value, isTyped: true };
-        }
-        return { error: ZagoraError.fromIssues(res.issues), isTyped: false };
-      });
-    }
-
-    // If validation succeeded, use it
-    if (!result.issues) {
-      return { data: (result as any).value, isTyped: true };
-    }
-
-    return null;
-  }
-
-  private createErrorHelpers<TIsSync extends boolean>(
+  private createErrorHelpers(
     schema: Record<string, StandardSchemaV1>,
-    isSync: TIsSync
+    isSync: boolean
   ) {
     const helpers: any = {};
     for (const [key, errorSchema] of Object.entries(schema)) {
@@ -654,21 +653,38 @@ export class Zagora<
       let errorWithType: any;
 
       // First try without injecting type (user might have provided it)
-      result = errorSchema["~standard"].validate(error);
-      const handledMaybe = this.handleMaybePromise(result, isSync);
+      // result = errorSchema["~standard"].validate(error);
+      // const handledMaybe = this.handleMaybePromise(result, isSync);
 
-      if (handledMaybe) {
-        return handledMaybe;
+      // if (handledMaybe) {
+      //   return handledMaybe;
+      // }
+
+      // First try without injecting type (user might have provided it)
+      result = errorSchema["~standard"].validate(error);
+      if (result instanceof Promise) {
+        throw new ZagoraError(
+          "Cannot use async schema validation in synchronous error helpers"
+        );
+      }
+
+      // If validation succeeded, use it
+      if (!result.issues) {
+        return [null, (result as any).value] as const;
       }
 
       // Try with auto-injected type variants
       for (const typeValue of typeVariants) {
         errorWithType = { ...error, type: typeValue };
         result = errorSchema["~standard"].validate(errorWithType);
+        if (result instanceof Promise) {
+          throw new ZagoraError(
+            "Cannot use async schema validation in synchronous error helpers"
+          );
+        }
 
-        const maybeHandled = this.handleMaybePromise(result, isSync);
-        if (maybeHandled) {
-          return maybeHandled;
+        if (!result.issues) {
+          return [null, (result as any).value] as const;
         }
       }
 

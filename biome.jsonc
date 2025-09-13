@@ -13,6 +13,9 @@
         "noUnusedVariables": "warn",
         "noUnusedFunctionParameters": "off"
       },
+      "nursery": {
+        "noUnnecessaryConditions": "off"
+      },
       "performance": {
         "useTopLevelRegex": "off",
         "noNamespaceImport": "warn",
@@ -25,7 +28,7 @@
         "useReadonlyClassProperties": "off"
       },
       "complexity": {
-        "noExcessiveCognitiveComplexity": "warn",
+        "noExcessiveCognitiveComplexity": "info",
         "useOptionalChain": "info"
       }
     }
