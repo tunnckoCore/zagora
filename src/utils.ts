@@ -57,19 +57,6 @@ export const isZagoraTypedError = (error: unknown): error is ZagoraError => {
   );
 };
 
-// export function createDualResult<TData, TErr, TIsDefined extends boolean>(
-//   data: TData,
-//   error: TErr,
-//   isDefined: TIsDefined
-// ): ZagoraResult<TData, TErr, TIsDefined> {
-//   const tuple = [data, error, isDefined] as [TData, TErr, TIsDefined];
-//   const result = tuple as ZagoraResult<TData, TErr, TIsDefined>;
-//   result.data = data;
-//   result.error = error;
-//   result.isDefined = isDefined;
-//   return result;
-// }
-
 export function toPascalCase(str: string) {
   return str
     .split("_")
@@ -157,10 +144,6 @@ export function generalValidator(
       `${isOutputValidation ? "Output" : "Options"} validation failed`
     );
 
-    console.log(
-      "inside general validator with originalError and from output",
-      originalError
-    );
     if (originalError) {
       const key = (originalError?.data as any)?.type || "___";
       const issues = result.issues
@@ -224,14 +207,12 @@ export function validateInput(
     };
   };
 
-  console.log("before input..", processedArgs);
   // Try tuple validation first
   const result = schema["~standard"].validate(processedArgs);
   if (result instanceof Promise) {
     return result.then((res) => processResult(res));
   }
 
-  console.log("after input..", result);
   // if (result.issues) {
   return processResult(result);
   // }

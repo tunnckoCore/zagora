@@ -84,14 +84,12 @@ export type ZagoraErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
 export type ZagoraDef<
   TInputSchema extends AnySchema | undefined = undefined,
   TOutputSchema extends AnySchema | undefined = undefined,
-  TOptionsSchema extends AnySchema | undefined = undefined,
   TErrorsSchema extends
     | Record<string, StandardSchemaV1>
     | undefined = undefined,
 > = {
   inputSchema?: TInputSchema;
   outputSchema?: TOutputSchema;
-  optionsSchema?: TOptionsSchema;
   errorsSchema?: TErrorsSchema;
 };
 
