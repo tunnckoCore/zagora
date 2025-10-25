@@ -10,30 +10,23 @@ import type {
   ZagoraResult,
 } from "./types.ts";
 import {
+  createErrorHelpers,
+  createResult,
+  generalValidator,
+  handleError,
+  isAsyncFunction,
+  validateInput,
+} from "./utils.ts";
 
+export * from "./error.ts";
+export * from "./types.ts";
+export * from "./utils.ts";
 
+export const zagora = () => {
+  return new Zagora();
+};
 
-
-
-
-
-          createErrorHelpers,
-      createResult,
-      generalValidator,
-              handleError,
-              isAsyncFunction,
-              validateInput,
-            } from "./utils.ts";
-
-            export * from "./error.ts";
-            export * from "./types.ts";
-            export * from "./utils.ts";
-
-            export const zagora = () => {
-    return new Zagora();
-  };
-
-  // zagora()
+// zagora()
 // .input(schema: StandardSchema)
 // .output(schema: StandardSchema)
 // .errors(errs: Record<string, StandardSchema>)
