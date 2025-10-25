@@ -78,7 +78,7 @@ export type OverloadedByPrefixes<
 
 export type ZagoraErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
   [K in keyof T]: (
-    error: Prettify<Omit<InferSchemaInput<T[K]>, "type">>
+    error: Prettify<Omit<InferSchemaInput<T[K]>, "type">>,
   ) => [null, InferSchemaOutput<T[K]>];
 };
 

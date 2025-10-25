@@ -8,7 +8,7 @@ type WrappedReturn<F extends (...args: any[]) => any> =
     : UnwrapPromise<ReturnType<F>>;
 
 function handler<F extends (...args: any[]) => any>(
-  fn: F
+  fn: F,
 ): (...args: Parameters<F>) => WrappedReturn<F> {
   // runtime simply calls the original function
   // (we must assert `any` because TS can't fully prove the implementation matches the conditional type)

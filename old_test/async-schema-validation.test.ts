@@ -20,7 +20,7 @@ const asyncSchemas = {
     v.checkAsync(async (val) => {
       await testUtils.delay(5);
       return val.includes("async");
-    }, "Must contain 'async'")
+    }, "Must contain 'async'"),
   ),
 
   // Async number validation
@@ -329,7 +329,7 @@ test("should handle async tuple return with async error validation", async () =>
   } else {
     expect(errorResult.data).toBeEmpty();
     expect("should have async tuple error").toBe(
-      "but got success or untyped error"
+      "but got success or untyped error",
     );
   }
 });
@@ -582,7 +582,7 @@ test("should handle invalid error data passed to error helpers", () => {
     expect((result.error as ZagoraError).cause).toBeInstanceOf(ZagoraError);
     if (result.error && (result.error as any).cause instanceof ZagoraError) {
       expect((result.error as any).cause.message).toContain(
-        'Invalid error data for "errors.asyncNetwork"'
+        'Invalid error data for "errors.asyncNetwork"',
       );
     }
   } else {

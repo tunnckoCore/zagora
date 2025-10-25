@@ -100,7 +100,7 @@ const getPrices = getPricesContract.handler(
       // This will be automatically wrapped in ZagoraError since we didn't handle it with our typed errors
       throw new Error(`Failed to fetch gas prices: ${error}`);
     }
-  }
+  },
 );
 
 // here the `handlerFn` has properly-inferred input and output types
@@ -160,7 +160,7 @@ export const zagoraFetch = zagora()
         .default({
           method: "GET",
         }),
-    ])
+    ]),
   )
   .output(
     z
@@ -170,7 +170,7 @@ export const zagoraFetch = zagora()
         title: z.string().min(1),
         completed: z.boolean(),
       })
-      .strict()
+      .strict(),
   )
   .errors({
     fetchError: z
@@ -200,7 +200,7 @@ export const zagoraFetch = zagora()
   });
 
 const [data2, err2, isDefined2] = await zagoraFetch(
-  "https://jsonplaceholder.typicode.com/todos/1"
+  "https://jsonplaceholder.typicode.com/todos/1",
 );
 
 console.log({

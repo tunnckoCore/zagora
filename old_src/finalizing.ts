@@ -18,7 +18,6 @@ import type {
   ZagoraResult,
 } from "./zagora-v3-types.ts";
 
-// biome-ignore lint/performance/noBarrelFile: bruh
 export * from "./utils.ts";
 export * from "./zagora-v3-types.ts";
 
@@ -46,7 +45,7 @@ export class Zagora<
   }
 
   input<TSchema extends AnySchema>(
-    schema: TSchema
+    schema: TSchema,
   ): Zagora<TSchema, TOutputSchema, TErrorsSchema> {
     return new Zagora({
       ...this["~zagora"],
@@ -55,7 +54,7 @@ export class Zagora<
   }
 
   output<TSchema extends AnySchema>(
-    schema: TSchema
+    schema: TSchema,
   ): Zagora<TInputSchema, TSchema, TErrorsSchema> {
     return new Zagora({
       ...this["~zagora"],
@@ -64,7 +63,7 @@ export class Zagora<
   }
 
   errors<TErrorsSchemaMap extends Record<string, StandardSchemaV1>>(
-    errorsMap: TErrorsSchemaMap
+    errorsMap: TErrorsSchemaMap,
   ): Zagora<TInputSchema, TOutputSchema, TErrorsSchemaMap> {
     return new Zagora({
       ...this["~zagora"],
@@ -149,7 +148,7 @@ export class Zagora<
                   data: null,
                   error: ZagoraError.fromCaughtError(
                     error,
-                    "An async handler threw unknown error"
+                    "An async handler threw unknown error",
                   ),
                   isDefined: false,
                 }
@@ -183,7 +182,7 @@ export class Zagora<
             data: null,
             error: ZagoraError.fromCaughtError(
               error,
-              "Synchronous handler threw unknown error"
+              "Synchronous handler threw unknown error",
             ),
             isDefined: false,
           }
@@ -254,23 +253,30 @@ export class Zagora<
 // const foo = zag
 //   .input(
 //     z.tuple([
-//       z.string(),
+//       z.enum(["login", "auth", "foobie"]),
 //       z
 //         .object({
 //           name: z.string(),
 //           age: z.number().min(0),
 //           username: z.string().optional(),
 //         })
-//         // .strict()
+//         .strict()
 //         .default({
 //           name: "barry",
 //           age: 0,
 //           // username: undefined,
 //         }),
-//     ])
+//     ]),
 //   )
 //   // .input(z.string())
-//   .output(z.string())
+//   .output(
+//     z
+//       .object({
+//         opts: z.any(),
+//         str: z.string().min(1),
+//       })
+//       .strict(),
+//   )
 //   .errors({
 //     AUTH_ERROR: z.object({
 //       type: z.literal("AUTH_ERROR"),
@@ -304,13 +310,20 @@ export class Zagora<
 //     }
 
 //     // console.log({ opts, mode, errors });
-//     return `foo-${mode}`;
+//     return {
+//       str: `foo-${mode}`,
+//       opts,
+//     };
 //   });
 
 // // NOTE (works): should type error when there is a second required argument,
 // // defined in the tuple input schema.
 // // NOTE (works): should not type error when there's second arg but has set as optional/default.
-// const bar = foo("foobie");
+// const bar = foo("foobie", {
+//   age: 11,
+//   name: "barry",
+//   username: "asasa",
+// });
 
 // console.log(
 //   "foo::::",
@@ -318,5 +331,5 @@ export class Zagora<
 //     data: bar.data,
 //     error: bar.error,
 //   },
-//   "<<<"
+//   "<<<",
 // );

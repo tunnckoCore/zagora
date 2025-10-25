@@ -37,7 +37,7 @@ test("should access error helpers from handler last arg", () => {
       z.object({
         str: z.string(),
         helper: z.any(),
-      })
+      }),
     )
     .errors(errorSchemas.single)
     .handler((str, errors) => {
@@ -70,7 +70,7 @@ test("should work with Valibot schemas", () => {
     .output(
       v.object({
         x: v.string(),
-      })
+      }),
     )
     .handler((x) => ({ x }));
 
@@ -194,7 +194,8 @@ test("should support overriding input schemas", () => {
     .errors(errorSchemas.multiple)
     .errors(errorSchemas.single) // Override output
     .handler(
-      (str, errs) => `${str}-${Object.keys(errs).length}-${typeof errs.network}`
+      (str, errs) =>
+        `${str}-${Object.keys(errs).length}-${typeof errs.network}`,
     );
 
   const res3 = funcThree("barry");

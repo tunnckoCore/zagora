@@ -67,7 +67,7 @@ export type OverloadedByPrefixes<T extends any[], R> = UnionToIntersection<
 
 export type ZagoraErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
   [K in keyof T]: (
-    error: Omit<InferSchemaInput<T[K]>, "type">
+    error: Omit<InferSchemaInput<T[K]>, "type">,
   ) => [null, InferSchemaOutput<T[K]>];
 };
 
@@ -153,13 +153,13 @@ export class Zagora<
   >;
 
   constructor(
-    def?: ZagoraDef<TInputSchema, TOutputSchema, TOptionsSchema, TErrorsSchema>
+    def?: ZagoraDef<TInputSchema, TOutputSchema, TOptionsSchema, TErrorsSchema>,
   ) {
     this["~zagora"] = def || {};
   }
 
   input<TSchema extends AnySchema>(
-    schema: TSchema
+    schema: TSchema,
   ): Zagora<TSchema, TOutputSchema, TOptionsSchema, TErrorsSchema> {
     return new Zagora({
       ...this["~zagora"],
@@ -168,7 +168,7 @@ export class Zagora<
   }
 
   output<TSchema extends AnySchema>(
-    schema: TSchema
+    schema: TSchema,
   ): Zagora<TInputSchema, TSchema, TOptionsSchema, TErrorsSchema> {
     return new Zagora({
       ...this["~zagora"],
@@ -177,7 +177,7 @@ export class Zagora<
   }
 
   options<TSchema extends AnySchema>(
-    schema: TSchema
+    schema: TSchema,
   ): Zagora<TInputSchema, TOutputSchema, TSchema, TErrorsSchema> {
     return new Zagora({
       ...this["~zagora"],
@@ -186,7 +186,7 @@ export class Zagora<
   }
 
   errors<TErrorsSchemaMap extends Record<string, StandardSchemaV1>>(
-    errorsMap: TErrorsSchemaMap
+    errorsMap: TErrorsSchemaMap,
   ): Zagora<TInputSchema, TOutputSchema, TOptionsSchema, TErrorsSchemaMap> {
     return new Zagora({
       ...this["~zagora"],
@@ -214,7 +214,7 @@ export class Zagora<
         : (arg: OutArgs, errors: ZagoraErrorHelpers<TErrorsSchema>) => any
       : OutArgs extends readonly any[]
         ? (...args: OutArgs) => any
-        : (arg: OutArgs) => any
+        : (arg: OutArgs) => any,
   ) {
     const isAsync = isAsyncFunction(impl);
 
@@ -314,7 +314,7 @@ export class Zagora<
                   { type: key, ...data },
                   null,
                   false,
-                  error
+                  error,
                 );
               }
 
@@ -322,7 +322,7 @@ export class Zagora<
                 data: null,
                 error: ZagoraError.fromCaughtError(
                   error,
-                  "An async handler threw unknown error"
+                  "An async handler threw unknown error",
                 ),
                 isDefined: false,
               };
@@ -353,7 +353,7 @@ export class Zagora<
             error.data,
             null,
             false,
-            error
+            error,
           );
         }
 
@@ -361,7 +361,7 @@ export class Zagora<
           data: null,
           error: ZagoraError.fromCaughtError(
             error,
-            "Synchronous handler threw unknown error"
+            "Synchronous handler threw unknown error",
           ),
           isDefined: false,
         };

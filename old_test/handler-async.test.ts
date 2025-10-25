@@ -323,7 +323,7 @@ test("should reject sync functions in async handler", async () => {
   expect(result.data).toBe(null);
   expect(result.error).toBeInstanceOf(ZagoraError);
   expect(result.error?.message).toContain(
-    "Using `.handler` only accepts async functions"
+    "Using `.handler` only accepts async functions",
   );
 });
 
@@ -583,7 +583,7 @@ test("should handle async ZagoraError throwing", async () => {
     expect(result.error.message).toContain("Handler threw unknown error");
     expect(result.error.cause).toBeInstanceOf(ZagoraError);
     expect((result.error.cause as Error).message).toContain(
-      "Custom async ZagoraError: barry"
+      "Custom async ZagoraError: barry",
     );
   } else {
     expect(result.isDefined).toBe(false);

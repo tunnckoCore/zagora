@@ -53,7 +53,7 @@ test("should create error from issues using fromIssues", () => {
 
   expect(error).toBeInstanceOf(ZagoraError);
   expect(error.message).toBe(
-    "Expected string, received number, Invalid email format"
+    "Expected string, received number, Invalid email format",
   );
   expect(error.issues).toBe(issues);
   expect(error.reason).toBe("Failure caused by validation");
@@ -90,7 +90,7 @@ test("should create error from caught Error with custom reason", () => {
   const originalError = new Error("Database connection failed");
   const error = ZagoraError.fromCaughtError(
     originalError,
-    "Database error occurred"
+    "Database error occurred",
   );
 
   expect(error.message).toBe("Database error occurred");

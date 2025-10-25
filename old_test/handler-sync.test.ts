@@ -60,7 +60,7 @@ test("should handle output validation errors", () => {
   expect(result.error).toBeInstanceOf(ZagoraError);
   expect(result.isDefined).toBe(false);
   expect((result.error as ZagoraError).reason).toBe(
-    "Failure caused by validation"
+    "Failure caused by validation",
   );
   expect(result.error?.message).toContain("expected number");
 });
@@ -289,7 +289,7 @@ test("should reject async functions in sync handler", () => {
   expect(result.data).toBe(null);
   expect(result.error).toBeInstanceOf(ZagoraError);
   expect(result.error?.message).toContain(
-    "Using `.handlerSync` only accepts synchronous functions"
+    "Using `.handlerSync` only accepts synchronous functions",
   );
 });
 

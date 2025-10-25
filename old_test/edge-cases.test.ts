@@ -11,7 +11,7 @@ test("Zod tuple with default values - basic case", async () => {
     .output(
       z.object({
         foo: z.string().min(1),
-      })
+      }),
     )
     .handler((speed, retry) => {
       return { foo: `${speed}-${retry}` };
@@ -31,7 +31,7 @@ test("Zod tuple with default values - both args provided", async () => {
     .output(
       z.object({
         foo: z.string().min(1),
-      })
+      }),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };
@@ -49,7 +49,7 @@ test("Zod tuple with default values - both args provided", async () => {
         .object({
           foo: z.string().min(1),
         })
-        .strict()
+        .strict(),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}`, bar: "barry" };
@@ -70,12 +70,12 @@ test("Zod tuple with multiple defaults", async () => {
         SpeedSchema,
         z.number().default(123),
         z.string().default("bruh"),
-      ])
+      ]),
     )
     .output(
       z.object({
         foo: z.string().min(1),
-      })
+      }),
     )
     .handler(async (speed, retry, extra) => {
       return { foo: `${speed}-${retry}-${extra}` };
@@ -95,7 +95,7 @@ test("Valibot tuple with optional and default value", async () => {
     .output(
       v.object({
         foo: v.pipe(v.string(), v.minLength(1)),
-      })
+      }),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };
@@ -121,7 +121,7 @@ test("Valibot tuple with optional without default", async () => {
     .output(
       v.object({
         foo: v.pipe(v.string(), v.minLength(1)),
-      })
+      }),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };
@@ -152,7 +152,7 @@ test("Valibot tuple with default values - both args provided", async () => {
     .output(
       v.object({
         foo: v.pipe(v.string(), v.minLength(1)),
-      })
+      }),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };
@@ -172,7 +172,7 @@ test("Tuple without defaults - all args required - zod", async () => {
     .output(
       z.object({
         foo: z.string().min(1),
-      })
+      }),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };
@@ -192,7 +192,7 @@ test("Tuple without defaults - all args required - valibot", async () => {
     .output(
       v.object({
         foo: v.pipe(v.string(), v.minLength(1)),
-      })
+      }),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };
@@ -218,7 +218,7 @@ test("Tuple without defaults - missing required arg should fail", async () => {
     .output(
       z.object({
         foo: z.string().min(1),
-      })
+      }),
     )
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };

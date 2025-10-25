@@ -1,36 +1,4 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["ultracite"],
-  "linter": {
-    "rules": {
-      "suspicious": {
-        "noImplicitAnyLet": "off",
-        "noExplicitAny": "off",
-        "useAwait": "off",
-        "noConsole": "off"
-      },
-      "correctness": {
-        "noUnusedVariables": "warn",
-        "noUnusedFunctionParameters": "off"
-      },
-      "nursery": {
-        "noUnnecessaryConditions": "off"
-      },
-      "performance": {
-        "useTopLevelRegex": "off",
-        "noNamespaceImport": "warn",
-        "noDelete": "warn"
-      },
-      "style": {
-        "noMagicNumbers": "off",
-        "noExportedImports": "off",
-        "noNestedTernary": "off",
-        "useReadonlyClassProperties": "off"
-      },
-      "complexity": {
-        "noExcessiveCognitiveComplexity": "info",
-        "useOptionalChain": "info"
-      }
-    }
-  }
+  "extends": ["biome-config-xaxa"]
 }

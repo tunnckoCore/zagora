@@ -1,28 +1,25 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import type { ZagoraError } from "./utils.ts";
+import type { ZagoraError } from "./error.ts";
 
-export type ZagoraMetadata<THandler = unknown> = {
-  inputSchema: StandardSchemaV1 | null;
-  outputSchema: StandardSchemaV1 | null;
-  errorSchema: Record<string, StandardSchemaV1> | null;
-  handlerFn: THandler;
-};
+export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
-export type ZagoraConfig = {
-  errorsFirst: boolean;
-  anySchema: StandardSchemaV1;
-};
+export type AnySchema = Schema<any, any>;
 
-/* Dual return format that supports both object and tuple destructuring */
-export type ZagoraResult<TData, TErr, TIsDefined extends boolean> = [
-  TData,
-  TErr,
-  TIsDefined,
-] & {
-  data: TData;
-  error: TErr;
-  isDefined: TIsDefined;
-};
+export type SchemaIssue = StandardSchemaV1.Issue;
+
+export type InferSchemaInput<T extends AnySchema> = T extends StandardSchemaV1<
+  infer UInput,
+  any
+>
+  ? UInput
+  : never;
+
+export type InferSchemaOutput<T extends AnySchema> = T extends StandardSchemaV1<
+  any,
+  infer UOutput
+>
+  ? UOutput
+  : never;
 
 // convert union -> intersection helper
 export type UnionToIntersection<U> = (
@@ -34,7 +31,7 @@ export type UnionToIntersection<U> = (
   : never;
 
 /* Given `T` a tuple type, produce an intersection of function
-  types that act as overloads for each prefix of T. */
+    types that act as overloads for each prefix of T. */
 export type IsOptional<T> = undefined extends T ? true : false;
 export type AllOptional<T extends any[]> = T extends [infer H, ...infer R]
   ? IsOptional<H> extends true
@@ -42,66 +39,105 @@ export type AllOptional<T extends any[]> = T extends [infer H, ...infer R]
     : false
   : true;
 
-export type OverloadedByPrefixes<T extends any[], R> = UnionToIntersection<
-  ValuePrefixes<T> extends infer P
-    ? P extends any[]
-      ? P extends []
-        ? AllOptional<T> extends true
-          ? (...args: P) => R
-          : never
-        : (...args: P) => R
-      : never
-    : never
->;
-
-export type ValidateOutput = [unknown, null] | [null, ZagoraError];
-export type MaybeAsyncValidateOutput<TIsSync extends boolean> =
-  TIsSync extends true ? ValidateOutput : Promise<ValidateOutput>;
-
-export type ValidateError = { error: unknown; isTyped: boolean };
-export type MaybeAsyncValidateError<TIsSync extends boolean> =
-  TIsSync extends true ? ValidateError : Promise<ValidateError>;
-
 /* prefixes of a value-tuple (mutable) */
 export type ValuePrefixes<T extends any[]> = T extends [infer H, ...infer R]
   ? [] | [H, ...ValuePrefixes<R>]
   : [];
 
-/* Helper types for StandardSchema */
-export type ZagoraInferInput<T extends StandardSchemaV1> =
-  StandardSchemaV1.InferInput<T>;
-export type ZagoraInferOutput<T extends StandardSchemaV1> =
-  StandardSchemaV1.InferOutput<T>;
+// NOTE: possible fix
+// export type OverloadedByPrefixes<T extends any[], R> = UnionToIntersection<
+//   ValuePrefixes<T> extends infer P
+//     ? P extends any[]
+//       ? P extends []
+//         ? AllOptional<T> extends true
+//           ? (...args: P) => R
+//           : never
+//         : (...args: P) => R
+//       : never
+//     : never
+// >;
 
-/* Error helper type - creates functions that return [null, error] tuples */
+export type OverloadedByPrefixes<
+  T extends any[],
+  R,
+> = AllOptional<T> extends false
+  ? // If any element is required, only provide the full signature
+    (...args: T) => R
+  : // If all optional, provide all prefixes
+    UnionToIntersection<
+      ValuePrefixes<T> extends infer P
+        ? P extends any[]
+          ? P extends []
+            ? AllOptional<T> extends true
+              ? (...args: P) => R
+              : never
+            : (...args: P) => R
+          : never
+        : never
+    >;
+
 export type ZagoraErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
   [K in keyof T]: (
-    error: Omit<ZagoraInferInput<T[K]>, "type">
-  ) => [null, ZagoraInferOutput<T[K]>];
+    error: Prettify<Omit<InferSchemaInput<T[K]>, "type">>,
+  ) => [null, InferSchemaOutput<T[K]>];
 };
 
-export type ZagoraBaseResult<
-  Output extends StandardSchemaV1 | null = null,
-  ErrSchema extends Record<string, StandardSchemaV1> | null = null,
-> = ErrSchema extends Record<string, StandardSchemaV1>
+export type ZagoraDef<
+  TInputSchema extends AnySchema | undefined = undefined,
+  TOutputSchema extends AnySchema | undefined = undefined,
+  TErrorsSchema extends
+    | Record<string, StandardSchemaV1>
+    | undefined = undefined,
+> = {
+  inputSchema?: TInputSchema;
+  outputSchema?: TOutputSchema;
+  errorsSchema?: TErrorsSchema;
+};
+
+export type ResultObj<TOutput, TError, TIsDefined extends boolean> = {
+  data: TOutput;
+  error: TError;
+  isDefined: TIsDefined;
+};
+
+export type Result<TOutput, TError, TIsDefined extends boolean> = [
+  TOutput,
+  TError,
+  TIsDefined,
+] &
+  Prettify<ResultObj<TOutput, TError, TIsDefined>>;
+
+// typescript prettify type
+export type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
+export type ZagoraResult<
+  TOutput extends StandardSchemaV1 | undefined = undefined,
+  TErrors extends Record<string, StandardSchemaV1> | undefined = undefined,
+> = TErrors extends Record<string, StandardSchemaV1>
   ?
-      | ZagoraResult<
-          Output extends StandardSchemaV1 ? ZagoraInferOutput<Output> : unknown,
+      | Result<
+          TOutput extends StandardSchemaV1
+            ? InferSchemaOutput<TOutput>
+            : unknown,
           null,
           false
         > // success
-      | ZagoraResult<
+      | Result<
           null,
           {
-            [K in keyof ErrSchema]: ZagoraInferOutput<ErrSchema[K]>;
-          }[keyof ErrSchema],
+            [K in keyof TErrors]: InferSchemaOutput<TErrors[K]>;
+          }[keyof TErrors],
           true
         > // typed error
-      | ZagoraResult<null, ZagoraError, false> // untyped error
+      | Result<null, ZagoraError, false> // untyped error
   :
-      | ZagoraResult<
-          Output extends StandardSchemaV1 ? ZagoraInferOutput<Output> : unknown,
+      | Result<
+          TOutput extends StandardSchemaV1
+            ? InferSchemaOutput<TOutput>
+            : unknown,
           null,
           false
         > // success
-      | ZagoraResult<null, ZagoraError, false>; // untyped error
+      | Result<null, ZagoraError, false>; // untyped error

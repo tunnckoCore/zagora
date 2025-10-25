@@ -31,14 +31,15 @@
     "@standard-schema/spec": "^1.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.3",
+    "@biomejs/biome": "^2",
     "@types/bun": "latest",
-    "arktype": "2.1.22",
-    "tsdown": "0.14.1",
-    "typescript": "5.9.2",
-    "ultracite": "5.3.4",
+    "arktype": "2.1.23",
+    "biome-config-xaxa": "^0.2.1",
+    "tsdown": "0.15.9",
+    "typescript": "5.9.3",
+    "ultracite": "^5",
     "valibot": "1.1.0",
-    "zod": "4.1.5"
+    "zod": "4.1.12"
   },
   "keywords": [
     "minimal",

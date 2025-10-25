@@ -1,6 +1,53 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { ZagoraError } from "./error.ts";
-import type { AnySchema, ZagoraResult } from "./types.ts";
+import type { AnySchema, ZagoraResult } from "./zagora-v3-types.ts";
+
+export class ZagoraError extends Error {
+  readonly issues?: readonly StandardSchemaV1.Issue[];
+  override readonly cause?: unknown;
+  readonly data?: unknown;
+  readonly reason: string;
+
+  constructor(
+    message: string,
+    options?: {
+      issues?: readonly StandardSchemaV1.Issue[];
+      cause?: unknown;
+      data?: unknown;
+      reason?: string;
+    },
+  ) {
+    super(message);
+    this.name = "ZagoraError";
+    this.issues = options?.issues;
+    this.cause = options?.cause;
+    this.data = options?.data;
+    this.reason = options?.reason || "Unknown or internal error";
+  }
+
+  static fromIssues(
+    issues: readonly StandardSchemaV1.Issue[],
+    reason?: string,
+    error?: any,
+  ) {
+    const message = issues.map((issue) => issue.message).join(", ");
+    return new ZagoraError(message, {
+      issues,
+      reason: reason || "Failure caused by validation",
+    });
+  }
+
+  static fromCaughtError(caught: unknown, reason?: string) {
+    const message = caught instanceof Error ? caught.message : String(caught);
+    return new ZagoraError(message, { cause: caught, reason });
+  }
+
+  static fromTypedError(key: string, errorPassedData: unknown) {
+    return new ZagoraError(`Handler threw typed ${key} error`, {
+      data: errorPassedData,
+      reason: `Typed error thrown: ${key}`,
+    });
+  }
+}
 
 export const isZagoraTypedError = (error: unknown): error is ZagoraError => {
   return Boolean(
@@ -64,6 +111,7 @@ export function isAsyncFunction(fn: any) {
   }
 }
 
+// biome-ignore lint/nursery/useMaxParams: bruh
 export function generalValidator(
   schema: StandardSchemaV1,
   value: unknown,
