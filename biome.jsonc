@@ -1,4 +1,52 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["biome-config-xaxa"]
+  "extends": ["biome-config-xaxa"],
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**/*.{ts,tsx,js,jsx,mjs}",
+      "**/index.html",
+      "**/vite.config.{js,ts}",
+      "**/next.config.{mjs,js,ts}",
+      "!**/src/routes/__root.tsx",
+      "!**/src/routeTree.gen.ts",
+      // "!_*",
+      // "!**/_*",
+      // "!_*/**/_*",
+      "!node_modules",
+      "!convex/tsconfig.json",
+      "!convex/_generated/*",
+      "!convex/**/_generated/*",
+      "!.next",
+      "!dist",
+      "!build",
+      "!**/src/components/ui/*",
+      "!**/src/hooks/use-mobile.ts",
+      "!convex/betterAuth/schema.ts"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
+      },
+      "style": {
+        "useImportType": "error"
+      },
+      "nursery": {
+        "useSortedClasses": "info"
+      },
+      // lint/performance/noDelete
+      "performance": {
+        "noDelete": "off"
+      },
+      "correctness": {
+        "noUnusedFunctionParameters": "off"
+      }
+    },
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
+    }
+  }
 }

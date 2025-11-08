@@ -1,6 +1,11 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { ZagoraError } from "./error.ts";
-import type { AnySchema, ZagoraResult } from "./types.ts";
+import type {
+  AnySchema,
+  InferSchemaInput,
+  InferSchemaOutput,
+  ZagoraResult,
+} from "./types.ts";
 
 export const isZagoraTypedError = (error: unknown): error is ZagoraError => {
   return Boolean(
@@ -104,7 +109,7 @@ export function generalValidator(
 
       error = new ZagoraError(`Invalid error data for ${key}: ${issues}`, {
         issues: result.issues,
-        data: value,
+        data: value as InferSchemaInput<typeof schema>,
         // cause: originalError,
         reason: originalError.reason || originalError.message,
       });
@@ -182,11 +187,17 @@ export function validateInput(
   // NOTE: if z.string() then func('foo');
   // NOTE: if z.tuple(z.string(), z.number()) then func('foo', 123);
   if (isPrimitiveSchema || isArraySchema) {
+    // console.log("isPrimitiveSchema || isArraySchema", {
+    //   isPrimitiveSchema,
+    //   isArraySchema,
+    //   args,
+    // });
     args = args[0];
   }
 
   // Try tuple validation first
   const result = schema["~standard"].validate(args);
+
   if (result instanceof Promise) {
     return result.then((res) => processResult(res));
   }
@@ -288,6 +299,7 @@ export const handleError = (
 ) => {
   if (errorsSchema && isZagoraTypedError(err)) {
     const key = (err.data as any).type;
+    console.log(">>>>", key, err, "<<<<");
     // console.log("error schema", errorsSchema[key].def.shape);
     return generalValidator(
       errorsSchema[key] as StandardSchemaV1,

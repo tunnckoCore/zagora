@@ -26,12 +26,6 @@ export const zagora = () => {
   return new Zagora();
 };
 
-// zagora()
-// .input(schema: StandardSchema)
-// .output(schema: StandardSchema)
-// .errors(errs: Record<string, StandardSchema>)
-// .handler - async and sync
-
 export class Zagora<
   TInputSchema extends AnySchema | undefined = undefined,
   TOutputSchema extends AnySchema | undefined = undefined,
@@ -89,15 +83,22 @@ export class Zagora<
         : (arg: TOutArgs) => any,
   >(impl: Impl) {
     const isAsync = isAsyncFunction(impl);
-    // type IsAsyncFn = typeof impl extends (...args: any[]) => Promise<any>
-    //   ? true
-    //   : false;
 
     const inputSchema = this["~zagora"].inputSchema || undefined;
     const outputSchema = this["~zagora"].outputSchema || undefined;
     const errorsSchema = this["~zagora"].errorsSchema || undefined;
 
-    // let processedInputValidation: unknown[];
+    const schemaAny = inputSchema as any;
+
+    const isTupleSchema =
+      (schemaAny?._def && schemaAny?._def?.type === "tuple") ||
+      schemaAny?.type === "tuple";
+
+    const isArraySchema =
+      (schemaAny?._def && schemaAny?._def?.type === "array") ||
+      schemaAny?.type === "array";
+
+    const isPrimitiveSchema = !isTupleSchema;
 
     const wrapper = (rawArgs: any, processed: any) => {
       if (
@@ -123,15 +124,22 @@ export class Zagora<
         return wrapper(rawArgs, inputResult.data);
       }
 
-      const processedInput = processed || rawArgs;
+      // const processedInput =
+      //   processed === "$__MAGIC_VALUE_"
+      //     ? []
+      //     : processed ? [];
 
       try {
-        const finalArgs = [
-          ...processedInput,
-          errorsSchema ? createErrorHelpers(errorsSchema, isAsync) : null,
-        ].filter(Boolean);
+        const errs = errorsSchema
+          ? createErrorHelpers(errorsSchema, isAsync)
+          : null;
 
-        const rawResult = (impl as any)(...finalArgs);
+        const finalArgs =
+          isArraySchema || isPrimitiveSchema
+            ? [processed, errs]
+            : [...processed, errs];
+
+        const rawResult = (impl as any)(...finalArgs.filter(Boolean));
 
         if (rawResult instanceof Promise) {
           return rawResult
