@@ -15,34 +15,6 @@ export const isZagoraTypedError = (error: unknown): error is ZagoraError => {
   );
 };
 
-export function toPascalCase(str: string) {
-  return str
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
-}
-
-interface DefaultAnySchema extends StandardSchemaV1<any, any> {
-  type: "any";
-  message: string;
-}
-
-export function defaultAnySchema(
-  message = "Invalid any value",
-): DefaultAnySchema {
-  return {
-    type: "any",
-    message,
-    "~standard": {
-      version: 1,
-      vendor: "zagora",
-      validate(value) {
-        return { value, issues: undefined };
-      },
-    },
-  };
-}
-
 // note: basic, but coverting a lot, if not just use `is-async-function` in future
 export function isAsyncFunction(fn: any) {
   if (typeof fn !== "function") {
@@ -221,14 +193,14 @@ export function createResult<
   return res;
 }
 
-export function handleTupleDefaults(
+function handleTupleDefaults(
   schema: StandardSchemaV1,
   rawArgs: unknown[],
 ): unknown[] {
   // Check if this might be a tuple schema by examining the schema structure
   const schemaAny = schema as any;
   const isZodTuple = schemaAny._def && schemaAny._def.type === "tuple";
-  const isValibotTuple = schemaAny.type === "tuple";
+  const isValibotTuple = schemaAny.type === "tuple" && !isZodTuple;
   // console.log("is tuple when valibot tuple", schemaAny);
 
   // Try to detect if this is a StandardSchema tuple schema
@@ -243,13 +215,14 @@ export function handleTupleDefaults(
         const itemSchema = tupleItems[i];
 
         if (itemSchema && itemSchema.type === "default" && itemSchema._def) {
-          // console.log("only zod");
+          // console.log("only zod>>");
           const defaultValue =
             typeof itemSchema._def.defaultValue === "function"
               ? itemSchema._def.defaultValue()
               : itemSchema._def.defaultValue;
 
           result[i] = defaultValue;
+          // console.log("only zod", i, defaultValue);
         } else if (
           itemSchema &&
           isValibotTuple &&
@@ -280,16 +253,13 @@ export function createErrorHelpers(
   return helpers;
 }
 
-export function createHelper(
+function createHelper(
   key: string,
   errorSchema: StandardSchemaV1,
   isAsync: boolean,
 ) {
   return (errorData: any) => {
-    // NOTE: error helpers CAN also just return the error,
-    // since we are handling that case too.
-    // throw ZagoraError.fromTypedError(key, { type: key, ...errorData });
-    return ZagoraError.fromTypedError(key, { type: key, ...errorData });
+    return { type: key, ...errorData };
   };
 }
 
@@ -297,17 +267,50 @@ export const handleError = (
   err: any,
   errorsSchema: Record<string, StandardSchemaV1> | undefined,
 ) => {
-  if (errorsSchema && isZagoraTypedError(err)) {
-    const key = (err.data as any).type;
-    console.log(">>>>", key, err, "<<<<");
-    // console.log("error schema", errorsSchema[key].def.shape);
-    return generalValidator(
-      errorsSchema[key] as StandardSchemaV1,
-      err.data,
-      null,
-      false,
-      err,
-    );
+  if (!errorsSchema) return null;
+
+  // Check if it's a typed error object (plain object with type field)
+  if (
+    err &&
+    typeof err === "object" &&
+    "type" in err &&
+    typeof err.type === "string" &&
+    !isZagoraTypedError(err)
+  ) {
+    const errorType = err.type;
+    if (errorType in errorsSchema) {
+      const schema = errorsSchema[errorType] as any;
+      const result = schema["~standard"].validate(err);
+
+      if (result instanceof Promise) {
+        return result.then((res: any) => {
+          if (res.issues) {
+            return {
+              data: null,
+              error: ZagoraError.fromIssues(
+                res.issues,
+                `Invalid error data for ${errorType}`,
+              ),
+              isDefined: false,
+            };
+          }
+          return { data: null, error: res.value, isDefined: true };
+        });
+      }
+
+      if ((result as any).issues) {
+        return {
+          data: null,
+          error: ZagoraError.fromIssues(
+            (result as any).issues,
+            `Invalid error data for ${errorType}`,
+          ),
+          isDefined: false,
+        };
+      }
+
+      return { data: null, error: (result as any).value, isDefined: true };
+    }
   }
 
   return null;

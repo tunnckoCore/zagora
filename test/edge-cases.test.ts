@@ -23,6 +23,28 @@ test("Zod tuple with default values - basic case", async () => {
   expect(resHello).toEqual({ foo: "fast-123" });
 });
 
+test("Zod tuple with required arg, default value arg, and optional arg", async () => {
+  const SpeedSchema = z.enum(["slow", "normal", "fast"]);
+
+  const hello = zagora()
+    .input(
+      z.tuple([SpeedSchema, z.number().default(123), z.string().optional()]),
+    )
+    .output(
+      z.object({
+        foo: z.string().min(1),
+      }),
+    )
+    .handler((speed, retry, str) => {
+      return { foo: `${speed}-${retry}-${str}` };
+    });
+
+  const [resHello, errHello] = hello("fast");
+
+  expect(errHello).toBe(null);
+  expect(resHello).toEqual({ foo: "fast-123-undefined" });
+});
+
 test("Zod tuple with default values - both args provided", async () => {
   const SpeedSchema = z.enum(["slow", "normal", "fast"]);
 
@@ -106,7 +128,6 @@ test("Valibot tuple with optional and default value", async () => {
   // const [resHello, errHello] = await hello("fast", "sasa"); // would signal `"sasa"` that it expects number
   // const [resHello, errHello] = await hello("fast", 123); // would not type error, all args are fine and provided
 
-  // @ts-expect-error expected for valibot
   const [resHello, errHello] = await hello("fast");
 
   expect(errHello).toBe(null);
@@ -132,7 +153,6 @@ test("Valibot tuple with optional without default", async () => {
   // const [resHello, errHello] = await hello("fast", "sasa"); // would signal `"sasa"` that it expects number
   // const [resHello, errHello] = await hello("fast", 123); // would not type error, all args are fine and provided
 
-  // @ts-expect-error expected for valibot
   const [resHello, errHello] = await hello("slow");
 
   expect(errHello).toBe(null);
@@ -148,20 +168,26 @@ test("Valibot tuple with default values - both args provided", async () => {
   const SpeedSchema = v.picklist(["slow", "normal", "fast"]);
 
   const hello = zagora()
-    .input(v.tuple([SpeedSchema, v.optional(v.number(), 123)]))
+    .input(
+      v.tuple([
+        SpeedSchema,
+        v.optional(v.number(), 123),
+        v.optional(v.string(), "str"),
+      ]),
+    )
     .output(
       v.object({
         foo: v.pipe(v.string(), v.minLength(1)),
       }),
     )
-    .handler(async (speed, retry) => {
-      return { foo: `${speed}-${retry}` };
+    .handler(async (speed, retry, str) => {
+      return { foo: `${speed}-${retry}-${str}` };
     });
 
   const [resHello, errHello] = await hello("slow", 456);
 
   expect(errHello).toBe(null);
-  expect(resHello).toEqual({ foo: "slow-456" });
+  expect(resHello).toEqual({ foo: "slow-456-str" });
 });
 
 test("Tuple without defaults - all args required - zod", async () => {
@@ -203,7 +229,6 @@ test("Tuple without defaults - all args required - valibot", async () => {
   expect(errHello).toBe(null);
   expect(resHello).toEqual({ foo: "fast-sasa" });
 
-  // @ts-expect-error should type error, we are missing required argument
   const [_, errHello2] = await hello("fast");
 
   expect(errHello2).not.toBeNull();
@@ -224,7 +249,6 @@ test("Tuple without defaults - missing required arg should fail", async () => {
       return { foo: `${speed}-${retry}` };
     });
 
-  // @ts-expect-error should fail, we test mising required argument
   const [resHello, errHello] = await hello("fast");
 
   expect(resHello).toBe(null);

@@ -2,7 +2,6 @@
 
 import { expect, test } from "bun:test";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { SHA512_256 } from "bun";
 import { ZagoraError } from "../src/index.ts";
 
 test("should create basic error with message", () => {
@@ -76,64 +75,11 @@ test("should create error from single issue using fromIssues", () => {
   expect(error.reason).toBe("Failure caused by validation");
 });
 
-test("should create error from caught Error using fromCaughtError", () => {
-  const originalError = new Error("Original error message");
-  const error = ZagoraError.fromCaughtError(originalError);
-
-  expect(error).toBeInstanceOf(ZagoraError);
-  expect(error.message).toBe("Original error message");
-  expect(error.cause).toBe(originalError);
-  expect(error.reason).toBe("Unknown or internal error");
-  expect(error.issues).toBeUndefined();
-});
-
-test("should create error from caught Error with custom reason", () => {
-  const originalError = new Error("Database connection failed");
-  const error = ZagoraError.fromCaughtError(
-    originalError,
-    "Some db error occurred",
-  );
-
-  expect(error.cause).toBe(originalError);
-  expect(error.message).toBe("Database connection failed");
-  expect(error.reason).toBe("Some db error occurred");
-});
-
-test("should create error from caught string using fromCaughtError", () => {
-  const error = ZagoraError.fromCaughtError("Something went wrong");
-
-  expect(error.message).toBe("Something went wrong");
-  expect(error.cause).toBe("Something went wrong");
-  expect(error.reason).toBe("Unknown or internal error");
-});
-
-test("should create error from caught number using fromCaughtError", () => {
-  const error = ZagoraError.fromCaughtError(404);
-
-  expect(error.message).toBe("404");
-  expect(error.cause).toBe(404);
-  expect(error.reason).toBe("Unknown or internal error");
-});
-
 test("should handle empty issues array", () => {
   const error = ZagoraError.fromIssues([]);
   expect(error.message).toBe("");
   expect(error.issues).toEqual([]);
   expect(error.reason).toBe("Failure caused by validation");
-});
-
-test("should handle fromCaughtError with undefined", () => {
-  const error = ZagoraError.fromCaughtError(undefined);
-  expect(error.message).toBe("undefined");
-  expect(error.cause).toBe(undefined);
-  expect(error.reason).toBe("Unknown or internal error");
-});
-
-test("should handle fromCaughtError with null", () => {
-  const error = ZagoraError.fromCaughtError(null);
-  expect(error.message).toBe("null");
-  expect(error.cause).toBe(null);
-  expect(error.reason).toBe("Unknown or internal error");
 });
 
 test("should maintain readonly properties", () => {
@@ -148,12 +94,10 @@ test("should maintain readonly properties", () => {
 test("should work with instanceof checks", () => {
   const error = new ZagoraError("Test");
   const fromIssues = ZagoraError.fromIssues([]);
-  const fromCaught = ZagoraError.fromCaughtError(new Error("test"));
 
-  expect(error instanceof Error).toBe(true);
-  expect(error instanceof ZagoraError).toBe(true);
-  expect(fromIssues instanceof ZagoraError).toBe(true);
-  expect(fromCaught instanceof ZagoraError).toBe(true);
+  expect(error).toBeInstanceOf(Error);
+  expect(error).toBeInstanceOf(ZagoraError);
+  expect(fromIssues).toBeInstanceOf(ZagoraError);
 });
 
 test("should preserve error stack trace", () => {

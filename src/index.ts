@@ -4,11 +4,14 @@ import type {
   AnySchema,
   InferSchemaInput,
   InferSchemaOutput,
+  IsTupleSchema,
   OverloadedByPrefixes,
+  TupleForwardOverloads,
   ZagoraDef,
   ZagoraErrorHelpers,
   ZagoraResult,
 } from "./types.ts";
+
 import {
   createErrorHelpers,
   createResult,
@@ -75,11 +78,15 @@ export class Zagora<
       string,
       StandardSchemaV1
     >
-      ? TOutArgs extends readonly any[]
-        ? (...args: [...TOutArgs, ZagoraErrorHelpers<TErrorsSchema>]) => any
+      ? IsTupleSchema<TFuncInput> extends true
+        ? TOutArgs extends readonly any[]
+          ? (...args: [...TOutArgs, ZagoraErrorHelpers<TErrorsSchema>]) => any
+          : never
         : (arg: TOutArgs, errors: ZagoraErrorHelpers<TErrorsSchema>) => any
-      : TOutArgs extends readonly any[]
-        ? (...args: TOutArgs) => any
+      : IsTupleSchema<TFuncInput> extends true
+        ? TOutArgs extends readonly any[]
+          ? (...args: TOutArgs) => any
+          : never
         : (arg: TOutArgs) => any,
   >(impl: Impl) {
     const isAsync = isAsyncFunction(impl);
@@ -144,31 +151,30 @@ export class Zagora<
         if (rawResult instanceof Promise) {
           return rawResult
             .then((data) => {
-              return (
-                handleError(data, errorsSchema) ??
-                (outputSchema
-                  ? generalValidator(outputSchema, data, null, true)
-                  : { data, error: null, isDefined: false })
-              );
+              const typedError = handleError(data, errorsSchema);
+              if (typedError) return typedError;
+              return outputSchema
+                ? generalValidator(outputSchema, data, null, true)
+                : { data, error: null, isDefined: false };
             })
             .catch((error) => {
-              return (
-                handleError(error, errorsSchema) ?? {
-                  data: null,
-                  error: ZagoraError.fromCaughtError(
-                    error,
-                    "An async handler threw unknown error",
-                  ),
-                  isDefined: false,
-                }
-              );
+              const typedError = handleError(error, errorsSchema);
+              if (typedError) return typedError;
+              if (error instanceof ZagoraError) {
+                return { data: null, error, isDefined: false };
+              }
+              return {
+                data: null,
+                error: new ZagoraError("An async handler threw unknown error", {
+                  cause: error,
+                }),
+                isDefined: false,
+              };
             });
         }
 
-        const returnedError = handleError(rawResult, errorsSchema);
-        if (returnedError) {
-          return returnedError;
-        }
+        const typedError = handleError(rawResult, errorsSchema);
+        if (typedError) return typedError;
 
         const outputResult = outputSchema
           ? (generalValidator(outputSchema, rawResult, null, true) as
@@ -186,16 +192,18 @@ export class Zagora<
 
         return outputResult;
       } catch (error: unknown) {
-        return (
-          handleError(error, errorsSchema) ?? {
-            data: null,
-            error: ZagoraError.fromCaughtError(
-              error,
-              "Synchronous handler threw unknown error",
-            ),
-            isDefined: false,
-          }
-        );
+        const typedError = handleError(error, errorsSchema);
+        if (typedError) return typedError;
+        if (error instanceof ZagoraError) {
+          return { data: null, error, isDefined: false };
+        }
+        return {
+          data: null,
+          error: new ZagoraError("Synchronous handler threw unknown error", {
+            cause: error,
+          }),
+          isDefined: false,
+        };
       }
     };
 
@@ -217,17 +225,15 @@ export class Zagora<
 
     // Forward (call-site) signatures
     type InputArgs = InferSchemaInput<TFuncInput>;
-    type SingleArg = InputArgs extends readonly any[] ? never : InputArgs;
-    type TupleArgs = InputArgs extends readonly any[] ? InputArgs : never;
 
-    type ForwardType = InputArgs extends readonly any[]
-      ? OverloadedByPrefixes<
-          TupleArgs extends readonly any[] ? [...TupleArgs] : never,
-          HandlerResult
-        > &
-          ((...args: TupleArgs) => HandlerResult)
-      : ((arg: SingleArg) => HandlerResult) &
-          OverloadedByPrefixes<[SingleArg], HandlerResult>;
+    type ForwardType = IsTupleSchema<TFuncInput> extends true
+      ? // Tuple: generate prefix overloads including full length
+        InputArgs extends readonly any[]
+        ? TupleForwardOverloads<InputArgs, HandlerResult>
+        : never
+      : // Not a tuple (array or primitive): single argument
+        ((arg: InputArgs) => HandlerResult) &
+          OverloadedByPrefixes<[InputArgs], HandlerResult>;
 
     type ForwardWithHandler<T> = {
       "~zagora": ZagoraDef<TInputSchema, TOutputSchema, TErrorsSchema> & {

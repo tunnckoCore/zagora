@@ -34,16 +34,4 @@ export class ZagoraError extends Error {
       reason: reason || "Failure caused by validation",
     });
   }
-
-  static fromCaughtError(caught: unknown, reason?: string) {
-    const message = caught instanceof Error ? caught.message : String(caught);
-    return new ZagoraError(message, { cause: caught, reason });
-  }
-
-  static fromTypedError(key: string, errorPassedData: unknown) {
-    return new ZagoraError(`Handler threw typed ${key} error`, {
-      data: errorPassedData,
-      reason: `Typed error thrown: ${key}`,
-    });
-  }
 }

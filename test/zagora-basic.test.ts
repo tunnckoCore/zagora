@@ -4,7 +4,37 @@ import { expect, test } from "bun:test";
 import * as v from "valibot";
 import z from "zod";
 import { Zagora, zagora } from "../src/index.ts";
-import { errorSchemas, zodSchemas } from "./helpers.ts";
+
+const errorSchemas = {
+  single: {
+    NETWORK_ERROR: z.object({
+      type: z.literal("NETWORK_ERROR"),
+      message: z.string(),
+      statusCode: z.number().int().min(400).max(599),
+      retryAfter: z.number().optional(),
+    }),
+  },
+  multiple: {
+    NETWORK_ERROR: z.object({
+      type: z.literal("NETWORK_ERROR"),
+      message: z.string(),
+      statusCode: z.number().int().min(400).max(599),
+      retryAfter: z.number().optional(),
+    }),
+    VALIDATION_ERROR: z.object({
+      type: z.literal("VALIDATION_ERROR"),
+      message: z.string(),
+      field: z.string(),
+    }),
+  },
+};
+
+const userSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.email(),
+  age: z.number().int().positive(),
+});
 
 test("should create Zagora instance with default config", () => {
   const instance = zagora();
@@ -12,19 +42,19 @@ test("should create Zagora instance with default config", () => {
 });
 
 test("should chain input method", () => {
-  const instance = zagora().input(zodSchemas.string);
+  const instance = zagora().input(z.string());
   expect(instance).toBeInstanceOf(Zagora);
 });
 
 test("should chain output method", () => {
-  const instance = zagora().input(zodSchemas.string).output(zodSchemas.string);
+  const instance = zagora().input(z.string()).output(z.string());
   expect(instance).toBeInstanceOf(Zagora);
 });
 
 test("should chain errors method", () => {
   const instance = zagora()
-    .input(zodSchemas.string)
-    .output(zodSchemas.string)
+    .input(z.string())
+    .output(z.string())
     .errors(errorSchemas.single);
 
   expect(instance).toBeInstanceOf(Zagora);
@@ -32,7 +62,7 @@ test("should chain errors method", () => {
 
 test("should access error helpers from handler last arg", () => {
   const fooFn = zagora()
-    .input(zodSchemas.string)
+    .input(z.string())
     .output(
       z.object({
         str: z.string(),
@@ -41,7 +71,7 @@ test("should access error helpers from handler last arg", () => {
     )
     .errors(errorSchemas.single)
     .handler((str, errors) => {
-      return { str, helper: errors.network };
+      return { str, helper: errors.NETWORK_ERROR };
     });
 
   const res = fooFn("barry");
@@ -51,14 +81,14 @@ test("should access error helpers from handler last arg", () => {
   } else {
     expect(res.data.str).toBe("barry");
     expect(typeof res.data.helper).toBe("function");
-    expect(res.data.helper.toString()).toContain("ZagoraError.fromTypedError");
+    expect(res.data.helper.toString()).toContain("(errorData) =>");
   }
 });
 
 test("should work with multiple error schemas", () => {
   const instance = zagora()
-    .input(zodSchemas.string)
-    .output(zodSchemas.string)
+    .input(z.string())
+    .output(z.string())
     .errors(errorSchemas.multiple);
 
   expect(instance).toBeInstanceOf(Zagora);
@@ -87,15 +117,15 @@ test("should work with Valibot schemas", () => {
 });
 
 test("should work with complex object schemas", () => {
-  const instance = zagora().input(zodSchemas.user).output(zodSchemas.user);
+  const instance = zagora().input(userSchema).output(userSchema);
 
   expect(instance).toBeInstanceOf(Zagora);
 });
 
 test("should maintain immutability when chaining", () => {
   const base = zagora();
-  const withInput = base.input(zodSchemas.string);
-  const withOutput = withInput.output(zodSchemas.string);
+  const withInput = base.input(z.string());
+  const withOutput = withInput.output(z.string());
   const withErrors = withOutput.errors(errorSchemas.single);
 
   // Each step should return a new instance
@@ -112,7 +142,7 @@ test("should NOT throw error when handler called without input schema", async ()
 
 test("should NOT throw error when async handler called without output schema", async () => {
   const fn = zagora()
-    .input(zodSchemas.string)
+    .input(z.string())
     .handler(async (str) => str);
 
   const res = await fn("foo");
@@ -121,38 +151,33 @@ test("should NOT throw error when async handler called without output schema", a
 
 test("should allow method chaining in different orders", () => {
   const instance1 = zagora()
-    .input(zodSchemas.string)
-    .output(zodSchemas.string)
+    .input(z.string())
+    .output(z.string())
     .errors(errorSchemas.single);
 
   const instance2 = zagora()
-    .output(zodSchemas.string)
-    .input(zodSchemas.string)
+    .output(z.string())
+    .input(z.string())
     .errors(errorSchemas.single);
 
   const instance3 = zagora()
     .errors(errorSchemas.single)
-    .input(zodSchemas.string)
-    .output(zodSchemas.string);
+    .input(z.string())
+    .output(z.string());
 
   expect(instance1).toBeInstanceOf(Zagora);
   expect(instance2).toBeInstanceOf(Zagora);
   expect(instance3).toBeInstanceOf(Zagora);
 });
 
-// TODO: fix the input TYPE error (runtime works) when input schema is array
-// Easy fix from user-side is to just wrap it in a z.tuple, like z.tuple([z.array(z.string())])
-// NOTE: all that is because array and tuples are basically the same thing in TypeScript Types,
-// and because we exclusively use tuples to be able to defined multipe input arguments.
 test("should work with array input schemas", () => {
   const fn = zagora()
-    .input(zodSchemas.stringArray)
+    .input(z.array(z.string()))
     .output(z.object({ arr: z.array(z.string()) }))
     .handler((arr) => ({ arr }));
 
   const input = ["foo", "bar", "qux"];
 
-  // @ts-expect-error expected to type error, read notes above
   const res = fn(input);
 
   expect(res.error).toBeNull();
@@ -165,8 +190,8 @@ test("should work with array input schemas", () => {
 
 test("should spread with tuple input schemas to handler args", () => {
   const func = zagora()
-    .input(zodSchemas.coordinates)
-    .output(zodSchemas.number)
+    .input(z.tuple([z.number(), z.number()]))
+    .output(z.number())
     .handler((x, y) => x + y);
 
   const res = func(10, 20);
@@ -175,8 +200,8 @@ test("should spread with tuple input schemas to handler args", () => {
 
 test("should support overriding schemas", () => {
   const funcOne = zagora()
-    .input(zodSchemas.string)
-    .input(zodSchemas.number) // Override input
+    .input(z.string())
+    .input(z.number()) // Override input
     .handler((x) => x);
 
   const res1 = funcOne(120);
@@ -184,9 +209,9 @@ test("should support overriding schemas", () => {
   expect(res1.data).toBe(120);
 
   const funcTwo = zagora()
-    .input(zodSchemas.number)
-    .output(zodSchemas.string)
-    .output(zodSchemas.number) // Override output
+    .input(z.number())
+    .output(z.string())
+    .output(z.number()) // Override output
     .handler((x) => x);
 
   const res2 = funcTwo(120);
@@ -195,12 +220,12 @@ test("should support overriding schemas", () => {
   expect(res2.data).toBe(120);
 
   const funcThree = zagora()
-    .input(zodSchemas.string) // TODO: support using only `.errors` without .input required
+    .input(z.string()) // TODO: support using only `.errors` without .input required
     .errors(errorSchemas.multiple)
     .errors(errorSchemas.single) // Override output
     .handler(
       (str, errs) =>
-        `${str}-${Object.keys(errs).length}-${typeof errs.network}`,
+        `${str}-${Object.keys(errs).length}-${typeof errs.NETWORK_ERROR}`,
     );
 
   const res3 = funcThree("barry");
