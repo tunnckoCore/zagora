@@ -126,13 +126,13 @@ const uppercaseString = zagora()
 	})
 	.handlerSync((input, err) => {
 		if (input === "network") {
-			return err.network({
+			throw err.network({
 				message: "Network failed",
 				statusCode: 500,
 			});
 		}
 		if (input === "validation") {
-			return err.validation({
+			throw err.validation({
 				message: "Validation failed",
 				field: "foo",
 				value: `some input: ${input}`,
