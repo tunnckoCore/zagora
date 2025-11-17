@@ -225,7 +225,7 @@ So, be careful when using `.default` or `.optional` method on schemas. While bot
 
 It's important to note, that when you don't want or need to have an input schema, but want typed errors, then you should expect the `errors` object with typed error helpers to be on the second argument, not the first, even though there's no inputs.
 
-For example, the following is valid, and it's kinda known limitation of the current type system, but it's fine since it's probably a rare edge case.
+For example, the following is valid; this represents a known limitation of the current type system, but it's acceptable since it's likely a rare edge case.
 
 ```ts
 const func = zagora()

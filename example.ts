@@ -172,7 +172,8 @@ export const zagoraFetch = zagora()
       .strict(),
   )
   .errors({
-    fetchError: z.object({
+    FETCH_ERROR: z.object({
+      type: z.literal("FETCH_ERROR"),
       msg: z.string().default("Unknown error"),
       code: z.number().default(500),
     }),
@@ -181,7 +182,7 @@ export const zagoraFetch = zagora()
     const resp = await fetch(url, reqInit);
 
     if (!resp.ok) {
-      throw errors.fetchError({
+      throw errors.FETCH_ERROR({
         msg: `HTTP error ${resp.status}: ${resp.statusText}`,
         code: resp.status,
       });

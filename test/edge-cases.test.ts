@@ -151,11 +151,6 @@ test("Valibot tuple with optional and default value", async () => {
       return { foo: `${speed}-${retry}` };
     });
 
-  // TODO: expected error for valibot; for zod it works; it does work for per-arg type validation
-  // const [resHello, errHello] = await hello("fast"); // would signal incorrectly at `hello` for missing second arg
-  // const [resHello, errHello] = await hello("fast", "sasa"); // would signal `"sasa"` that it expects number
-  // const [resHello, errHello] = await hello("fast", 123); // would not type error, all args are fine and provided
-
   const [resHello, errHello] = await hello("fast");
 
   expect(errHello).toBe(null);
@@ -175,11 +170,6 @@ test("Valibot tuple with optional without default", async () => {
     .handler(async (speed, retry) => {
       return { foo: `${speed}-${retry}` };
     });
-
-  // TODO: expected error for valibot; for zod it works; it does work for per-arg type validation
-  // const [resHello, errHello] = await hello("fast"); // would signal incorrectly at `hello` for missing second arg
-  // const [resHello, errHello] = await hello("fast", "sasa"); // would signal `"sasa"` that it expects number
-  // const [resHello, errHello] = await hello("fast", 123); // would not type error, all args are fine and provided
 
   const [resHello, errHello] = await hello("slow");
 
