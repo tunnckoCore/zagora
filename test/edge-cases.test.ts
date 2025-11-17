@@ -3,6 +3,31 @@ import * as v from "valibot";
 import z from "zod";
 import { zagora } from "../src/index.ts";
 
+test("typed errors handler arg should be second arg when no input schema ", () => {
+  const func = zagora()
+    .errors({
+      someErr: z.object({
+        type: z.literal("SOME_ERR"),
+        msg: z.string().default("Unknown error"),
+        foo: z.number().min(100).max(999).default(500),
+      }),
+    })
+    .handler((_, err) => {
+      throw err.someErr({ msg: "Custom error" });
+    });
+
+  const res = func();
+  expect(res.isDefined).toBe(true);
+
+  if (res.isDefined && res.error.type === "SOME_ERR") {
+    expect(res.error.type).toBe("SOME_ERR");
+    expect(res.error.msg).toBe("Custom error");
+    expect(res.error.foo).toBe(500);
+  } else {
+    throw new Error("Expected SOME_ERR, but got: " + JSON.stringify(res.error));
+  }
+});
+
 test("Zod tuple with default values - basic case", async () => {
   const SpeedSchema = z.enum(["slow", "normal", "fast"]);
 

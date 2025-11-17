@@ -57,7 +57,7 @@ const getPrices = getPricesContract.handler(
   async ({ speed, num, includeDetails }, err) => {
     // Simulate rate limiting
     if (num && num > 1000) {
-      return err.rateLimit({
+      throw err.rateLimit({
         retryAfter: 60,
         limit: 1000,
         message: "Rate limit exceeded, try again in 60 seconds",
@@ -66,7 +66,7 @@ const getPrices = getPricesContract.handler(
 
     // Simulate validation error
     if (speed === "slow" && includeDetails) {
-      return err.auth({
+      throw err.auth({
         userId: "user123",
         url: "https://www.ethgastracker.com/api/gas/latest",
       });
@@ -76,8 +76,7 @@ const getPrices = getPricesContract.handler(
       const resp = await fetch("https://www.ethgastracker.com/api/gas/latest");
 
       if (!resp.ok) {
-        // Return typed network error
-        return err.network({
+        throw err.network({
           code: resp.status,
           message: `HTTP ${resp.status}: ${resp.statusText}`,
           url: resp.url,
@@ -173,22 +172,17 @@ export const zagoraFetch = zagora()
       .strict(),
   )
   .errors({
-    fetchError: z
-      .object({
-        message: z.string(),
-        code: z.number(),
-      })
-      .default({
-        message: "Unknown error",
-        code: 500,
-      }),
+    fetchError: z.object({
+      msg: z.string().default("Unknown error"),
+      code: z.number().default(500),
+    }),
   })
   .handler(async (url, reqInit, errors) => {
     const resp = await fetch(url, reqInit);
 
     if (!resp.ok) {
-      return errors.fetchError({
-        message: `HTTP error ${resp.status}: ${resp.statusText}`,
+      throw errors.fetchError({
+        msg: `HTTP error ${resp.status}: ${resp.statusText}`,
         code: resp.status,
       });
     }

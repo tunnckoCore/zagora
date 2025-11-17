@@ -107,7 +107,7 @@ Tuple-return style, or object-return style.
 
 ## Typed errors
 
-The typed errors are accessible via the handler arguments (it's always the last argument).
+The typed errors are accessible via the handler arguments (it's always the last argument), they are helper methods for building custom errors. Basically, you always throw a schema-defined objects instead of errors. That's intentional, because it allows you to handle errors in a more structured way and provides a clear separation between unknown and untyped error thrown (always wrapped in ZagoraError), and typed errors that are always just pure typed objects.
 
 All while everything is fully typed, and the inference and intellisense is working without needing to explicitly declare types.
 
@@ -172,6 +172,81 @@ if (error && isDefined) {
   console.log('With intellisense:', data.uppercased);
 }
 ```
+
+### Note on defaulting
+
+For example, if you want to have a default values for an error, you should use the `.default` on the property, not the `.default` on the `z.object`, otherwise you will not have a type-safe keys when you throw that error
+
+```ts
+zagora()
+  .input(z.any())
+  .errors({
+    fetchError: z.object({
+      message: z.string().default("Unknown error"),
+      code: z.number().default(500),
+    }),
+  })
+  .handler((_, err) => {
+    throw err.fetchError({
+      message: 'Custom message',
+      foo: 123 // type-error, no such property!
+    });
+  })
+```
+
+If you did `fetchError: z.object().default()`, you would not get type-error if you made a typo mistake when you "called" the error. The following code WILL NOT report a type-error:
+
+```ts
+zagora()
+  .input(z.any())
+  .errors({
+    fetchError: z
+      .object({
+        message: z.string(),
+        code: z.number(),
+      })
+      .default({
+        message: "Unknown error",
+        code: 500,
+      }),
+  })
+  .handler((_, err) => {
+    throw err.fetchError({
+      mssage: 'Custom message', // typo, but not reported
+      foo: 123 // no such key, but no type-error reported either
+    });
+  })
+```
+
+So, be careful when using `.default` or `.optional` method on schemas. While both cases are basically saying the same thing, they are different things on type-system level.
+
+### Note on errors & no input schema
+
+It's important to note, that when you don't want or need to have an input schema, but want typed errors, then you should expect the `errors` object with typed error helpers to be on the second argument, not the first, even though there's no inputs.
+
+For example, the following is valid, and it's kinda known limitation of the current type system, but it's fine since it's probably a rare edge case.
+
+```ts
+const func = zagora()
+  .errors({
+    SOME_ERR: z.object({
+      type: z.literal("SOME_ERR"),
+      msg: z.string().default("Unknown error"),
+      foo: z.number().min(100).max(999).default(500),
+    }),
+  })
+  .handler((_, err) => {
+    // ^ skip the first argument, typed error helper would be on the second argument!
+    throw err.SOME_ERR({ msg: "Custom error" });
+  });
+
+const res = func();
+console.log({ res });
+```
+
+### Note on error discriminated unions
+
+It's always a good practice to use a consistent naming convention for error types. We use the error's `type` property as discriminator. If you do not provide it in the error schema, you will not be able to discriminate between different error types. The error schema "keys" are used as helper names.
 
 ## Why this over oRPC / tRPC (in some cases)
 
