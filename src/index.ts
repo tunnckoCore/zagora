@@ -131,11 +131,6 @@ export class Zagora<
         return wrapper(rawArgs, inputResult.data);
       }
 
-      // const processedInput =
-      //   processed === "$__MAGIC_VALUE_"
-      //     ? []
-      //     : processed ? [];
-
       try {
         const errs = errorsSchema
           ? createErrorHelpers(errorsSchema, isAsync)
