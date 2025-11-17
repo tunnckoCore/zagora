@@ -122,13 +122,13 @@ const uppercaseString = zagora()
 		uppercased: z.string(),
 	}))
 	.errors({
-  	network: z.object({
+  	NETWORK_ERROR: z.object({
   		type: z.literal("NETWORK_ERROR"),
   		message: z.string(),
   		statusCode: z.number().int().min(400).max(599),
   		retryAfter: z.number().optional(),
   	}),
-  	validation: z.object({
+  	VALIDATION_ERROR: z.object({
   		type: z.literal("VALIDATION_ERROR"),
   		message: z.string(),
   		field: z.string(),
@@ -137,13 +137,13 @@ const uppercaseString = zagora()
 	})
 	.handlerSync((input, err) => {
 		if (input === "network") {
-			throw err.network({
+			throw err.NETWORK_ERROR({
 				message: "Network failed",
 				statusCode: 500,
 			});
 		}
 		if (input === "validation") {
-			throw err.validation({
+			throw err.VALIDATION_ERROR({
 				message: "Validation failed",
 				field: "foo",
 				value: `some input: ${input}`,
@@ -181,26 +181,27 @@ For example, if you want to have a default values for an error, you should use t
 zagora()
   .input(z.any())
   .errors({
-    fetchError: z.object({
+    FETCH_ERR: z.object({
+      type: z.literal('FETCH_ERR')
       message: z.string().default("Unknown error"),
       code: z.number().default(500),
     }),
   })
   .handler((_, err) => {
-    throw err.fetchError({
+    throw err.FETCH_ERR({
       message: 'Custom message',
       foo: 123 // type-error, no such property!
     });
   })
 ```
 
-If you did `fetchError: z.object().default()`, you would not get type-error if you made a typo mistake when you "called" the error. The following code WILL NOT report a type-error:
+If you did `FETCH_ERR: z.object().default()`, you would not get type-error if you made a typo mistake when you "called" the error. The following code WILL NOT report a type-error:
 
 ```ts
 zagora()
   .input(z.any())
   .errors({
-    fetchError: z
+    FETCH_ERR: z
       .object({
         message: z.string(),
         code: z.number(),
@@ -211,7 +212,7 @@ zagora()
       }),
   })
   .handler((_, err) => {
-    throw err.fetchError({
+    throw err.FETCH_ERR({
       mssage: 'Custom message', // typo, but not reported
       foo: 123 // no such key, but no type-error reported either
     });
@@ -246,7 +247,12 @@ console.log({ res });
 
 ### Note on error discriminated unions
 
-It's always a good practice to use a consistent naming convention for error types. We use the error's `type` property as discriminator. If you do not provide it in the error schema, you will not be able to discriminate between different error types. The error schema "keys" are used as helper names.
+It's always a good practice to use a consistent naming convention for error types. We use the error's `type` property as discriminator. If you do not provide it in the error schema, you will not be able to discriminate between different error types. The `type` property should also match the error key, eg. you will get validation error if it's `someErr: z.object({ type: z.literal("SOME_ERR") })`, because both would mismatch.
+
+**So here are 2 rules of thumb:**
+
+1. Always add the `type` property in the error schema object.
+2. Always make sure both the schema key and the `type` property in the schema match.
 
 ## Why this over oRPC / tRPC (in some cases)
 
