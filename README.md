@@ -8,7 +8,7 @@ A minimalist & robust way to create type-safe and error-safe never throwing func
 npm i zagora
 ```
 
-## Import
+## Usage
 
 This is ESM-only package with built-in types.
 
@@ -16,18 +16,31 @@ This is ESM-only package with built-in types.
 import { zagora } from 'zagora';
 ```
 
-The `zagora(config?: { errorsFirst: boolean })` returns a fresh builder instance. By default the errors are place as the very last argument passed to the handler function. Make sure to always add that argument when you use `.errors`, otherwise you may get a type error - that's expected behavior. If you don't want to use the `errors` argument, just rename it to `_errors`.
+The `zagora()` returns a fresh builder instance. By default the errors are place as the very last argument passed to the handler function.
+
+### API summary
+
+- `zagora()`: create new builder
+  - `.input(inputSchema)` - input schemas for validation
+  - `.output(outputSchema )` - output schema for validation
+  - `.errors(Record<string,schema>)` - typed errors, accessible via the handler arguments (it's always the last argument)
+  - `.handler(fn) -> returns safeFn`
+    - `safeFn(...args)` -> `Promise<[data|null, err|null, boolean]>`
+
 
 ## Why zagora?
 
-- **Minimal:** tiny surface, powered by StandardSchema
-- **Error-safety:** handler never throws to caller — you always get `[data | null, error | null]`.
-- **Never throw:** your functions will never throw or crash your process
+- **Minimal:** tiny surface, powered by StandardSchema (Zod, Valibot, Arktype)
+- **Error-safety:** handlers never throw, you always get `[data, error, isDefined]` or `{ data, error, isDefined }`
+- **Never throw:** your functions will never throw or crash your process, similar to `effect.ts` and `neverthrow`
 - **Type-safety:** full inference for handler params and results (including Zod transforms).
-- **Ergonomics:** it's just pure functions, fluent builder API, default filling, optional trailing args, per-argument
-  diagnostics.
+- **Ergonomics:** it's just pure functions, fluent builder API, default filling, optional trailing args, per-argument diagnostics.
 - **Lightweight** alternative to remote-RPC frameworks (oRPC/tRPC) when you just want typed,
   validated functions without network glue.
+
+While `orpc` is great and you can use it for direct function calls (and not network requests with `createRouterClient`), and for example for building "type-safe SDK"s, it does have a few opinions that may get in the way. I use it extensively in my projects, but `zagora` is smaller and even more focused approach - i always wanted "just functions" where you define input, outputs, and you get error-safe, typed function back not a wrapper around it.
+
+Both `tRPC` and `oRPC` are promoted as "backend", or specifically for when you're building "apps". Recently, all major frameworks also introduced similar concepts, like "server actions" and so on. All that is cool, but `zagora` is focused on building just functions, a low-level library for building other libraries - I have a lot of them, so i need a simple way for building type-safe and error-safe functions, where i don't necessarily need network layer and i don't need "routers" concept, and etc.
 
 ## Quick example
 
@@ -51,7 +64,7 @@ const SuccessSchema = z.object({
 // Tuple acts as schema for multiple function arguments
 const InputSchema = z.tuple([z.string(), z.number().default(123)]);
 
-const getPrices = zagora() // or `za`
+const getPrices = zagora()
   .input(InputSchema)
   .output(SuccessSchema)
   .handler(async (speed, num) => {
@@ -89,14 +102,12 @@ console.log(await getPrices('normal', 'sasa'));
 ```
 
 Tuple-return style, or object-return style.
-
-- Handler may return `[data, err]` to short-circuit success/error, or throw — builder:
-  - catches throws and returns `[null, error]`
-  - validates returned data/error against provided schemas
+- catches throws and returns `[null, error]`
+- validates returned data/error against provided schemas
 
 ## Typed errors
 
-The typed errors are accessible via the handler arguments (it's always the last argument). Optionally, you can provide `errorsFirst: true` option to the `zagora` call to change that and the typed error helpers will always be the first argument.
+The typed errors are accessible via the handler arguments (it's always the last argument).
 
 All while everything is fully typed, and the inference and intellisense is working without needing to explicitly declare types.
 
@@ -162,27 +173,17 @@ if (error && isDefined) {
 }
 ```
 
-## API summary
-
-- `zagora()`: create new builder
-  - `.input(z.tuple([...schemas]))` - input schemas for validation
-  - `.output(zodSchema)` - output schema for validation
-  - `.errors(schema)` - typed errors, accessible via the handler arguments (it's always the last argument)
-  - `.handler(fn) -> returns safeFn`
-    - `safeFn(...args)` -> `Promise<[data|null, err|null, boolean]>`
-  - `.handlerSync(fn) -> returns safeSyncFn`
-    - `safeSyncFn(...args)` -> `[data|null, err|null, boolean]`
-
 ## Why this over oRPC / tRPC (in some cases)
 
-- **No runtime transport:** zagora is for local, in-process functions where you want:
+- **No runtime transport:** zagora is for local, in-process functions when you want:
   - validated inputs and outputs
   - type-safe handler parameters (inferred from schemas)
   - consistent error handling without try/catch at call-site
-- **Lightweight:** drop-in for libs, internal APIs, CLIs, workers — no network boilerplate.
+- **Lightweight:** for libs, internal APIs, CLIs, workers — no network boilerplate.
 - **No routers:** zagora does not enforce notion of routing, it returns just safe and typed functions
 - **Interop:** you can still build RPC layers on top (zagora enforces types & validation, leaving
   transport separate).
+
 
 ## Why this over plain TypeScript functions
 
@@ -208,7 +209,7 @@ if (error && isDefined) {
 - The builder purposely always returns tuple-style [data|null, error|null] so call-sites never need
   try/catch.
 - For small apps this could replace heavy RPC infra; for distributed systems you can still use
-  zagora for typed validation on both client and server.
+  `zagora` for typed validation on both client and server.
 
 ## License
 
