@@ -1,0 +1,64 @@
+name: release
+on:
+  workflow_run:
+    workflows:
+      - ci # Name of the source workflow
+    types:
+      - completed
+
+permissions:
+  contents: read # for checkout
+
+jobs:
+  test:
+    name: Release through Bun
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to be able to publish a GitHub release
+      issues: write # to be able to comment on released issues
+      pull-requests: write # to be able to comment on released pull requests
+      id-token: write # to enable use of OIDC for npm provenance
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+        with:
+          bun-version: 'latest'
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Semantic Release from Bun
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: bunx semantic-release@24
+
+      # - name: Determine New Version
+      #   id: version # Assign an ID to this step
+      #   run: |
+      #     WGW_NEXT_VERSION=$(bun run wgw-version ${{ github.event.workflow_run.head_commit.message }})
+      #     echo "WGW_NEXT_VERSION=${WGW_NEXT_VERSION}" >> $GITHUB_ENV
+      #     echo "::set-output name=wgw_next_version::$WGW_NEXT_VERSION"
+
+      # - name: Update package.json
+      #   if: steps.version.outputs.wgw_next_version != ''
+      #   run: |
+      #     jq ".version = \"$WGW_NEXT_VERSION\"" package.json > package.tmp.json && mv package.tmp.json package.json
+
+      # - name: Create and Push a Git Tag
+      #   if: steps.version.outputs.wgw_next_version != ''
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     git tag "v${{ env.WGW_NEXT_VERSION }}"
+      #     git push origin "v${{ env.WGW_NEXT_VERSION }}"
+
+      # - name: Bun Publish with Provenance
+      #   if: steps.version.outputs.wgw_next_version != ''
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      #     WGW_NEXT_VERSION: ${{ env.WGW_NEXT_VERSION }}
+      #   run: bun run wgw-publish --next-version $WGW_NEXT_VERSION

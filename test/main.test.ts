@@ -83,7 +83,7 @@ test("untyped error wrapped in ZagoraError with isDefined=false", () => {
   }
 });
 
-test("multiple typed errors discriminated", () => {
+test("multiple typed errors discriminated union", () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
@@ -149,7 +149,7 @@ test("async handler regular untyped error thrown", async () => {
     .output(z.string())
     .handler(async (input) => {
       if (input === "fail") {
-        throw new Error("Async error");
+        throw new Error("Some custom err thrown from async handler");
       }
       return input;
     });
@@ -159,6 +159,9 @@ test("async handler regular untyped error thrown", async () => {
   expect(error.error).toBeInstanceOf(ZagoraError);
 
   expect(error.error?.cause).toBeInstanceOf(Error);
+  expect((error.error?.cause as any)?.message).toBe(
+    "Some custom err thrown from async handler",
+  );
 });
 
 test("Error.cause is set on wrapped errors", () => {
