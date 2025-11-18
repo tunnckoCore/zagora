@@ -39,7 +39,8 @@
     "typescript": "5.9.3",
     "ultracite": "^5",
     "valibot": "1.1.0",
-    "zod": "4.1.12"
+    "zod": "4.1.12",
+    "expect-type": "^0.20.0"
   },
   "keywords": [
     "minimal",

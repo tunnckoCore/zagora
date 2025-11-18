@@ -1,5 +1,6 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "zagora",
@@ -11,6 +12,7 @@
         "@types/bun": "latest",
         "arktype": "2.1.23",
         "biome-config-xaxa": "^0.2.1",
+        "expect-type": "^0.20.0",
         "tsdown": "0.15.9",
         "typescript": "5.9.3",
         "ultracite": "^5",
@@ -157,6 +159,8 @@
     "dts-resolver": ["dts-resolver@2.1.2", "", { "peerDependencies": { "oxc-resolver": ">=11.0.0" }, "optionalPeers": ["oxc-resolver"] }, "sha512-xeXHBQkn2ISSXxbJWD828PFjtyg+/UrMDo7W4Ffcs7+YWCquxU8YjV1KoxuiL+eJ5pg3ll+bC6flVv61L3LKZg=="],
 
     "empathic": ["empathic@2.0.0", "", {}, "sha512-i6UzDscO/XfAcNYD75CfICkmfLedpyPDdozrLMmQc5ORaQcdMoc21OnlEylMIqI7U8eniKrPMxxtj8k0vhmJhA=="],
+
+    "expect-type": ["expect-type@0.20.0", "", {}, "sha512-uHaC9LYNv6BcW+8SvXcwUUDCrrUxt3GSa61DFvTHj8JC+M0hekMFBwMlCarLQDk5bbpZ2vStpnQPIwRuV98YMw=="],
 
     "exsolve": ["exsolve@1.0.7", "", {}, "sha512-VO5fQUzZtI6C+vx4w/4BWJpg3s/5l+6pRQEHzFRM8WFi4XffSP1Z+4qi7GbjWbvRQEbdIco5mIMq+zX4rPuLrw=="],
 
