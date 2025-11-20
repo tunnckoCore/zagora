@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "ES2022"],
     "target": "es2022",
-    "module": "Preserve",
+    "module": "es2022",
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
@@ -19,6 +19,9 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
-    "strictNullChecks": true
-  }
+    "strictNullChecks": true,
+    "types": []
+  },
+  "include": ["src-v4/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

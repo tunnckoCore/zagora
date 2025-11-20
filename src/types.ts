@@ -7,6 +7,13 @@ export type AnySchema = Schema<any, any>;
 
 export type SchemaIssue = StandardSchemaV1.Issue;
 
+export type InferSchemaOutput<T extends AnySchema> = T extends StandardSchemaV1<
+  any,
+  infer UOutput
+>
+  ? UOutput
+  : never;
+
 export type InferSchemaInput<T extends AnySchema> = T extends StandardSchemaV1<
   infer UInput,
   any
@@ -38,13 +45,6 @@ export type IsArraySchema<T extends AnySchema> = T extends StandardSchemaV1<
       : true
     : false
   : false;
-
-export type InferSchemaOutput<T extends AnySchema> = T extends StandardSchemaV1<
-  any,
-  infer UOutput
->
-  ? UOutput
-  : never;
 
 // Helper to generate tuple spread overloads with proper mutable array handling
 export type TupleForwardOverloads<

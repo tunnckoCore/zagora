@@ -1,11 +1,6 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { ZagoraError } from "./error.ts";
-import type {
-  AnySchema,
-  InferSchemaInput,
-  InferSchemaOutput,
-  ZagoraResult,
-} from "./types.ts";
+import type { AnySchema, InferSchemaInput, ZagoraResult } from "./types.ts";
 
 export const isZagoraTypedError = (error: unknown): error is ZagoraError => {
   return Boolean(
@@ -193,7 +188,7 @@ export function createResult<
   return res;
 }
 
-function handleTupleDefaults(
+export function handleTupleDefaults(
   schema: StandardSchemaV1,
   rawArgs: unknown[],
 ): unknown[] {
@@ -201,7 +196,6 @@ function handleTupleDefaults(
   const schemaAny = schema as any;
   const isZodTuple = schemaAny._def && schemaAny._def.type === "tuple";
   const isValibotTuple = schemaAny.type === "tuple" && !isZodTuple;
-  // console.log("is tuple when valibot tuple", schemaAny);
 
   // Try to detect if this is a StandardSchema tuple schema
   if (isZodTuple || isValibotTuple) {
