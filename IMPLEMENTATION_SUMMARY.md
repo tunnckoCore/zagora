@@ -2,40 +2,14 @@
 
 ## What Was Built
 
-A complete enhancement to the Zagora RPC library adding **context** and **middleware** support while maintaining immutability and type safety. The implementation lives in `src-v2/` as a parallel, fully independent codebase.
+A complete enhancement to the Zagora library adding **context** and **middleware** support while maintaining immutability and type safety.
 
-## Architecture
-
-### Core Files
-
-```
-src-v2/
-├── error.ts       # ZagoraError class (unchanged from v1)
-├── types.ts       # Extended types for context & middleware
-├── utils.ts       # Helper functions including executeMiddlewares()
-└── index.ts       # Main Zagora class with new methods
-```
-
-### Documentation
-
-```
-├── SRC_V2_README.md           # Comprehensive reference
-├── SPREADING_EXPLAINED.md     # Deep dive into immutability mechanism
-├── QUICK_START.md             # Quick reference guide
-└── IMPLEMENTATION_SUMMARY.md  # This file
-```
-
-### Examples
-
-```
-└── example-v2.ts             # Working code examples
-```
-
-## Key Features Implemented
+## Key Features
 
 ### 1. Context Type Support
 
 **New generic parameter:**
+
 ```typescript
 class Zagora<
   TInputSchema,
@@ -46,6 +20,7 @@ class Zagora<
 ```
 
 **Enabled via `.$context<T>()`:**
+
 ```typescript
 const authed = zagora().$context<{ user: User; requestId: string }>();
 ```
@@ -53,6 +28,7 @@ const authed = zagora().$context<{ user: User; requestId: string }>();
 ### 2. Middleware System
 
 **Middleware signature:**
+
 ```typescript
 type Middleware<TContext> = (args: {
   context: TContext;
@@ -61,6 +37,7 @@ type Middleware<TContext> = (args: {
 ```
 
 **Added via `.use(middleware)`:**
+
 ```typescript
 const authed = zagora()
   .$context<Context>()

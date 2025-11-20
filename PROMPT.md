@@ -7,7 +7,10 @@ This document explains the new context and middleware features added to Zagora i
 The v2 implementation extends Zagora with:
 - **Context Support**: Type-safe context objects that flow through procedures
 - **Middleware**: Chainable middleware for request enrichment, logging, auth, etc.
-- **Three procedure types**: Basic (no context), Public (context, no middleware), Authenticated (context + middleware)
+- **Three procedure types**: Basic (no context), Basic With Context, and Context & Middleware
+  + basic -> `zagora().input(z.string()).handler((input) => input.toUpperCase());`
+  + context -> `zagora().$context<Context>(initialContext).input(z.string()).handler(({ input, context }) => input.toUpperCase());`
+  + context & middleware -> `zagora().$context<Context>(initialContext).use(middleware).input(z.string()).handler(({ input, context }) => input.toUpperCase());`
 
 ## Key Differences from v1
 
@@ -31,7 +34,7 @@ const basic = zagora()
 const pub = zagora().$context<PublicContext>();
 const proc = pub
   .input(schema)
-  .handler(({ input, context }) => {
+  .handler(({ input, context }, errorHelpers) => {
     // Receives input AND context
     return result;
   });
@@ -41,9 +44,10 @@ const authed = zagora()
   .$context<AuthContext>()
   .use(authMiddleware)
   .use(loggingMiddleware);
+
 const secure = authed
   .input(schema)
-  .handler(({ input, context, errors }) => {
+  .handler(({ input, context }, errorHelpers) => {
     // Context is enriched by middleware
     return result;
   });
@@ -68,12 +72,11 @@ interface Context {
 Use `$context<T>()` to enable context:
 
 ```ts
-const pub = zagora().$context<Context>();
+const pub = zagora().$context<Context>(optionalInitialContext);
 ```
 
 This creates a new Zagora instance where:
-- The `handler()` receives `{ input, context, errors }` as a single object
-- Input must be passed as `input` property
+- The `handler()` receives `{ input, context }` as a single object
 - Context is available but not yet enriched
 
 ### 3. Middleware
@@ -90,24 +93,28 @@ type Middleware<TContext> = (args: {
 Example middleware:
 
 ```ts
-const authMiddleware = async ({ context, next }) => {
-  // Enrich context with authenticated user
-  const user = await validateToken(context.token);
+const authMiddleware = zagora()
+  .$context<{ something?: string }>() // <-- define dependent-context
+  .middleware(async ({ context, next }) => {
+    // Execute logic before the handler
 
-  return next({
-    context: {
-      ...context,
-      user,
-    },
-  });
-};
+    const result = await next({
+      context: { // Pass additional context
+        user: { id: 1, name: 'John' }
+      }
+    })
 
-const loggingMiddleware = async ({ context, next }) => {
+    // Execute logic after the handler
+
+    return result
+  })
+
+const loggingMiddleware = zagora().middleware(({ context, next }) => {
   console.log("Request started:", context.requestId);
   const result = await next({ context });
   console.log("Request completed");
   return result;
-};
+});
 ```
 
 ### 4. Chaining Middleware
@@ -129,23 +136,26 @@ Middleware executes in order, each one's `next()` calls the next middleware. The
 The handler signature depends on context and errors:
 
 **No context:**
+
 ```ts
 .handler((input) => {
   return result;
 });
 ```
 
-**With context, no errors:**
+**With context:**
+
 ```ts
 .handler(({ input, context }) => {
   return result;
 });
 ```
 
-**With context and errors:**
+**With context and error helpers:**
+
 ```ts
-.handler(({ input, context, errors }) => {
-  // errors.ERROR_TYPE({ field: "value" }) to return typed error
+.handler(({ input, context }, errorHelpers) => {
+  // throw errorHelpers.AUTH_ERR({ field: "value" })
   return result;
 });
 ```
@@ -157,8 +167,8 @@ The type system automatically adjusts based on what you enable:
 ```ts
 // Basic procedure - handler gets single argument
 const basic = zagora();
-basic.input(z.string()).handler((input: string) => {
-  // input is inferred as string
+basic.input(z.string()).handler((input) => {
+  // `input` is inferred as string
   return input;
 });
 
@@ -173,16 +183,20 @@ ctx.input(z.string()).handler(({ input, context }) => {
 const err = zagora()
   .$context<Context>()
   .input(z.string())
-  .errors({ NOT_FOUND: z.object({ type: z.literal("NOT_FOUND") }) })
-  .handler(({ input, context, errors }) => {
-    // errors.NOT_FOUND({ ... }) available
+  .errors({
+    NOT_FOUND: z.object({
+      type: z.literal("NOT_FOUND"), userId: z.string()
+    })
+  })
+  .handler(({ input, context }, errorHelpers) => {
+    // errorHelpers.NOT_FOUND({ ... }) available
     return input;
   });
 ```
 
 ## Implementation Details
 
-### Immutability Through Spreading
+### Immutability
 
 Like v1, each method returns a new instance:
 
@@ -206,33 +220,17 @@ const withLogging = authed
 ### Context vs. Input Handling
 
 When context is enabled:
-- `handler()` receives `{ input, context, errors }` object (always)
+- `handler()` receives `{ input, context }` object (always)
 - If no input schema defined, `input: undefined`
-- For tuple/array schemas, input is still wrapped in object
+- For tuple/array schemas, they remain arrays with proper types
+- If error schemas are defined, error helpers are built and passed as `errors` in last handler argument
 
 When context is NOT enabled:
 - Handler receives arguments directly (same as v1)
 - `input(z.string())` → handler receives `string`
-- `input(z.tuple([...]))` → handler receives spread args
-- Optional `errors` as last argument if errors schema defined
+- `input(z.tuple([...]))` → handler receives spreaded args
+- If error schemas are defined, error helpers are built and passed as `errors` in last handler argument
 
-## File Structure
-
-```
-src-v2/
-├── error.ts          # ZagoraError class (same as v1)
-├── types.ts          # Type definitions for context and middleware
-├── utils.ts          # Utility functions including executeMiddlewares()
-└── index.ts          # Main Zagora class with new $context() and use() methods
-```
-
-### Key Type Additions
-
-- `AnyContext`: Alias for `Record<string, any>`
-- `Middleware<T>`: Middleware function type
-- `MiddlewareNext<T>`: Next function type
-- `HandlerArg<TInput, TContext, TErrors>`: Determines handler argument type
-- `ZagoraDef` extended with `contextType` and `middlewares`
 
 ### Key Utility Additions
 
@@ -331,25 +329,11 @@ const deleteUser = authed
   });
 ```
 
-## Migration from v1
-
-To use v2 alongside v1, import from `src-v2`:
-
-```ts
-// v1 - no changes needed
-import { zagora as zagoraV1 } from './src/index';
-
-// v2 - new features
-import { zagora as zagoraV2 } from './src-v2/index';
-
-// They can coexist and be used independently
-```
-
 ## Important Notes
 
-1. **Async Middleware**: All middleware is async and returns a Promise
+1. **Sync and Async Middlewares**: Should detect if middleware is sync or async, the same way it does with handlers!
 2. **Context Immutability**: Middleware can create new context objects, the original isn't mutated
-3. **Middleware Order Matters**: Middleware executes in the order added with `.use()`
+3. **Middleware Order Matters**: Middleware executes in the order added/used with `.use()`
 4. **Type Safety**: Full type inference for context, input, output, and errors throughout the chain
 5. **No Breaking Changes to v1**: The original implementation remains unchanged
 6. **Handler Behavior**: Context-enabled handlers always receive a single object, never spread arguments
