@@ -253,7 +253,7 @@ export interface ProcedureOptions<
   TContext,
   TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
 > {
-  context: TContext | undefined;
+  context: TContext;
   errors: TErrorsMap extends Record<string, StandardSchemaV1>
     ? ErrorHelpers<TErrorsMap>
     : undefined;
@@ -362,7 +362,7 @@ class Builder<
   }
 
   callable<
-    TContext,
+    TNewContext extends TContext,
     TSpread extends SpreadTuple<
       InferSchemaInput<TInputSchema>,
       ZagoraResult<
@@ -378,7 +378,7 @@ class Builder<
           InferSchemaOutput<TOutputSchema>,
           ErrorsMapResolved<TErrorsMap>
         >,
-  >(context?: TContext): TProcReturn {
+  >(context?: TNewContext): TProcReturn {
     const { initialContext, errorsMap } = this.def;
     const handlerFn = this.def.handler as any; // todo: fix, return internal error if not defined (thru createResult)
     const inputSchema = this.def.inputSchema as TInputSchema;
@@ -392,7 +392,7 @@ class Builder<
     const errors = errorsMap ? createErrorHelpers(errorsMap as any) : undefined;
     const options = {
       errors: errors as ErrorHelpers<TErrorsMap>,
-      context: mergedContext,
+      context: mergedContext as TNewContext,
     };
 
     const wrapped = (...args: unknown[]) => {

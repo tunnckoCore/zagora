@@ -96,14 +96,15 @@ console.log(
   proc4("Carol", { user: "carol", role: "admin", paid: true }),
 );
 
-const ping = zagora()
+const pingProc = zagora()
+  .context<{ user: string }>({ user: "default" })
   .input(z.number())
-  .output(z.object({ pong: z.number() }))
+  .output(z.object({ pong: z.number(), userId: z.string() }).strict())
   .errors({
     NOT_FOUND: z.object({ type: z.literal("NOT_FOUND"), userId: z.string() }),
     AUTH_ERR: z.object({ type: z.literal("AUTH_ERR"), retryAfter: z.number() }),
   })
-  .handler(({ errors }, id) => {
+  .handler(({ errors, context }, id) => {
     if (id === 42) {
       throw errors.AUTH_ERR({ retryAfter: Date.now() + 1000 });
     }
@@ -111,12 +112,20 @@ const ping = zagora()
       throw errors.NOT_FOUND({ userId: "123" });
     }
 
-    return { pong: id + 1 };
-  })
-  .callable();
+    return { pong: id + 1, userId: context.user + "-foo" };
+  });
+
+// const router = {
+//   users: {
+//     ping: pingProc,
+//   },
+// };
+
+// router.users.ping.callable({ user: "sasa" });
 
 // Call synchronously, no try-catch needed
-const resPing = ping(42);
+const ping = pingProc.callable();
+const resPing = ping(30);
 console.log("Test 5 ping-pong:", resPing);
 
 if (
