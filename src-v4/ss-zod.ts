@@ -101,8 +101,8 @@ const pingProc = zagora()
   .input(z.number())
   .output(z.object({ pong: z.number(), userId: z.string() }).strict())
   .errors({
-    NOT_FOUND: z.object({ type: z.literal("NOT_FOUND"), userId: z.string() }),
-    AUTH_ERR: z.object({ type: z.literal("AUTH_ERR"), retryAfter: z.number() }),
+    NOT_FOUND: z.object({ kind: z.literal("NOT_FOUND"), userId: z.string() }),
+    AUTH_ERR: z.object({ kind: z.literal("AUTH_ERR"), retryAfter: z.number() }),
   })
   .handler(({ errors, context }, id) => {
     if (id === 42) {
@@ -137,7 +137,7 @@ if (
     "foo::::",
     // Type checking now correctly infers resPing.error as PingCallableError
     // and then further narrows it based on the 'type' property.
-    resPing.error.type === "AUTH_ERR" ? resPing.error.retryAfter : "sasa",
+    resPing.error.kind === "AUTH_ERR" ? resPing.error.retryAfter : "sasa",
     "<<<",
   );
 } else if (resPing.error && resPing.error instanceof Error) {

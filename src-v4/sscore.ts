@@ -1,5 +1,4 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { ZagoraError } from "../src/error";
 
 export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
@@ -117,6 +116,42 @@ export type ZagoraResult<
   isTypedError: boolean;
 };
 
+export class ZagoraError extends Error {
+  readonly issues?: readonly SchemaIssue[];
+  override readonly cause?: unknown;
+  readonly data?: unknown;
+  readonly reason: string;
+
+  constructor(
+    message: string,
+    options?: {
+      issues?: readonly SchemaIssue[];
+      cause?: unknown;
+      data?: unknown;
+      reason?: string;
+    },
+  ) {
+    super(message);
+    this.name = "ZagoraError";
+    this.issues = options?.issues;
+    this.cause = options?.cause;
+    this.data = options?.data;
+    this.reason = options?.reason || "Unknown or internal error";
+  }
+
+  static fromIssues(
+    issues: readonly SchemaIssue[],
+    reason?: string,
+    error?: any,
+  ) {
+    const message = issues.map((issue) => issue.message).join(", ");
+    return new ZagoraError(message, {
+      issues,
+      reason: reason || "Failure caused by validation",
+    });
+  }
+}
+
 export function handleTupleDefaults(
   schema: AnySchema,
   rawArgs: unknown[],
@@ -201,7 +236,7 @@ function createErrorHelpers(errorMap: any): Record<string, (data: any) => any> {
     if (!schema) continue;
 
     helpers[key] = (data: any) => {
-      return { type: key, ...data };
+      return { kind: key, ...data };
     };
   }
   return helpers;
@@ -236,7 +271,7 @@ export type ErrorHelpers<
 > = TErrorsMap extends Record<string, AnySchema>
   ? {
       [K in keyof TErrorsMap]: (
-        data: Prettify<Omit<InferSchemaInput<TErrorsMap[K]>, "type">>,
+        data: Prettify<Omit<InferSchemaInput<TErrorsMap[K]>, "kind">>,
       ) => never;
     }
   : never;
