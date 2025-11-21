@@ -108,17 +108,17 @@ type SpreadTuple<T extends readonly any[], R> = T extends readonly [infer A]
 
 export type ZagoraResult<
   TOutput,
-  TErrors extends Record<string, any> | undefined = undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
 > = {
   data: TOutput;
-  error: TErrors extends Record<string, any>
-    ? TErrors[keyof TErrors] | ZagoraError | null
+  error: TErrorsMap extends Record<string, any>
+    ? TErrorsMap[keyof TErrorsMap] | ZagoraError | null
     : ZagoraError | null;
   isTypedError: boolean;
 };
 
 export function handleTupleDefaults(
-  schema: StandardSchemaV1,
+  schema: AnySchema,
   rawArgs: unknown[],
 ): unknown[] {
   // Check if this might be a tuple schema by examining the schema structure
@@ -217,7 +217,7 @@ export interface BuilderDef<
   TContext,
   TInputSchema extends AnySchema | undefined,
   TOutputSchema extends AnySchema | undefined,
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined,
 > {
   initialContext: any;
   inputSchema: TInputSchema;
@@ -232,29 +232,27 @@ export interface BuilderDef<
 export type IsPromise<T> = T extends Promise<any> ? true : false;
 
 export type ErrorHelpers<
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
-> = TErrorsMap extends Record<string, StandardSchemaV1>
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+> = TErrorsMap extends Record<string, AnySchema>
   ? {
       [K in keyof TErrorsMap]: (
-        data: Prettify<
-          Omit<StandardSchemaV1.InferInput<TErrorsMap[K]>, "type">
-        >,
+        data: Prettify<Omit<InferSchemaInput<TErrorsMap[K]>, "type">>,
       ) => never;
     }
   : never;
 
 export type ErrorsMapResolved<
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
-> = TErrorsMap extends Record<string, StandardSchemaV1>
-  ? { [K in keyof TErrorsMap]: StandardSchemaV1.InferInput<TErrorsMap[K]> }
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+> = TErrorsMap extends Record<string, AnySchema>
+  ? { [K in keyof TErrorsMap]: InferSchemaInput<TErrorsMap[K]> }
   : undefined;
 
 export interface ProcedureOptions<
   TContext,
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined,
 > {
   context: TContext;
-  errors: TErrorsMap extends Record<string, StandardSchemaV1>
+  errors: TErrorsMap extends Record<string, AnySchema>
     ? ErrorHelpers<TErrorsMap>
     : undefined;
 }
@@ -265,7 +263,7 @@ class Builder<
   TContext extends any | undefined = undefined,
   TInputSchema extends AnySchema = never,
   TOutputSchema extends AnySchema = never,
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined = undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
 > {
   constructor(
     private def: Partial<
@@ -321,7 +319,7 @@ class Builder<
     }) as any;
   }
 
-  errors<TErrors extends Record<string, StandardSchemaV1>>(
+  errors<TErrors extends Record<string, AnySchema>>(
     errorsMap: TErrors,
   ): Builder<
     TIsHandlerAsync,
