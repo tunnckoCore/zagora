@@ -23,7 +23,7 @@ console.log("Test 1b:", proc1("Bob", 30));
 // Test 1b: Tuple with default + optional
 const proc1b = zagora()
   .input(z.tuple([z.string(), z.number().default(42), z.boolean().optional()]))
-  .handler((options, name, age, verified) => ({
+  .handler((_options, name, age, verified) => ({
     // passing!
     // name: string
     // age: number - must be, because it's defaulted to 42

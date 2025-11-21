@@ -1,6 +1,5 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { ZagoraError } from "../src/error";
-import { createResult } from "../src/utils";
 
 export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
@@ -107,6 +106,17 @@ type SpreadTuple<T extends readonly any[], R> = T extends readonly [infer A]
                   | ((arg1: A) => R)
         : (...args: T) => R;
 
+export type ZagoraResult<
+  TOutput,
+  TErrors extends Record<string, any> | undefined = undefined,
+> = {
+  data: TOutput;
+  error: TErrors extends Record<string, any>
+    ? TErrors[keyof TErrors] | ZagoraError | null
+    : ZagoraError | null;
+  isTypedError: boolean;
+};
+
 export function handleTupleDefaults(
   schema: StandardSchemaV1,
   rawArgs: unknown[],
@@ -159,7 +169,7 @@ function deepMerge(target: any, source: any): any {
   if (target == null || typeof target !== "object") return source;
   const result = Array.isArray(target) ? [...target] : { ...target };
   for (const key in source) {
-    if (Object.hasOwn(source, key)) {
+    if (key in source) {
       if (typeof source[key] === "object" && source[key] !== null) {
         result[key] = deepMerge(target[key], source[key]);
       } else {
@@ -170,17 +180,28 @@ function deepMerge(target: any, source: any): any {
   return result;
 }
 
+// export const isTypedError = (val: any) => {
+//   return Boolean(
+//     val !== null &&
+//       typeof val === "object" &&
+//       "error" in val &&
+//       "isTypedError" in val &&
+//       val.isTypedError === true &&
+//       val.error !== null &&
+//       typeof val.error === "object" &&
+//       !(val.error instanceof Error) &&
+//       "type" in val.error,
+//   );
+// };
+
 function createErrorHelpers(errorMap: any): Record<string, (data: any) => any> {
   const helpers: any = {};
   for (const key in errorMap) {
     const schema = errorMap[key];
     if (!schema) continue;
+
     helpers[key] = (data: any) => {
-      const result = schema["~standard"].validate(data) as any;
-      if (result.issues) {
-        throw result.issues;
-      }
-      return { type: key, ...result.value };
+      return { type: key, ...data };
     };
   }
   return helpers;
@@ -191,8 +212,8 @@ function createErrorHelpers(errorMap: any): Record<string, (data: any) => any> {
 // ============================================================================
 
 export interface BuilderDef<
-  TIsHandlerAsync,
-  THandlerFn,
+  // TIsHandlerAsync,
+  // THandlerFn,
   TContext,
   TInputSchema extends AnySchema | undefined,
   TOutputSchema extends AnySchema | undefined,
@@ -210,15 +231,29 @@ export interface BuilderDef<
 
 export type IsPromise<T> = T extends Promise<any> ? true : false;
 
-export type ErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
-  [K in keyof T]: (data: Omit<InferSchemaInput<T[K]>, "type">) => never;
-};
+export type ErrorHelpers<
+  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
+> = TErrorsMap extends Record<string, StandardSchemaV1>
+  ? {
+      [K in keyof TErrorsMap]: (
+        data: Prettify<
+          Omit<StandardSchemaV1.InferInput<TErrorsMap[K]>, "type">
+        >,
+      ) => never;
+    }
+  : never;
+
+export type ErrorsMapResolved<
+  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
+> = TErrorsMap extends Record<string, StandardSchemaV1>
+  ? { [K in keyof TErrorsMap]: StandardSchemaV1.InferInput<TErrorsMap[K]> }
+  : undefined;
 
 export interface ProcedureOptions<
   TContext,
   TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
 > {
-  context: TContext;
+  context: TContext | undefined;
   errors: TErrorsMap extends Record<string, StandardSchemaV1>
     ? ErrorHelpers<TErrorsMap>
     : undefined;
@@ -234,14 +269,7 @@ class Builder<
 > {
   constructor(
     private def: Partial<
-      BuilderDef<
-        TIsHandlerAsync,
-        THandlerFn,
-        TContext,
-        TInputSchema,
-        TOutputSchema,
-        TErrorsMap
-      >
+      BuilderDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
     > = {},
   ) {}
 
@@ -293,7 +321,7 @@ class Builder<
     }) as any;
   }
 
-  errors<TErrors extends TErrorsMap>(
+  errors<TErrors extends Record<string, StandardSchemaV1>>(
     errorsMap: TErrors,
   ): Builder<
     TIsHandlerAsync,
@@ -328,15 +356,29 @@ class Builder<
     });
   }
 
-  callable<TContext>(
-    context?: TContext,
-  ): InferSchemaInput<TInputSchema> extends readonly any[]
-    ? SpreadTuple<InferSchemaInput<TInputSchema>, any>
-    : (arg: InferSchemaInput<TInputSchema>) => any {
+  callable<
+    TContext,
+    TSpread extends SpreadTuple<
+      InferSchemaInput<TInputSchema>,
+      ZagoraResult<
+        InferSchemaOutput<TOutputSchema>,
+        ErrorsMapResolved<TErrorsMap>
+      >
+    >,
+    TProcReturn extends InferSchemaInput<TInputSchema> extends readonly any[]
+      ? TSpread
+      : (
+          arg: InferSchemaOutput<TInputSchema>,
+        ) => ZagoraResult<
+          InferSchemaOutput<TOutputSchema>,
+          ErrorsMapResolved<TErrorsMap>
+        >,
+  >(context?: TContext): TProcReturn {
     const { initialContext, errorsMap } = this.def;
     const handlerFn = this.def.handler as any; // todo: fix, return internal error if not defined (thru createResult)
     const inputSchema = this.def.inputSchema as TInputSchema;
     const outputSchema = this.def.outputSchema as TOutputSchema;
+    const isAsync = isAsyncFunction(handlerFn);
 
     const mergedContext = context
       ? deepMerge(initialContext, context)
@@ -344,9 +386,9 @@ class Builder<
 
     const errors = errorsMap ? createErrorHelpers(errorsMap as any) : undefined;
     const options = {
-      errors,
+      errors: errors as ErrorHelpers<TErrorsMap>,
       context: mergedContext,
-    } as ProcedureOptions<TContext & typeof mergedContext, TErrorsMap>;
+    };
 
     const wrapped = (...args: unknown[]) => {
       const schemaAny = inputSchema as any;
@@ -365,27 +407,32 @@ class Builder<
         ? handleTupleDefaults(inputSchema, parsed)
         : [parsed];
 
-      const handlerResult = (
-        handlerFn as (
-          opts: ProcedureOptions<TContext, TErrorsMap>,
-          ...args: any[]
-        ) => any
-      )(options, ...handlerArgs);
-
-      if (outputSchema) {
-        if (handlerResult instanceof Promise) {
-          return handlerResult.then((r) =>
-            validateOutput(outputSchema, r, "Output validation failed"),
-          );
-        }
-        return validateOutput(
-          outputSchema,
-          handlerResult,
-          "Output validation failed",
+      let handlerResult;
+      try {
+        handlerResult = handlerFn(
+          options as any,
+          ...(handlerArgs as Parameters<TSpread>),
         );
+      } catch (err) {
+        return validateError(errorsMap, err, isAsync);
       }
-      return createResult(handlerResult, null, false);
+
+      const processResult = (res: any) => {
+        if (outputSchema) {
+          return validateOutput(outputSchema, res, "Output validation failed");
+        }
+        return createResult(res, null, false);
+      };
+
+      if (handlerResult instanceof Promise) {
+        return handlerResult.then(processResult).catch((err) => {
+          return validateError(errorsMap, err, isAsync);
+        });
+      }
+
+      return processResult(handlerResult);
     };
+
     return wrapped as any;
   }
 }
@@ -413,6 +460,82 @@ export function validateOutput(schema: any, data: any, validationMsg: string) {
   }
 }
 
-export function builder() {
+export function validateError(errorsMap: any, error: any, isAsync: boolean) {
+  if (!errorsMap) {
+    return createResult(
+      null,
+      error instanceof ZagoraError
+        ? error
+        : new ZagoraError(
+            `${isAsync ? "Async" : "Sync"} handler threw unknown error`,
+            { cause: error },
+          ),
+      false,
+    );
+  }
+
+  const errorType = error?.type;
+  console.log("errorsMap", { error });
+  if (errorType in errorsMap) {
+    const schema = errorsMap[errorType] as any;
+    const result = schema["~standard"].validate(error);
+    const processError = (res: any) =>
+      res.issues
+        ? createResult(
+            null,
+            ZagoraError.fromIssues(
+              res.issues,
+              `Error data validation failed for ${errorType}`,
+            ),
+            false,
+          )
+        : createResult(null, { type: errorType, ...res.value }, true);
+
+    if (result instanceof Promise) {
+      return result.then(processError);
+    }
+    return processError(result);
+  }
+
+  return createResult(
+    null,
+    new ZagoraError(`Typed error with key ${errorType} not found in errorsMap`),
+    false,
+  );
+}
+
+// note: basic, but coverting a lot, if not just use `is-async-function` in future
+export function isAsyncFunction(fn: any) {
+  if (typeof fn !== "function") {
+    return false;
+  }
+
+  const str = Function.prototype.toString.call(fn);
+
+  if (str.startsWith("async")) {
+    return true;
+  }
+
+  const obj = Object.prototype.toString.call(fn);
+
+  if (obj === "[object AsyncFunction]") {
+    return true;
+  }
+
+  try {
+    const result = fn();
+    return result instanceof Promise;
+  } catch (_err: unknown) {
+    return false;
+  }
+}
+
+export function createResult(data: any, error: any, isTypedError: boolean) {
+  const res = { data, error, isTypedError };
+
+  return res;
+}
+
+export function zagora() {
   return new Builder();
 }

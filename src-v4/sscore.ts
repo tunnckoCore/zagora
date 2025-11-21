@@ -107,12 +107,12 @@ type SpreadTuple<T extends readonly any[], R> = T extends readonly [infer A]
         : (...args: T) => R;
 
 export type ZagoraResult<
-  TOutput extends StandardSchemaV1 | undefined = undefined,
-  TErrors extends Record<string, StandardSchemaV1> | undefined = undefined,
+  TOutput,
+  TErrors extends Record<string, any> | undefined = undefined,
 > = {
-  data: TOutput extends StandardSchemaV1 ? InferSchemaOutput<TOutput> : any;
-  error: TErrors extends Record<string, StandardSchemaV1>
-    ? InferSchemaInput<TErrors[keyof TErrors]> | ZagoraError | null
+  data: TOutput;
+  error: TErrors extends Record<string, any>
+    ? TErrors[keyof TErrors] | ZagoraError | null
     : ZagoraError | null;
   isTypedError: boolean;
 };
@@ -169,7 +169,7 @@ function deepMerge(target: any, source: any): any {
   if (target == null || typeof target !== "object") return source;
   const result = Array.isArray(target) ? [...target] : { ...target };
   for (const key in source) {
-    if (Object.hasOwn(source, key)) {
+    if (key in source) {
       if (typeof source[key] === "object" && source[key] !== null) {
         result[key] = deepMerge(target[key], source[key]);
       } else {
@@ -212,8 +212,8 @@ function createErrorHelpers(errorMap: any): Record<string, (data: any) => any> {
 // ============================================================================
 
 export interface BuilderDef<
-  TIsHandlerAsync,
-  THandlerFn,
+  // TIsHandlerAsync,
+  // THandlerFn,
   TContext,
   TInputSchema extends AnySchema | undefined,
   TOutputSchema extends AnySchema | undefined,
@@ -231,15 +231,29 @@ export interface BuilderDef<
 
 export type IsPromise<T> = T extends Promise<any> ? true : false;
 
-export type ErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
-  [K in keyof T]: (data: Omit<InferSchemaInput<T[K]>, "type">) => never;
-};
+export type ErrorHelpers<
+  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
+> = TErrorsMap extends Record<string, StandardSchemaV1>
+  ? {
+      [K in keyof TErrorsMap]: (
+        data: Prettify<
+          Omit<StandardSchemaV1.InferInput<TErrorsMap[K]>, "type">
+        >,
+      ) => never;
+    }
+  : never;
+
+export type ErrorsMapResolved<
+  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
+> = TErrorsMap extends Record<string, StandardSchemaV1>
+  ? { [K in keyof TErrorsMap]: StandardSchemaV1.InferInput<TErrorsMap[K]> }
+  : undefined;
 
 export interface ProcedureOptions<
   TContext,
   TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
 > {
-  context: TContext;
+  context: TContext | undefined;
   errors: TErrorsMap extends Record<string, StandardSchemaV1>
     ? ErrorHelpers<TErrorsMap>
     : undefined;
@@ -255,14 +269,7 @@ class Builder<
 > {
   constructor(
     private def: Partial<
-      BuilderDef<
-        TIsHandlerAsync,
-        THandlerFn,
-        TContext,
-        TInputSchema,
-        TOutputSchema,
-        TErrorsMap
-      >
+      BuilderDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
     > = {},
   ) {}
 
@@ -331,13 +338,18 @@ class Builder<
   }
 
   handler<
-    TFn extends SpreadTuple<
-      [
-        Prettify<ProcedureOptions<TContext, TErrorsMap>>,
-        ...InferSchemaOutput<TInputSchema>,
-      ],
-      any
-    >,
+    TFn extends InferSchemaOutput<TInputSchema> extends readonly any[]
+      ? SpreadTuple<
+          [
+            Prettify<ProcedureOptions<TContext, TErrorsMap>>,
+            ...InferSchemaOutput<TInputSchema>,
+          ],
+          any
+        >
+      : (
+          options: Prettify<ProcedureOptions<TContext, TErrorsMap>>,
+          arg: InferSchemaOutput<TInputSchema>,
+        ) => any,
     TReturn = ReturnType<TFn>,
     TIsAsync extends boolean = IsPromise<TReturn>,
   >(
@@ -349,16 +361,24 @@ class Builder<
     });
   }
 
-  callable<TContext>(
-    context?: TContext,
-  ): InferSchemaInput<TInputSchema> extends readonly any[]
-    ? SpreadTuple<
-        InferSchemaInput<TInputSchema>,
-        ZagoraResult<InferSchemaInput<TOutputSchema>, TErrorsMap>
+  callable<
+    TContext,
+    TSpread extends SpreadTuple<
+      InferSchemaInput<TInputSchema>,
+      ZagoraResult<
+        InferSchemaOutput<TOutputSchema>,
+        ErrorsMapResolved<TErrorsMap>
       >
-    : (
-        arg: InferSchemaInput<TInputSchema>,
-      ) => ZagoraResult<InferSchemaInput<TOutputSchema>, TErrorsMap> {
+    >,
+    TProcReturn extends InferSchemaInput<TInputSchema> extends readonly any[]
+      ? TSpread
+      : (
+          arg: InferSchemaOutput<TInputSchema>,
+        ) => ZagoraResult<
+          InferSchemaOutput<TOutputSchema>,
+          ErrorsMapResolved<TErrorsMap>
+        >,
+  >(context?: TContext): TProcReturn {
     const { initialContext, errorsMap } = this.def;
     const handlerFn = this.def.handler as any; // todo: fix, return internal error if not defined (thru createResult)
     const inputSchema = this.def.inputSchema as TInputSchema;
@@ -371,9 +391,9 @@ class Builder<
 
     const errors = errorsMap ? createErrorHelpers(errorsMap as any) : undefined;
     const options = {
-      errors,
+      errors: errors as ErrorHelpers<TErrorsMap>,
       context: mergedContext,
-    } as ProcedureOptions<TContext & typeof mergedContext, TErrorsMap>;
+    };
 
     const wrapped = (...args: unknown[]) => {
       const schemaAny = inputSchema as any;
@@ -394,12 +414,10 @@ class Builder<
 
       let handlerResult;
       try {
-        handlerResult = (
-          handlerFn as (
-            opts: ProcedureOptions<TContext, TErrorsMap>,
-            ...args: any[]
-          ) => any
-        )(options, ...handlerArgs);
+        handlerResult = handlerFn(
+          options as any,
+          ...(handlerArgs as Parameters<TSpread>),
+        );
       } catch (err) {
         return validateError(errorsMap, err, isAsync);
       }
@@ -517,13 +535,10 @@ export function isAsyncFunction(fn: any) {
   }
 }
 
-export function createResult<
-  TOutputSchema extends AnySchema,
-  TErrorsSchema extends Record<string, AnySchema>,
->(data: any, error: any, isTypedError: boolean) {
+export function createResult(data: any, error: any, isTypedError: boolean) {
   const res = { data, error, isTypedError };
 
-  return res as unknown as ZagoraResult<TOutputSchema, TErrorsSchema>;
+  return res;
 }
 
 export function zagora() {
