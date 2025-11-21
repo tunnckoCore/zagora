@@ -1,541 +1,140 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { ZagoraError } from "../src/error";
-
-export type Schema<I, O = I> = StandardSchemaV1<I, O>;
-
-export type AnySchema = Schema<any, any>;
-
-export type SchemaIssue = StandardSchemaV1.Issue;
-
-export type InferSchemaOutput<T extends AnySchema> = T extends StandardSchemaV1<
-  any,
-  infer UOutput
->
-  ? UOutput
-  : never;
-
-export type InferSchemaInput<T extends AnySchema> = T extends StandardSchemaV1<
-  infer UInput,
-  any
->
-  ? UInput
-  : never;
+import z from "zod";
+import { zagora } from "./sscore";
 
 // ============================================================================
-// SPREADABLE TUPLE - Convert tuple type to function overloads with valid param order
+// TESTS
 // ============================================================================
-export type Prettify<T> = {
-  [K in keyof T]: T[K];
-} & {};
 
-type IsOptional<T> = undefined extends T ? true : false;
+// Test 1: Tuple with defaults
+const proc1 = zagora()
+  .context<{ foo: string }>()
+  .input(z.tuple([z.string(), z.number().default(42)]))
+  .handler((opts, name, age) => ({
+    // passing!
+    // name: string
+    // age: number - must be, because it's defaulted to 42
+    message: `${name} is ${age}`,
+  }))
+  .callable({ foo: "bar", sasa: 123 });
 
-type SpreadTuple<T extends readonly any[], R> = T extends readonly [infer A]
-  ? (arg: A) => R
-  : T extends readonly [infer A, infer B]
-    ? IsOptional<B> extends true
-      ? ((arg1: A, arg2?: B) => R) | ((arg1: A) => R)
-      : ((arg1: A, arg2: B) => R) | ((arg1: A) => R)
-    : T extends readonly [infer A, infer B, infer C]
-      ? IsOptional<B> extends true
-        ? IsOptional<C> extends true
-          ?
-              | ((arg1: A, arg2?: B, arg3?: C) => R)
-              | ((arg1: A, arg2?: B) => R)
-              | ((arg1: A) => R)
-          :
-              | ((arg1: A, arg2?: B, arg3?: C) => R)
-              | ((arg1: A, arg2?: B) => R)
-              | ((arg1: A) => R)
-        : IsOptional<C> extends true
-          ?
-              | ((arg1: A, arg2: B, arg3?: C) => R)
-              | ((arg1: A, arg2: B) => R)
-              | ((arg1: A) => R)
-          :
-              | ((arg1: A, arg2: B, arg3: C) => R)
-              | ((arg1: A, arg2: B) => R)
-              | ((arg1: A) => R)
-      : T extends readonly [infer A, infer B, infer C, infer D]
-        ? IsOptional<B> extends true
-          ? IsOptional<C> extends true
-            ? IsOptional<D> extends true
-              ?
-                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
-                  | ((arg1: A, arg2?: B, arg3?: C) => R)
-                  | ((arg1: A, arg2?: B) => R)
-                  | ((arg1: A) => R)
-              :
-                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
-                  | ((arg1: A, arg2?: B, arg3?: C) => R)
-                  | ((arg1: A, arg2?: B) => R)
-                  | ((arg1: A) => R)
-            : IsOptional<D> extends true
-              ?
-                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
-                  | ((arg1: A, arg2?: B, arg3?: C) => R)
-                  | ((arg1: A, arg2?: B) => R)
-                  | ((arg1: A) => R)
-              :
-                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
-                  | ((arg1: A, arg2?: B, arg3?: C) => R)
-                  | ((arg1: A, arg2?: B) => R)
-                  | ((arg1: A) => R)
-          : IsOptional<C> extends true
-            ? IsOptional<D> extends true
-              ?
-                  | ((arg1: A, arg2: B, arg3?: C, arg4?: D) => R)
-                  | ((arg1: A, arg2: B, arg3?: C) => R)
-                  | ((arg1: A, arg2: B) => R)
-                  | ((arg1: A) => R)
-              :
-                  | ((arg1: A, arg2: B, arg3?: C, arg4?: D) => R)
-                  | ((arg1: A, arg2: B, arg3?: C) => R)
-                  | ((arg1: A, arg2: B) => R)
-                  | ((arg1: A) => R)
-            : IsOptional<D> extends true
-              ?
-                  | ((arg1: A, arg2: B, arg3: C, arg4?: D) => R)
-                  | ((arg1: A, arg2: B, arg3: C) => R)
-                  | ((arg1: A, arg2: B) => R)
-                  | ((arg1: A) => R)
-              :
-                  | ((arg1: A, arg2: B, arg3: C, arg4?: D) => R)
-                  | ((arg1: A, arg2: B, arg3: C) => R)
-                  | ((arg1: A, arg2: B) => R)
-                  | ((arg1: A) => R)
-        : (...args: T) => R;
+console.log("Test 1a:", proc1("Alice"));
+console.log("Test 1b:", proc1("Bob", 30));
 
-export type ZagoraResult<
-  TOutput,
-  TErrors extends Record<string, any> | undefined = undefined,
-> = {
-  data: TOutput;
-  error: TErrors extends Record<string, any>
-    ? TErrors[keyof TErrors] | ZagoraError | null
-    : ZagoraError | null;
-  isTypedError: boolean;
-};
+// Test 1b: Tuple with default + optional
+const proc1b = zagora()
+  .input(z.tuple([z.string(), z.number().default(42), z.boolean().optional()]))
+  .handler((_options, name, age, verified) => ({
+    // passing!
+    // name: string
+    // age: number - must be, because it's defaulted to 42
+    // verified: boolean | undefined - because it's optional
+    message: `${name} is ${age}, verified: ${verified ?? false}`,
+  }))
+  .callable();
 
-export function handleTupleDefaults(
-  schema: StandardSchemaV1,
-  rawArgs: unknown[],
-): unknown[] {
-  // Check if this might be a tuple schema by examining the schema structure
-  const schemaAny = schema as any;
-  const isZodTuple = schemaAny._def && schemaAny._def.type === "tuple";
-  const isValibotTuple = schemaAny.type === "tuple" && !isZodTuple;
+// should pass because verified is optional
+// and because age is defaulted to 42
+console.log("Test 1b1:", proc1b("Alice"));
 
-  // Try to detect if this is a StandardSchema tuple schema
-  if (isZodTuple || isValibotTuple) {
-    const tupleItems = schemaAny?._def?.items || schemaAny.items;
+// should pass because verified is optional and age is passed
+console.log("Test 1b2:", proc1b("Bob", 30));
+console.log("Test 1b3:", proc1b("Carol", 25, true));
 
-    if (tupleItems && Array.isArray(tupleItems)) {
-      const result = [...rawArgs];
+// Test 2: Primitive input
+const proc2 = zagora()
+  .context<{ foo?: string; bar: string }>({ bar: "quxie" })
+  .input(z.string())
+  .handler((options, name) => {
+    options;
+    // passing!
+    // name: string
+    return `Hello ${name}!`;
+  })
+  .callable();
 
-      // Fill in defaults for missing elements
-      for (let i = rawArgs.length; i < tupleItems.length; i++) {
-        const itemSchema = tupleItems[i];
+console.log("Test 2:", proc2("World"));
 
-        if (itemSchema && itemSchema.type === "default" && itemSchema._def) {
-          const defaultValue =
-            typeof itemSchema._def.defaultValue === "function"
-              ? itemSchema._def.defaultValue()
-              : itemSchema._def.defaultValue;
+// Test 3: Object input
+const proc3 = zagora()
+  .input(z.object({ x: z.number(), y: z.number().default(2) }))
+  .handler((options, input) => {
+    options;
 
-          result[i] = defaultValue;
-        } else if (
-          itemSchema &&
-          isValibotTuple &&
-          itemSchema.type === "optional"
-        ) {
-          result[i] = itemSchema.default;
-        }
-      }
+    // input: { x: number, y: number } - because y is defaulted to 2
+    return input.x + input.y;
+  })
+  .callable();
 
-      return result;
+console.log("Test 3:", proc3({ x: 5, y: 3 }));
+
+// Test 4: Object with defaults and optionals
+const proc4 = zagora()
+  .input(
+    z.tuple([
+      z.string(),
+      z.object({
+        user: z.string(),
+        role: z.string().default("admin"),
+        paid: z.boolean().optional(),
+      }),
+    ]),
+  )
+  .handler((options, name, config) => {
+    options;
+
+    // passing!
+    // config: { user: string, role: string, paid: boolean | undefined }
+    return `${name}: role=${config.role}, paid=${config.paid ?? false}`;
+  })
+  .callable();
+
+// SHOULD NOT REQUIRE `role` to be passed because it has a default value!
+console.log("Test 4a:", proc4("Alice", { user: "alice" }));
+console.log("Test 4b:", proc4("Bob", { user: "bob", role: "moderator" }));
+console.log(
+  "Test 4c:",
+  proc4("Carol", { user: "carol", role: "admin", paid: true }),
+);
+
+const ping = zagora()
+  .input(z.number())
+  .output(z.object({ pong: z.number() }))
+  .errors({
+    NOT_FOUND: z.object({ type: z.literal("NOT_FOUND"), userId: z.string() }),
+    AUTH_ERR: z.object({ type: z.literal("AUTH_ERR"), retryAfter: z.number() }),
+  })
+  .handler(({ errors }, id) => {
+    if (id === 42) {
+      throw errors.AUTH_ERR({ retryAfter: Date.now() + 1000 });
     }
-  }
-
-  return rawArgs;
-}
-
-// ============================================================================
-// UTILITIES
-// ============================================================================
-
-function deepMerge(target: any, source: any): any {
-  if (source == null || typeof source !== "object") return source;
-  if (target == null || typeof target !== "object") return source;
-  const result = Array.isArray(target) ? [...target] : { ...target };
-  for (const key in source) {
-    if (key in source) {
-      if (typeof source[key] === "object" && source[key] !== null) {
-        result[key] = deepMerge(target[key], source[key]);
-      } else {
-        result[key] = source[key];
-      }
+    if (id <= 20) {
+      throw errors.NOT_FOUND({ userId: "123" });
     }
-  }
-  return result;
-}
 
-// export const isTypedError = (val: any) => {
-//   return Boolean(
-//     val !== null &&
-//       typeof val === "object" &&
-//       "error" in val &&
-//       "isTypedError" in val &&
-//       val.isTypedError === true &&
-//       val.error !== null &&
-//       typeof val.error === "object" &&
-//       !(val.error instanceof Error) &&
-//       "type" in val.error,
-//   );
-// };
+    return { pong: id + 1 };
+  })
+  .callable();
 
-function createErrorHelpers(errorMap: any): Record<string, (data: any) => any> {
-  const helpers: any = {};
-  for (const key in errorMap) {
-    const schema = errorMap[key];
-    if (!schema) continue;
+// Call synchronously, no try-catch needed
+const resPing = ping(42);
+console.log("Test 5 ping-pong:", resPing);
 
-    helpers[key] = (data: any) => {
-      return { type: key, ...data };
-    };
-  }
-  return helpers;
-}
-
-// ============================================================================
-// BUILDER
-// ============================================================================
-
-export interface BuilderDef<
-  // TIsHandlerAsync,
-  // THandlerFn,
-  TContext,
-  TInputSchema extends AnySchema | undefined,
-  TOutputSchema extends AnySchema | undefined,
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
-> {
-  initialContext: any;
-  inputSchema: TInputSchema;
-  outputSchema: TOutputSchema;
-  errorsMap: TErrorsMap;
-  handler?: (
-    options: { context: TContext; errors: any },
-    ...args: unknown[]
-  ) => any;
-}
-
-export type IsPromise<T> = T extends Promise<any> ? true : false;
-
-export type ErrorHelpers<
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
-> = TErrorsMap extends Record<string, StandardSchemaV1>
-  ? {
-      [K in keyof TErrorsMap]: (
-        data: Prettify<
-          Omit<StandardSchemaV1.InferInput<TErrorsMap[K]>, "type">
-        >,
-      ) => never;
-    }
-  : never;
-
-export type ErrorsMapResolved<
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
-> = TErrorsMap extends Record<string, StandardSchemaV1>
-  ? { [K in keyof TErrorsMap]: StandardSchemaV1.InferInput<TErrorsMap[K]> }
-  : undefined;
-
-export interface ProcedureOptions<
-  TContext,
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined,
-> {
-  context: TContext | undefined;
-  errors: TErrorsMap extends Record<string, StandardSchemaV1>
-    ? ErrorHelpers<TErrorsMap>
-    : undefined;
-}
-
-class Builder<
-  TIsHandlerAsync,
-  THandlerFn,
-  TContext extends any | undefined = any,
-  TInputSchema extends AnySchema = never,
-  TOutputSchema extends AnySchema = never,
-  TErrorsMap extends Record<string, StandardSchemaV1> | undefined = undefined,
-> {
-  constructor(
-    private def: Partial<
-      BuilderDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
-    > = {},
-  ) {}
-
-  input<TInput extends AnySchema>(
-    inputSchema: TInput,
-  ): Builder<
-    TIsHandlerAsync,
-    THandlerFn,
-    TContext,
-    TInput,
-    TOutputSchema,
-    TErrorsMap
-  > {
-    return new Builder({
-      ...this.def,
-      inputSchema: inputSchema,
-    });
-  }
-
-  output<TOutput extends AnySchema>(
-    outputSchema: TOutput,
-  ): Builder<
-    TIsHandlerAsync,
-    THandlerFn,
-    TContext,
-    TInputSchema,
-    TOutput,
-    TErrorsMap
-  > {
-    return new Builder({
-      ...this.def,
-      outputSchema: outputSchema,
-    });
-  }
-
-  context<TNewContext>(
-    initialContext?: TNewContext,
-  ): Builder<
-    TIsHandlerAsync,
-    THandlerFn,
-    TNewContext,
-    TInputSchema,
-    TOutputSchema,
-    TErrorsMap
-  > {
-    return new Builder({
-      ...this.def,
-      initialContext,
-    }) as any;
-  }
-
-  errors<TErrors extends Record<string, StandardSchemaV1>>(
-    errorsMap: TErrors,
-  ): Builder<
-    TIsHandlerAsync,
-    THandlerFn,
-    TContext,
-    TInputSchema,
-    TOutputSchema,
-    TErrors
-  > {
-    return new Builder({
-      ...this.def,
-      errorsMap,
-    });
-  }
-
-  handler<
-    TFn extends SpreadTuple<
-      [
-        Prettify<ProcedureOptions<TContext, TErrorsMap>>,
-        ...InferSchemaOutput<TInputSchema>,
-      ],
-      any
-    >,
-    TReturn = ReturnType<TFn>,
-    TIsAsync extends boolean = IsPromise<TReturn>,
-  >(
-    fn: TFn,
-  ): Builder<TIsAsync, TFn, TContext, TInputSchema, TOutputSchema, TErrorsMap> {
-    return new Builder({
-      ...this.def,
-      handler: fn as any,
-    });
-  }
-
-  callable<
-    TContext,
-    TSpread extends SpreadTuple<
-      InferSchemaInput<TInputSchema>,
-      ZagoraResult<
-        InferSchemaOutput<TOutputSchema>,
-        ErrorsMapResolved<TErrorsMap>
-      >
-    >,
-    TProcReturn extends InferSchemaInput<TInputSchema> extends readonly any[]
-      ? TSpread
-      : (
-          arg: InferSchemaOutput<TInputSchema>,
-        ) => ZagoraResult<
-          InferSchemaOutput<TOutputSchema>,
-          ErrorsMapResolved<TErrorsMap>
-        >,
-  >(context?: TContext): TProcReturn {
-    const { initialContext, errorsMap } = this.def;
-    const handlerFn = this.def.handler as any; // todo: fix, return internal error if not defined (thru createResult)
-    const inputSchema = this.def.inputSchema as TInputSchema;
-    const outputSchema = this.def.outputSchema as TOutputSchema;
-    const isAsync = isAsyncFunction(handlerFn);
-
-    const mergedContext = context
-      ? deepMerge(initialContext, context)
-      : initialContext;
-
-    const errors = errorsMap ? createErrorHelpers(errorsMap as any) : undefined;
-    const options = {
-      errors: errors as ErrorHelpers<TErrorsMap>,
-      context: mergedContext,
-    };
-
-    const wrapped = (...args: unknown[]) => {
-      const schemaAny = inputSchema as any;
-      const isTuple =
-        schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
-
-      const inputArgs = isTuple ? args : args[0];
-
-      const result = inputSchema
-        ? schemaAny["~standard"].validate(inputArgs)
-        : { value: inputArgs };
-
-      const parsed = (result as any).value;
-
-      const handlerArgs = isTuple
-        ? handleTupleDefaults(inputSchema, parsed)
-        : [parsed];
-
-      let handlerResult;
-      try {
-        handlerResult = handlerFn(
-          options as any,
-          ...(handlerArgs as Parameters<TSpread>),
-        );
-      } catch (err) {
-        return validateError(errorsMap, err, isAsync);
-      }
-
-      const processResult = (res: any) => {
-        if (outputSchema) {
-          return validateOutput(outputSchema, res, "Output validation failed");
-        }
-        return createResult(res, null, false);
-      };
-
-      if (handlerResult instanceof Promise) {
-        return handlerResult.then(processResult).catch((err) => {
-          return validateError(errorsMap, err, isAsync);
-        });
-      }
-
-      return processResult(handlerResult);
-    };
-
-    return wrapped as any;
-  }
-}
-
-export function validateOutput(schema: any, data: any, validationMsg: string) {
-  const outputResult = schema["~standard"].validate(data);
-  if (outputResult instanceof Promise) {
-    return outputResult.then((or) =>
-      or.issues
-        ? createResult(
-            null,
-            ZagoraError.fromIssues(or.issues, validationMsg),
-            false,
-          )
-        : createResult(or.value, null, false),
-    );
-  } else {
-    return outputResult.issues
-      ? createResult(
-          null,
-          ZagoraError.fromIssues(outputResult.issues, validationMsg),
-          false,
-        )
-      : createResult(outputResult.value, null, false);
-  }
-}
-
-export function validateError(errorsMap: any, error: any, isAsync: boolean) {
-  if (!errorsMap) {
-    return createResult(
-      null,
-      error instanceof ZagoraError
-        ? error
-        : new ZagoraError(
-            `${isAsync ? "Async" : "Sync"} handler threw unknown error`,
-            { cause: error },
-          ),
-      false,
-    );
-  }
-
-  const errorType = error?.type;
-  console.log("errorsMap", { error });
-  if (errorType in errorsMap) {
-    const schema = errorsMap[errorType] as any;
-    const result = schema["~standard"].validate(error);
-    const processError = (res: any) =>
-      res.issues
-        ? createResult(
-            null,
-            ZagoraError.fromIssues(
-              res.issues,
-              `Error data validation failed for ${errorType}`,
-            ),
-            false,
-          )
-        : createResult(null, { type: errorType, ...res.value }, true);
-
-    if (result instanceof Promise) {
-      return result.then(processError);
-    }
-    return processError(result);
-  }
-
-  return createResult(
-    null,
-    new ZagoraError(`Typed error with key ${errorType} not found in errorsMap`),
-    false,
+if (
+  resPing.error &&
+  resPing.isTypedError &&
+  !(resPing.error instanceof Error)
+) {
+  console.log(
+    "foo::::",
+    // Type checking now correctly infers resPing.error as PingCallableError
+    // and then further narrows it based on the 'type' property.
+    resPing.error.type === "AUTH_ERR" ? resPing.error.retryAfter : "sasa",
+    "<<<",
   );
+} else if (resPing.error && resPing.error instanceof Error) {
+  // This block handles cases where resPing has a generic error object (e.g., an Error instance)
+  // which is not a specific typed error as defined in the .errors() method.
+  console.log("unknown err:", resPing.error);
 }
 
-// note: basic, but coverting a lot, if not just use `is-async-function` in future
-export function isAsyncFunction(fn: any) {
-  if (typeof fn !== "function") {
-    return false;
-  }
-
-  const str = Function.prototype.toString.call(fn);
-
-  if (str.startsWith("async")) {
-    return true;
-  }
-
-  const obj = Object.prototype.toString.call(fn);
-
-  if (obj === "[object AsyncFunction]") {
-    return true;
-  }
-
-  try {
-    const result = fn();
-    return result instanceof Promise;
-  } catch (_err: unknown) {
-    return false;
-  }
-}
-
-export function createResult(data: any, error: any, isTypedError: boolean) {
-  const res = { data, error, isTypedError };
-
-  return res;
-}
-
-export function zagora() {
-  return new Builder();
-}
+console.log("\nAll tests passed!");
