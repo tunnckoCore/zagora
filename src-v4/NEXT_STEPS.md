@@ -103,7 +103,6 @@ TODO - BETTER ERROR NARROWING - when `.errors()` is called, switch to have inter
 TODO - BETTER ERROR NARROWING - when `.errors()` is called, switch to have internal typed UNKNOWN_ERROR
 TODO - BETTER ERROR NARROWING - when `.errors()` is called, 
         switch to have internal typed UNKNOWN_ERROR instead of ZagoraError
-
 ### 10. Update createResult for isTypedError
 - **Goal**: Enhance `createResult` to include `isTypedError` for guarding typed errors, with potential for `isValidationError` later.
 - **Implementation**:

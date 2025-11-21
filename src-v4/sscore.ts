@@ -262,7 +262,7 @@ export interface ProcedureOptions<
 class Builder<
   TIsHandlerAsync,
   THandlerFn,
-  TContext extends any | undefined = any,
+  TContext extends any | undefined = undefined,
   TInputSchema extends AnySchema = never,
   TOutputSchema extends AnySchema = never,
   TErrorsMap extends Record<string, StandardSchemaV1> | undefined = undefined,
@@ -383,7 +383,6 @@ class Builder<
     const handlerFn = this.def.handler as any; // todo: fix, return internal error if not defined (thru createResult)
     const inputSchema = this.def.inputSchema as TInputSchema;
     const outputSchema = this.def.outputSchema as TOutputSchema;
-    const isAsync = isAsyncFunction(handlerFn);
 
     const mergedContext = context
       ? deepMerge(initialContext, context)
@@ -391,55 +390,69 @@ class Builder<
 
     const errors = errorsMap ? createErrorHelpers(errorsMap as any) : undefined;
     const options = {
-      errors: errors as ErrorHelpers<TErrorsMap>,
-      context: mergedContext as TNewContext,
-    };
+      errors: errors,
+      context: mergedContext,
+    } as Prettify<
+      ProcedureOptions<Prettify<TNewContext & TContext>, TErrorsMap>
+    >;
 
-    const wrapped = (...args: unknown[]) => {
-      const schemaAny = inputSchema as any;
-      const isTuple =
-        schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
+    const procedure = createProcedure({
+      inputSchema,
+      outputSchema,
+      errorsMap,
+      options,
+      handlerFn,
+    });
 
-      const inputArgs = isTuple ? args : args[0];
-
-      const result = inputSchema
-        ? schemaAny["~standard"].validate(inputArgs)
-        : { value: inputArgs };
-
-      const parsed = (result as any).value;
-
-      const handlerArgs = isTuple
-        ? handleTupleDefaults(inputSchema, parsed)
-        : [parsed];
-
-      let handlerResult;
-      try {
-        handlerResult = handlerFn(
-          options as any,
-          ...(handlerArgs as Parameters<TSpread>),
-        );
-      } catch (err) {
-        return validateError(errorsMap, err, isAsync);
-      }
-
-      const processResult = (res: any) => {
-        if (outputSchema) {
-          return validateOutput(outputSchema, res, "Output validation failed");
-        }
-        return createResult(res, null, false);
-      };
-
-      if (handlerResult instanceof Promise) {
-        return handlerResult.then(processResult).catch((err) => {
-          return validateError(errorsMap, err, isAsync);
-        });
-      }
-
-      return processResult(handlerResult);
-    };
-
-    return wrapped as any;
+    return procedure as any;
   }
+}
+
+export function createProcedure({
+  inputSchema,
+  outputSchema,
+  handlerFn,
+  errorsMap,
+  options,
+}: any) {
+  return (...args: unknown[]) => {
+    const schemaAny = inputSchema as any;
+    const isTuple =
+      schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
+
+    const inputArgs = isTuple ? args : args[0];
+
+    const result = inputSchema
+      ? schemaAny["~standard"].validate(inputArgs)
+      : { value: inputArgs };
+
+    const parsed = (result as any).value;
+
+    const handlerArgs = isTuple
+      ? handleTupleDefaults(inputSchema, parsed)
+      : [parsed];
+
+    const state = executeHandler(handlerFn, [options, ...handlerArgs]);
+    if (state.error) {
+      return validateError(errorsMap, state.error, state.isAsync);
+    }
+    const handlerResult = state.result;
+
+    const processResult = (res: any) => {
+      if (outputSchema) {
+        return validateOutput(outputSchema, res, "Output validation failed");
+      }
+      return createResult(res, null, false);
+    };
+
+    if (handlerResult instanceof Promise) {
+      return handlerResult.then(processResult).catch((err) => {
+        return validateError(errorsMap, err, state.isAsync);
+      });
+    }
+
+    return processResult(handlerResult);
+  };
 }
 
 export function validateOutput(schema: any, data: any, validationMsg: string) {
@@ -479,10 +492,9 @@ export function validateError(errorsMap: any, error: any, isAsync: boolean) {
     );
   }
 
-  const errorType = error?.type;
-  console.log("errorsMap", { error });
-  if (errorType in errorsMap) {
-    const schema = errorsMap[errorType] as any;
+  const kind = error?.kind;
+  if (kind in errorsMap) {
+    const schema = errorsMap[kind] as any;
     const result = schema["~standard"].validate(error);
     const processError = (res: any) =>
       res.issues
@@ -490,11 +502,11 @@ export function validateError(errorsMap: any, error: any, isAsync: boolean) {
             null,
             ZagoraError.fromIssues(
               res.issues,
-              `Error data validation failed for ${errorType}`,
+              `Error data validation failed for ${kind}`,
             ),
             false,
           )
-        : createResult(null, { type: errorType, ...res.value }, true);
+        : createResult(null, { kind, ...res.value }, true);
 
     if (result instanceof Promise) {
       return result.then(processError);
@@ -504,35 +516,41 @@ export function validateError(errorsMap: any, error: any, isAsync: boolean) {
 
   return createResult(
     null,
-    new ZagoraError(`Typed error with key ${errorType} not found in errorsMap`),
+    new ZagoraError(`Typed Error ${kind} not found in errorsMap`),
     false,
   );
 }
 
+const EXECUTION_CACHE = new Map();
+
 // note: basic, but coverting a lot, if not just use `is-async-function` in future
-export function isAsyncFunction(fn: any) {
-  if (typeof fn !== "function") {
-    return false;
+export function executeHandler(fn: any, args: any[]) {
+  const key = fn.toString();
+  if (EXECUTION_CACHE.has(key)) {
+    return EXECUTION_CACHE.get(key);
   }
 
-  const str = Function.prototype.toString.call(fn);
+  let res;
 
-  if (str.startsWith("async")) {
-    return true;
+  if (Function.prototype.toString.call(fn).startsWith("async")) {
+    res = { isAsync: true, result: null };
+  } else if (Object.prototype.toString.call(fn) === "[object AsyncFunction]") {
+    res = { isAsync: true, result: null };
   }
-
-  const obj = Object.prototype.toString.call(fn);
-
-  if (obj === "[object AsyncFunction]") {
-    return true;
+  if (res) {
+    EXECUTION_CACHE.set(key, res);
+    return res;
   }
 
   try {
-    const result = fn();
-    return result instanceof Promise;
-  } catch (_err: unknown) {
-    return false;
+    const result = fn(...args);
+    res = { isAsync: result instanceof Promise, result };
+  } catch (error: unknown) {
+    res = { isAsync: false, result: null, error };
   }
+
+  EXECUTION_CACHE.set(key, res);
+  return res;
 }
 
 export function createResult(data: any, error: any, isTypedError: boolean) {
