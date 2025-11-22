@@ -9,7 +9,6 @@ import {
   isZagoraError,
 } from "../new-src/errors";
 import { zagora } from "../new-src/index";
-import type { ZagoraResult } from "../new-src/types";
 
 test("typed errors should be in options - when input schema is defined", () => {
   const errorSchemas = {
@@ -420,7 +419,7 @@ test("wrapping external async functions in pseudo-sync `.handler` fn", async () 
 
   if (res4.ok) {
     expect(typeof res4.data).toBe("string");
-    expect(res4.data).toContain('"name"');
+    expect(res4.data).toContain('name":"zagora');
   } else {
     expect(
       false,
