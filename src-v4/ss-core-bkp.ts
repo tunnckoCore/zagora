@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import type z from "zod";
 
 export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
@@ -20,16 +21,28 @@ export type InferSchemaInput<T extends AnySchema> = T extends StandardSchemaV1<
   ? UInput
   : never;
 
-// ============================================================================
-// SPREADABLE TUPLE - Convert tuple type to function overloads with valid param order
-// ============================================================================
+export type ErrorSchema<K extends string> = z.ZodObject<{
+  kind: z.ZodLiteral<K>;
+  [key: string]: z.ZodTypeAny;
+}>;
+
+export type UppercaseKeys<T> = {
+  [K in keyof T as Uppercase<string & K>]: T[K];
+};
+
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
-type IsOptional<T> = undefined extends T ? true : false;
+// ============================================================================
+// SPREADABLE TUPLE - Convert tuple type to function overloads with valid param order
+// ============================================================================
 
-type SpreadTuple<T extends readonly any[], R> = T extends readonly [infer A]
+export type IsOptional<T> = undefined extends T ? true : false;
+
+export type SpreadTuple<T extends readonly any[], R> = T extends readonly [
+  infer A,
+]
   ? (arg: A) => R
   : T extends readonly [infer A, infer B]
     ? IsOptional<B> extends true
@@ -105,77 +118,100 @@ type SpreadTuple<T extends readonly any[], R> = T extends readonly [infer A]
                   | ((arg1: A) => R)
         : (...args: T) => R;
 
-// export type InternalErrors =
-//   | ReturnType<typeof createInternalError>
-//   | ReturnType<typeof createValidationError>;
-
 export type ZagoraResult<
   TOutput,
-  TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
-> = {
-  data: TOutput;
-  error: TErrorsMap extends Record<string, any>
-    ?
-        | Prettify<TErrorsMap[keyof TErrorsMap]>
-        | Prettify<ReturnType<typeof createInternalError>>
-        | Prettify<ReturnType<typeof createValidationError>>
-    :
-        | Prettify<ReturnType<typeof createInternalError>>
-        | Prettify<ReturnType<typeof createValidationError>>;
-  isTypedError: TErrorsMap extends Record<string, any> ? true : false;
-};
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+  TResolvedResult,
+  IsTypedError = TErrorsMap extends Record<string, any> ? true : false,
+> = TResolvedResult extends { readonly ok: true }
+  ? {
+      readonly ok: true;
+      data: TOutput;
+      readonly error: undefined;
+    }
+  : {
+      readonly ok: false;
+      readonly isTypedError: IsTypedError;
+      readonly error: TErrorsMap extends Record<string, any>
+        ?
+            | Prettify<Readonly<TErrorsMap[keyof TErrorsMap]>>
+            | InternalError
+            | ValidationError<keyof TErrorsMap>
+        : InternalError | ValidationError<never>;
+    };
 
-// export class ZagoraError extends Error {
-//   readonly issues?: readonly SchemaIssue[];
-//   override readonly cause?: unknown;
-//   readonly data?: unknown;
-//   readonly reason: string;
+export type InternalError = Prettify<ReturnType<typeof createInternalError>>;
 
-//   constructor(
-//     message: string,
-//     options?: {
-//       issues?: readonly SchemaIssue[];
-//       cause?: unknown;
-//       data?: unknown;
-//       reason?: string;
-//     },
-//   ) {
-//     super(message);
-//     this.name = "ZagoraError";
-//     this.issues = options?.issues;
-//     this.cause = options?.cause;
-//     this.data = options?.data;
-//     this.reason = options?.reason || "Unknown or internal error";
-//   }
+export type ValidationError<ErrorKindNames = never> = Prettify<
+  Readonly<{
+    kind: "VALIDATION_ERROR";
+    message: string;
+    issues: readonly SchemaIssue[];
+    key?: ErrorKindNames;
+  }>
+>;
 
-//   static fromIssues(
-//     issues: readonly SchemaIssue[],
-//     reason?: string,
-//     error?: any,
-//   ) {
-//     const message = issues.map((issue) => issue.message).join(", ");
-//     return new ZagoraError(message, {
-//       issues,
-//       reason: reason || "Failure caused by validation",
-//     });
-//   }
-// }
+export type DefinedError<T> = Prettify<{ readonly kind: string } & T>;
 
-export function createValidationError<ErrorKindNames>(
+export function createValidationError<ErrorKindNames = never>(
   mode: "input" | "output" | "error data",
   issues: SchemaIssue[],
   key?: ErrorKindNames,
 ) {
   const modeName = mode.charAt(0).toUpperCase() + mode.slice(1);
-  const str = key ? ` for ${(key as string)?.toUpperCase()}` : "";
+  const str = key ? ` for ${(key as string).toUpperCase()}` : "";
+  const issuesMsg = issues
+    // strip "input" cuz it can be confusing when we are schema validating output and errors too
+    .map((issue) => {
+      const key = issue.path?.join(".");
+      const message = issue.message.replace("Invalid input: ", "");
+      return `${key} => ${message}`;
+    })
+    .join("; ");
 
   return {
     kind: "VALIDATION_ERROR" as const,
-    message: `${modeName} validation failed${str}: ${issues.map((issue) => issue.message).join(", ")}`,
-    key: (key || "") as ErrorKindNames,
+    message: `${modeName} validation failed${str}: ${issuesMsg}`,
+    key,
     issues: issues as SchemaIssue[],
   } as const;
 }
+
+export function isValidationError(val: any): val is ValidationError {
+  return Boolean(
+    val &&
+      val.kind === "VALIDATION_ERROR" &&
+      val.issues &&
+      Array.isArray(val.issues) &&
+      val.message &&
+      typeof val.message === "string",
+  );
+}
+export function isInternalError(val: any): val is InternalError {
+  return Boolean(
+    val &&
+      val.kind === "UNKNOWN_ERROR" &&
+      val.message &&
+      typeof val.message === "string" &&
+      val.cause,
+  );
+}
+export function isDefinedError<T>(val: any): val is DefinedError<T> {
+  return Boolean(
+    val &&
+      val.kind &&
+      typeof val.kind === "string" &&
+      val.kind.length > 0 &&
+      val.kind === val.kind.toUpperCase(),
+  );
+}
+
+// const foo = { kind: "sas", auth: "barry" } as const;
+// if (isDefinedError(foo)) {
+//   foo;
+// } else {
+//   foo;
+// }
 
 export function createInternalError(msg: string, cause?: Error) {
   return {
@@ -280,7 +316,7 @@ function createErrorHelpers(errorMap: any): Record<string, (data: any) => any> {
 // BUILDER
 // ============================================================================
 
-export interface BuilderDef<
+export interface ZagoraDef<
   // TIsHandlerAsync,
   // THandlerFn,
   TContext,
@@ -313,7 +349,7 @@ export type ErrorHelpers<
 export type ErrorsMapResolved<
   TErrorsMap extends Record<string, AnySchema> | undefined,
 > = TErrorsMap extends Record<string, AnySchema>
-  ? { [K in keyof TErrorsMap]: InferSchemaInput<TErrorsMap[K]> }
+  ? Readonly<{ [K in keyof TErrorsMap]: InferSchemaOutput<TErrorsMap[K]> }>
   : undefined;
 
 export type ResolveErrorKindNames<TErrorsMap> = TErrorsMap extends Record<
@@ -333,7 +369,7 @@ export interface ProcedureOptions<
     : undefined;
 }
 
-class Builder<
+export class Zagora<
   TIsHandlerAsync,
   THandlerFn,
   TContext extends any | undefined = undefined,
@@ -343,13 +379,13 @@ class Builder<
 > {
   constructor(
     private def: Partial<
-      BuilderDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
+      ZagoraDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
     > = {},
   ) {}
 
   input<TInput extends AnySchema>(
     inputSchema: TInput,
-  ): Builder<
+  ): Zagora<
     TIsHandlerAsync,
     THandlerFn,
     TContext,
@@ -357,7 +393,7 @@ class Builder<
     TOutputSchema,
     TErrorsMap
   > {
-    return new Builder({
+    return new Zagora({
       ...this.def,
       inputSchema: inputSchema,
     });
@@ -365,7 +401,7 @@ class Builder<
 
   output<TOutput extends AnySchema>(
     outputSchema: TOutput,
-  ): Builder<
+  ): Zagora<
     TIsHandlerAsync,
     THandlerFn,
     TContext,
@@ -373,7 +409,7 @@ class Builder<
     TOutput,
     TErrorsMap
   > {
-    return new Builder({
+    return new Zagora({
       ...this.def,
       outputSchema: outputSchema,
     });
@@ -381,7 +417,7 @@ class Builder<
 
   context<TNewContext>(
     initialContext?: TNewContext,
-  ): Builder<
+  ): Zagora<
     TIsHandlerAsync,
     THandlerFn,
     TNewContext,
@@ -389,15 +425,15 @@ class Builder<
     TOutputSchema,
     TErrorsMap
   > {
-    return new Builder({
+    return new Zagora({
       ...this.def,
       initialContext,
     }) as any;
   }
 
   errors<TErrors extends Record<string, AnySchema>>(
-    errorsMap: TErrors,
-  ): Builder<
+    errorsMap: TErrors & UppercaseKeys<TErrors>,
+  ): Zagora<
     TIsHandlerAsync,
     THandlerFn,
     TContext,
@@ -405,7 +441,7 @@ class Builder<
     TOutputSchema,
     TErrors
   > {
-    return new Builder({
+    return new Zagora({
       ...this.def,
       errorsMap,
     });
@@ -428,8 +464,8 @@ class Builder<
     TIsAsync extends boolean = IsPromise<TReturn>,
   >(
     fn: TFn,
-  ): Builder<TIsAsync, TFn, TContext, TInputSchema, TOutputSchema, TErrorsMap> {
-    return new Builder({
+  ): Zagora<TIsAsync, TFn, TContext, TInputSchema, TOutputSchema, TErrorsMap> {
+    return new Zagora({
       ...this.def,
       handler: fn as any,
     });
@@ -438,22 +474,22 @@ class Builder<
   callable<
     TNewContext extends TContext,
     TKindNames extends ResolveErrorKindNames<TErrorsMap>,
-    TSpread extends SpreadTuple<
-      InferSchemaInput<TInputSchema>,
-      ZagoraResult<
-        InferSchemaOutput<TOutputSchema>,
-        ErrorsMapResolved<TErrorsMap>
-      >
-    >,
-    TProcReturn extends InferSchemaInput<TInputSchema> extends readonly any[]
-      ? TSpread
-      : (
-          arg: InferSchemaOutput<TInputSchema>,
-        ) => ZagoraResult<
-          InferSchemaOutput<TOutputSchema>,
-          ErrorsMapResolved<TErrorsMap>
-        >,
-  >(context?: TNewContext): TProcReturn {
+    // TResult = TIsHandlerAsync extends true
+    //   ? Promise<
+    //       ZagoraResult<
+    //         InferSchemaOutput<TOutputSchema>,
+    //         ErrorsMapResolved<TErrorsMap>
+    //       >
+    //     >
+    //   : ZagoraResult<
+    //       InferSchemaOutput<TOutputSchema>,
+    //       ErrorsMapResolved<TErrorsMap>
+    //     >,
+  >(context?: TNewContext) {
+    // : InferSchemaInput<TInputSchema> extends readonly any[]
+    //   ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
+    //   : (arg: InferSchemaOutput<TInputSchema>) => TResult
+
     const { initialContext, errorsMap } = this.def;
     const handlerFn = this.def.handler as any; // todo: fix, return internal error if not defined (thru createResult)
     const inputSchema = this.def.inputSchema as TInputSchema;
@@ -479,7 +515,25 @@ class Builder<
       handlerFn,
     });
 
-    return procedure as any;
+    type TResolvedResult = Awaited<ReturnType<typeof procedure>>;
+
+    type TResult = TIsHandlerAsync extends true
+      ? Promise<
+          ZagoraResult<
+            InferSchemaOutput<TOutputSchema>,
+            ErrorsMapResolved<TErrorsMap>,
+            TResolvedResult
+          >
+        >
+      : ZagoraResult<
+          InferSchemaOutput<TOutputSchema>,
+          ErrorsMapResolved<TErrorsMap>,
+          TResolvedResult
+        >;
+
+    return procedure as InferSchemaInput<TInputSchema> extends readonly any[]
+      ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
+      : (arg: InferSchemaOutput<TInputSchema>) => TResult;
   }
 }
 
@@ -495,64 +549,73 @@ export function createProcedure<TKindNames>({
     const isTuple =
       schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
 
-    const inputArgs = isTuple ? args : args[0];
-
-    const result = inputSchema
-      ? schemaAny["~standard"].validate(inputArgs)
-      : { value: inputArgs };
-
-    const parsed = (result as any).value;
-
-    const handlerArgs = isTuple
-      ? handleTupleDefaults(inputSchema, parsed)
-      : [parsed];
-
-    const state = executeHandler(handlerFn, [options, ...handlerArgs]);
-    if (state.error) {
-      return validateError<TKindNames>(errorsMap, state.error, state.isAsync);
-    }
-    const handlerResult = state.result;
-
-    const processResult = (res: any) => {
-      if (outputSchema) {
-        return validateOutput(outputSchema, res);
+    const processor = (mode: "input" | "output", schema: any, data: any) => {
+      if (schema) {
+        return validateInputOutput(mode, schema, data);
       }
-      return createResult(res, null, false);
+      return createResult(data, null, false);
     };
 
-    if (handlerResult instanceof Promise) {
-      return handlerResult.then(processResult).catch((err) => {
-        return validateError<TKindNames>(errorsMap, err, state.isAsync);
-      });
+    const processInput = (inputData: any) => {
+      const handlerArgs = isTuple
+        ? handleTupleDefaults(inputSchema, inputData as any)
+        : [inputData];
+
+      const state = executeHandler(handlerFn, [options, ...handlerArgs]);
+      if (state.error) {
+        return validateError<TKindNames>(errorsMap, state.error, state.isAsync);
+      }
+      const handlerResult =
+        state.result ??
+        executeHandler(handlerFn, [options, ...handlerArgs]).result;
+
+      if (handlerResult instanceof Promise) {
+        return handlerResult
+          .then((outputResult) =>
+            processor("output", outputSchema, outputResult),
+          )
+          .catch((err) => {
+            return validateError<TKindNames>(errorsMap, err, state.isAsync);
+          });
+      }
+
+      const res = processor("output", outputSchema, handlerResult);
+      return res;
+    };
+
+    const inputArgs = isTuple ? args : args[0];
+
+    const inputResult = inputSchema
+      ? validateInputOutput("input", inputSchema, inputArgs)
+      : ({ ok: true, data: inputArgs } as const);
+
+    if (inputResult instanceof Promise) {
+      return inputResult.then((resultObj) =>
+        resultObj.error ? resultObj : processInput(resultObj.data),
+      );
     }
 
-    return processResult(handlerResult);
+    return inputResult.error ? inputResult : processInput(inputResult.data);
   };
 }
 
-export function validateOutput(schema: any, data: any) {
-  const outputResult = schema["~standard"].validate(data);
-  if (outputResult instanceof Promise) {
-    return outputResult.then((or) =>
+export function validateInputOutput(
+  mode: "input" | "output",
+  schema: any,
+  data: any,
+) {
+  const result = schema["~standard"].validate(data);
+  if (result instanceof Promise) {
+    return result.then((or) =>
       or.issues
-        ? createResult(
-            null,
-            createValidationError("output", or.issues),
-            // ZagoraError.fromIssues(or.issues, validationMsg),
-            false,
-          )
+        ? createResult(null, createValidationError(mode, or.issues), false)
         : createResult(or.value, null, false),
     );
-  } else {
-    return outputResult.issues
-      ? createResult(
-          null,
-          createValidationError("output", outputResult.issues),
-          // ZagoraError.fromIssues(outputResult.issues, validationMsg),
-          false,
-        )
-      : createResult(outputResult.value, null, false);
   }
+
+  return result.issues
+    ? createResult(null, createValidationError(mode, result.issues), false)
+    : createResult(result.value, null, false);
 }
 
 export function validateError<TKindNames>(
@@ -567,12 +630,6 @@ export function validateError<TKindNames>(
         `${isAsync ? "Async" : "Sync"} handler threw unknown error`,
         error,
       ),
-      // error instanceof ZagoraError
-      //   ? error
-      //   : new ZagoraError(
-      //       `${isAsync ? "Async" : "Sync"} handler threw unknown error`,
-      //       { cause: error },
-      //     ),
       false,
     );
   }
@@ -581,7 +638,8 @@ export function validateError<TKindNames>(
   if (kind in errorsMap) {
     const kindName = kind as TKindNames;
     const schema = errorsMap[kindName as any] as any;
-    const result = schema["~standard"].validate(error);
+    const { kind: _, ...cleanedError } = error;
+    const result = schema["~standard"].validate(cleanedError);
     const processError = (res: any) =>
       res.issues
         ? createResult(
@@ -591,13 +649,9 @@ export function validateError<TKindNames>(
               res.issues,
               kindName,
             ),
-            // ZagoraError.fromIssues(
-            //   res.issues,
-            //   `Error data validation failed for ${kind}`,
-            // ),
             false,
           )
-        : createResult(null, { kind, ...res.value }, true);
+        : createResult(null, { kind, ...res.value } as const, true);
 
     if (result instanceof Promise) {
       return result.then(processError);
@@ -608,37 +662,28 @@ export function validateError<TKindNames>(
   return createResult(
     null,
     createInternalError(`Typed Error ${kind} is not defined in errors map`),
-    // new ZagoraError(`Typed Error ${kind} not found in errorsMap`),
     false,
   );
 }
 
 const EXECUTION_CACHE = new Map();
 
-// note: basic, but coverting a lot, if not just use `is-async-function` in future
 export function executeHandler(fn: any, args: any[]) {
   const key = fn.toString();
   if (EXECUTION_CACHE.has(key)) {
     return EXECUTION_CACHE.get(key);
   }
 
-  let res;
+  const isAsync =
+    Function.prototype.toString.call(fn).startsWith("async") ||
+    Object.prototype.toString.call(fn) === "[object AsyncFunction]";
 
-  if (Function.prototype.toString.call(fn).startsWith("async")) {
-    res = { isAsync: true, result: null };
-  } else if (Object.prototype.toString.call(fn) === "[object AsyncFunction]") {
-    res = { isAsync: true, result: null };
-  }
-  if (res) {
-    EXECUTION_CACHE.set(key, res);
-    return res;
-  }
-
+  let res = { isAsync } as any;
   try {
     const result = fn(...args);
     res = { isAsync: result instanceof Promise, result };
   } catch (error: unknown) {
-    res = { isAsync: false, result: null, error };
+    res = { isAsync, result: null, error };
   }
 
   EXECUTION_CACHE.set(key, res);
@@ -646,11 +691,13 @@ export function executeHandler(fn: any, args: any[]) {
 }
 
 export function createResult(data: any, error: any, isTypedError: boolean) {
-  const res = { data, error, isTypedError };
+  if (error) {
+    return { ok: false, isTypedError, error: Object.freeze(error) } as const;
+  }
 
-  return res;
+  return { ok: true, data } as const;
 }
 
 export function zagora() {
-  return new Builder();
+  return new Zagora();
 }
