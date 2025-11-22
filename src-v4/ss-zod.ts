@@ -3,8 +3,9 @@ import {
   isDefinedError,
   isInternalError,
   isValidationError,
-  zagora,
-} from "./sscore";
+  isZagoraError,
+} from "../new-src/errors";
+import { zagora } from "../new-src/index";
 
 // ============================================================================
 // TESTS
@@ -132,6 +133,12 @@ const pingProc = zagora()
 const ping = pingProc.callable();
 const resPing = ping(30);
 console.log("Test 5 ping-pong:", resPing);
+
+// if (!resPing.ok || isZagoraError(resPing.error)) {
+//   resPing.error;
+// } else {
+//   resPing.data;
+// }
 
 if (
   resPing.error &&

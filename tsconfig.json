@@ -1,12 +1,15 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext", "DOM", "DOM.Iterable", "DOM.AsyncIterable", "ES2022"],
-    "target": "es2022",
-    "module": "es2022",
+    "lib": ["ESNext", "DOM", "es2024"],
+    "target": "es2024",
+    "module": "ESNext",
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "resolvePackageJsonExports": true,
+    "resolvePackageJsonImports": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "esModuleInterop": true,
@@ -22,6 +25,6 @@
     "strictNullChecks": true,
     "types": []
   },
-  "include": ["src-v4/**/*"],
+  "include": ["new-src"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

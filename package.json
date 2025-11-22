@@ -8,21 +8,34 @@
     "url": "https://github.com/tunnckoCore/zagora.git"
   },
   "type": "module",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./source": "./src/index.ts",
-    "./index.ts": "./src/index.ts"
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "import": "./dist/utils.js"
+    },
+    "./package.json": "./package.json"
   },
-  "module": "dist/index.ts",
   "files": [
     "src",
     "dist"
   ],
   "scripts": {
-    "build": "tsdown src/index.ts --dts",
+    "prebuild": "bun run typecheck",
+    "build": "bunx tsdown",
+    "typecheck": "bunx tsgo-dev -p ./tsconfig.json",
     "test": "bun test ./test",
     "test:cov": "bun test --coverage",
     "prepublishOnly": "bun run build"
@@ -30,17 +43,21 @@
   "dependencies": {
     "@standard-schema/spec": "^1.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2",
     "@types/bun": "latest",
     "arktype": "2.1.23",
     "biome-config-xaxa": "^0.2.1",
-    "tsdown": "0.15.9",
+    "expect-type": "^0.20.0",
+    "tsdown": "^0.16.6",
+    "tsgo-dev": "^2025.11.22",
     "typescript": "5.9.3",
     "ultracite": "^5",
-    "valibot": "1.1.0",
-    "zod": "4.1.12",
-    "expect-type": "^0.20.0"
+    "valibot": "^1.1.0",
+    "zod": "^4.1.12"
   },
   "keywords": [
     "minimal",
