@@ -3,13 +3,13 @@
 import { expect, test } from "bun:test";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import {
+  createErrorHelpers,
   createInternalError,
   createValidationError,
-  isValidationError,
-  isInternalError,
   isDefinedError,
+  isInternalError,
+  isValidationError,
   isZagoraError,
-  createErrorHelpers,
 } from "../new-src/errors";
 
 test("should create basic error with message", () => {
