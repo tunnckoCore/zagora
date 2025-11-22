@@ -23,8 +23,8 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true,
-    "types": []
+    "types": ["bun-types"]
   },
-  "include": ["new-src"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+  "include": ["new-src", "new-test"],
+  "exclude": ["node_modules", "dist"]
 }

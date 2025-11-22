@@ -27,6 +27,14 @@ export type InferSchemaInput<T extends AnySchema> = T extends StandardSchemaV1<
   ? UInput
   : never;
 
+export type InferSchemaOutputSafe<T> = T extends AnySchema
+  ? InferSchemaOutput<T>
+  : any;
+
+export type InferSchemaInputSafe<T> = T extends AnySchema
+  ? InferSchemaInput<T>
+  : any;
+
 export type UppercaseKeys<T> = {
   [K in keyof T as Uppercase<string & K>]: T[K];
 };

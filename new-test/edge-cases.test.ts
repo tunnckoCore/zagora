@@ -9,7 +9,7 @@ import {
 } from "../new-src/errors";
 import { zagora } from "../new-src/index";
 
-test("typed errors should be in options", () => {
+test("typed errors should be in options - when input schema is defined", () => {
   const errorSchemas = {
     BAR_ERR: z.object({
       msg: z.string(),
@@ -18,7 +18,7 @@ test("typed errors should be in options", () => {
   };
 
   const func = zagora()
-    // .input(z.string())
+    .input(z.string())
     // .output(z.string())
     .errors(errorSchemas)
     // .errors({ FOO: z.object({ msg: z.string() }) })
@@ -309,4 +309,54 @@ test("Zod Tuple without defaults - missing required arg should fail", async () =
 
   expect(res.ok).toBe(false);
   expect(res.error?.message).toContain("Input validation failed");
+});
+
+test("Handler without input schema should work", () => {
+  const errorSchemas = {
+    BARRY_ERR: z.object({
+      msg: z.string(),
+      foo: z.number().min(100).max(999).default(500),
+    }),
+  };
+
+  const func = zagora()
+    // no .input() call
+    .errors(errorSchemas)
+    .handler(({ errors }) => {
+      throw errors.BARRY_ERR({ msg: "Some custom error" });
+      // biome-ignore lint/correctness/noUnreachable: bruh
+      return "foo";
+    })
+    .callable();
+
+  const res = func();
+  expect(res.ok).toBe(false);
+
+  if (res.error) {
+    expect(Object.keys(errorSchemas)[0]).toBe(res.error.kind);
+    expect(res.error.kind).toBe("BARRY_ERR");
+    if (res.error.kind === "BARRY_ERR") {
+      expect(res.error.msg).toBe("Some custom error");
+      expect(res.error.foo).toBe(500);
+    }
+  } else {
+    throw new Error(
+      "Expected BARRY_ERR, but got: " + JSON.stringify(res.error),
+    );
+  }
+});
+
+test("Handler without input schema and no errors should work", () => {
+  const func = zagora()
+    // no .input() call
+    .handler(({ context }) => {
+      return { result: "success", ctx: context };
+    })
+    .callable();
+
+  const res = func();
+  expect(res.ok).toBe(true);
+  if (res.ok) {
+    expect(res.data).toEqual({ result: "success", ctx: undefined });
+  }
 });

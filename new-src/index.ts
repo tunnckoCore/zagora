@@ -7,7 +7,9 @@ import {
 import type {
   AnySchema,
   InferSchemaInput,
+  InferSchemaInputSafe,
   InferSchemaOutput,
+  InferSchemaOutputSafe,
   IsPromise,
   Prettify,
   ProcedureOptions,
@@ -31,8 +33,8 @@ export class Zagora<
   TIsHandlerAsync,
   THandlerFn,
   TContext extends any | undefined = undefined,
-  TInputSchema extends AnySchema = AnySchema,
-  TOutputSchema extends AnySchema = AnySchema,
+  TInputSchema extends AnySchema | undefined = undefined,
+  TOutputSchema extends AnySchema | undefined = undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
 > {
   constructor(
@@ -106,18 +108,20 @@ export class Zagora<
   }
 
   handler<
-    TFn extends InferSchemaOutput<TInputSchema> extends readonly any[]
-      ? SpreadTuple<
-          [
-            Prettify<ProcedureOptions<TContext, TErrorsMap>>,
-            ...InferSchemaOutput<TInputSchema>,
-          ],
-          any
-        >
-      : (
-          options: Prettify<ProcedureOptions<TContext, TErrorsMap>>,
-          arg: InferSchemaOutput<TInputSchema>,
-        ) => any,
+    TFn extends TInputSchema extends AnySchema
+      ? InferSchemaOutput<TInputSchema> extends readonly any[]
+        ? SpreadTuple<
+            [
+              Prettify<ProcedureOptions<TContext, TErrorsMap>>,
+              ...InferSchemaOutput<TInputSchema>,
+            ],
+            any
+          >
+        : (
+            options: Prettify<ProcedureOptions<TContext, TErrorsMap>>,
+            arg: InferSchemaOutput<TInputSchema>,
+          ) => any
+      : (options: Prettify<ProcedureOptions<TContext, TErrorsMap>>) => any,
     TReturn = ReturnType<TFn>,
     TIsAsync extends boolean = IsPromise<TReturn>,
   >(
@@ -167,19 +171,21 @@ export class Zagora<
     type TResult = TIsHandlerAsync extends true
       ? Promise<
           ZagoraResult<
-            InferSchemaOutput<TOutputSchema>,
+            InferSchemaOutputSafe<TOutputSchema>,
             ErrorsMapResolved<TErrorsMap>,
             TResolvedResult
           >
         >
       : ZagoraResult<
-          InferSchemaOutput<TOutputSchema>,
+          InferSchemaOutputSafe<TOutputSchema>,
           ErrorsMapResolved<TErrorsMap>,
           TResolvedResult
         >;
 
-    return procedure as InferSchemaInput<TInputSchema> extends readonly any[]
-      ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
-      : (arg: InferSchemaOutput<TInputSchema>) => TResult;
+    return procedure as TInputSchema extends AnySchema
+      ? InferSchemaInput<TInputSchema> extends readonly any[]
+        ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
+        : (arg: InferSchemaOutput<TInputSchema>) => TResult
+      : () => TResult;
   }
 }
