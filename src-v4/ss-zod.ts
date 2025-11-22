@@ -1,5 +1,10 @@
 import z from "zod";
-import { zagora } from "./sscore";
+import {
+  isDefinedError,
+  isInternalError,
+  isValidationError,
+  zagora,
+} from "./sscore";
 
 // ============================================================================
 // TESTS
@@ -130,8 +135,8 @@ console.log("Test 5 ping-pong:", resPing);
 
 if (
   resPing.error &&
-  resPing.isTypedError &&
-  !(resPing.error instanceof Error)
+  (isValidationError(resPing.error) || isDefinedError(resPing.error)) &&
+  !isInternalError(resPing.error)
 ) {
   console.log(
     "foo::::",
@@ -140,7 +145,8 @@ if (
     resPing.error.kind === "AUTH_ERR" ? resPing.error.retryAfter : "sasa",
     "<<<",
   );
-} else if (resPing.error && resPing.error instanceof Error) {
+}
+if (resPing.error && isInternalError(resPing.error)) {
   // This block handles cases where resPing has a generic error object (e.g., an Error instance)
   // which is not a specific typed error as defined in the .errors() method.
   console.log("unknown err:", resPing.error);
