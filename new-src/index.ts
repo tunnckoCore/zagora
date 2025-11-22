@@ -53,7 +53,7 @@ export class Zagora<
   > {
     return new Zagora({
       ...this.def,
-      inputSchema: inputSchema,
+      inputSchema,
     });
   }
 
@@ -69,7 +69,7 @@ export class Zagora<
   > {
     return new Zagora({
       ...this.def,
-      outputSchema: outputSchema,
+      outputSchema,
     });
   }
 

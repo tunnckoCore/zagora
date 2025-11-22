@@ -35,8 +35,8 @@
     "prebuild": "bun run typecheck",
     "build": "bunx tsdown",
     "typecheck": "bunx tsgo-dev -p ./tsconfig.json",
-    "test": "bun test ./test",
-    "test:cov": "bun test --coverage",
+    "test": "bun test ./new-test",
+    "test:cov": "bun run test --coverage",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {
