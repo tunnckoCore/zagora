@@ -7,6 +7,8 @@ import type {
   ValidationError,
 } from "./errors";
 
+export * from "./is-promise";
+
 export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
 export type AnySchema = Schema<any, any>;
@@ -29,11 +31,11 @@ export type InferSchemaInput<T extends AnySchema> = T extends StandardSchemaV1<
 
 export type InferSchemaOutputSafe<T> = T extends AnySchema
   ? InferSchemaOutput<T>
-  : any;
+  : unknown;
 
 export type InferSchemaInputSafe<T> = T extends AnySchema
   ? InferSchemaInput<T>
-  : any;
+  : unknown;
 
 export type UppercaseKeys<T> = {
   [K in keyof T as Uppercase<string & K>]: T[K];
@@ -44,7 +46,15 @@ export type Prettify<T> = {
 } & {};
 
 export type IsOptional<T> = undefined extends T ? true : false;
-export type IsPromise<T> = T extends Promise<any> ? true : false;
+export type IsPromise<T> = T extends Promise<infer _>
+  ? T extends string
+    ? false
+    : T extends number
+      ? false
+      : number
+  : T extends any
+    ? string
+    : false;
 
 // export type DefinedErrorsUnion<TErrorsMap> = TErrorsMap extends Record<
 //   string,

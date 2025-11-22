@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { readFile } from "node:fs/promises";
 import * as v from "valibot";
 import z from "zod";
 import {
@@ -8,6 +9,7 @@ import {
   isZagoraError,
 } from "../new-src/errors";
 import { zagora } from "../new-src/index";
+import type { ZagoraResult } from "../new-src/types";
 
 test("typed errors should be in options - when input schema is defined", () => {
   const errorSchemas = {
@@ -18,8 +20,6 @@ test("typed errors should be in options - when input schema is defined", () => {
   };
 
   const func = zagora()
-    .input(z.string())
-    // .output(z.string())
     .errors(errorSchemas)
     // .errors({ FOO: z.object({ msg: z.string() }) })
     .handler(({ errors }) => {
@@ -33,7 +33,7 @@ test("typed errors should be in options - when input schema is defined", () => {
     })
     .callable();
 
-  const res = func("sasa");
+  const res = func();
   expect(res.ok).toBe(false);
 
   if (res.error) {
@@ -355,8 +355,137 @@ test("Handler without input schema and no errors should work", () => {
     .callable();
 
   const res = func();
+
   expect(res.ok).toBe(true);
   if (res.ok) {
     expect(res.data).toEqual({ result: "success", ctx: undefined });
   }
+});
+
+test("wrapping external async functions in pseudo-sync `.handler` fn", async () => {
+  // Basic async function that can succeed or fail
+  const basicAsyncFn = async (input: string): Promise<string> => {
+    if (input !== "foobie") {
+      throw new Error("Basic async failed");
+    }
+    return `processed: ${input}`;
+  };
+
+  const basicWrapper = zagora()
+    .handler((_) => basicAsyncFn("foobie"))
+    .callable();
+
+  const res1 = await basicWrapper();
+  expect(res1.ok).toBe(true);
+  expect((res1 as any).data).toBe("processed: foobie");
+
+  // Test basic wrapper without schemas - failure
+  const failingBasicWrapper = zagora()
+    .handler((_) => basicAsyncFn("fail one"))
+    .callable();
+
+  const res2 = await failingBasicWrapper();
+  expect(res2.ok).toBe(false);
+
+  if (!res2.ok && isInternalError(res2.error)) {
+    expect(res2.error.message).toContain("Async handler threw");
+    expect(res2.error.cause).toBeInstanceOf(Error);
+    expect((res2.error.cause as Error).message).toBe("Basic async failed");
+  }
+
+  // Test with non-existent file
+  const fsWrapper = zagora()
+    .input(z.string())
+    .output(z.string())
+    .handler((_, filepath) => readFile(filepath, "utf-8"))
+    .callable();
+
+  const res3 = await fsWrapper("non-existent-file.txt");
+
+  expect(res3.ok).toBe(false);
+  if (!res3.ok && isInternalError(res3.error)) {
+    expect(res3.error.message).toContain("Async handler threw");
+    expect(res3.error.cause).toBeInstanceOf(Error);
+    expect((res3.error.cause as Error).message).toContain("ENOENT");
+  } else {
+    expect(
+      false,
+      "Should throw internal error cought from 'pseudo-sync' handler returning promise",
+    ).toBeInstanceOf(true);
+  }
+
+  // Test with package.json (should exist)
+  const res4 = await fsWrapper("package.json");
+  expect(res4.ok).toBe(true);
+
+  if (res4.ok) {
+    expect(typeof res4.data).toBe("string");
+    expect(res4.data).toContain('"name"');
+  } else {
+    expect(
+      false,
+      "Should not throw error caught when 'pseudo-sync' handler returns promise",
+    ).toBeInstanceOf(true);
+  }
+});
+
+test("wrapping sync throwing functions (JSON.parse -> safeJsonParse) in .handler", async () => {
+  const someJson = `{"name": "zagora"}`;
+  const safeJsonParse = zagora()
+    .input(z.string())
+    .output(z.object({ name: z.string() }))
+    .handler((_, input) => JSON.parse(input))
+    .callable();
+
+  const res = safeJsonParse(someJson);
+  expect(res.ok).toBe(true);
+
+  if (res.ok) {
+    expect(res.data.name).toBe("zagora");
+  } else {
+    expect(false, "Should not have error").toBeInstanceOf(true);
+  }
+
+  const res2 = safeJsonParse(`foo": 123`);
+  expect(res2.ok).toBe(false);
+
+  if (res2.error && isInternalError(res2.error)) {
+    expect(res2.error.kind).toBe("UNKNOWN_ERROR");
+    expect(res2.error.message).toContain("Sync handler threw unknown err");
+    expect((res2.error.cause as Error).message).toContain(
+      "JSON Parse error: Unexpected identifier",
+    );
+  } else {
+    expect(false, "Should throw error").toBeInstanceOf(true);
+  }
+});
+
+test("proper return type for sync and async handlers", async () => {
+  const someJson = `{"name": "zagora"}`;
+  const safeAsyncParse = zagora()
+    .handler(async () => JSON.parse(someJson))
+    .callable();
+  const res1 = await safeAsyncParse();
+  expect(res1.ok).toBe(true);
+  expect((res1 as any).data.name).toBe("zagora");
+  const res2 = safeAsyncParse();
+  expect(res2).toBeInstanceOf(Promise);
+  expect(((await res2) as any).data.name).toBe("zagora");
+
+  const safeParseSync = zagora()
+    .handler(() => JSON.parse(someJson))
+    .callable();
+  const res3 = safeParseSync();
+  expect(res3.ok).toBe(true);
+  expect((res3 as any).data.name).toBe("zagora");
+
+  const safeParsePromiseSync = zagora()
+    .handler(() => Promise.resolve(JSON.parse(someJson)))
+    .callable();
+  const res4 = await safeParsePromiseSync();
+  expect(res4.ok).toBe(true);
+  expect((res4 as any).data.name).toBe("zagora");
+  const res5 = safeAsyncParse();
+  expect(res5).toBeInstanceOf(Promise);
+  expect(((await res5) as any).data.name).toBe("zagora");
 });

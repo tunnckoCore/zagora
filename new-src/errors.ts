@@ -82,7 +82,7 @@ export function createValidationError<ErrorKindNames = never>(
   } as const;
 }
 
-export function createInternalError(msg: string, cause?: Error) {
+export function createInternalError(msg: string, cause?: any) {
   return {
     kind: "UNKNOWN_ERROR" as const,
     message: msg,

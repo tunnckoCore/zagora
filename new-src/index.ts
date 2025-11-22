@@ -3,14 +3,13 @@ import {
   type ErrorsMapResolved,
   type ResolveErrorKindNames,
 } from "./errors";
+import type { ConditionalAsync } from "./is-promise";
 
 import type {
   AnySchema,
   InferSchemaInput,
-  InferSchemaInputSafe,
   InferSchemaOutput,
   InferSchemaOutputSafe,
-  IsPromise,
   Prettify,
   ProcedureOptions,
   SpreadTuple,
@@ -30,8 +29,7 @@ export function zagora() {
 }
 
 export class Zagora<
-  TIsHandlerAsync,
-  THandlerFn,
+  THandlerFn extends (...args: any[]) => unknown,
   TContext extends any | undefined = undefined,
   TInputSchema extends AnySchema | undefined = undefined,
   TOutputSchema extends AnySchema | undefined = undefined,
@@ -45,14 +43,7 @@ export class Zagora<
 
   input<TInput extends AnySchema>(
     inputSchema: TInput,
-  ): Zagora<
-    TIsHandlerAsync,
-    THandlerFn,
-    TContext,
-    TInput,
-    TOutputSchema,
-    TErrorsMap
-  > {
+  ): Zagora<THandlerFn, TContext, TInput, TOutputSchema, TErrorsMap> {
     return new Zagora({
       ...this.def,
       inputSchema,
@@ -61,14 +52,7 @@ export class Zagora<
 
   output<TOutput extends AnySchema>(
     outputSchema: TOutput,
-  ): Zagora<
-    TIsHandlerAsync,
-    THandlerFn,
-    TContext,
-    TInputSchema,
-    TOutput,
-    TErrorsMap
-  > {
+  ): Zagora<THandlerFn, TContext, TInputSchema, TOutput, TErrorsMap> {
     return new Zagora({
       ...this.def,
       outputSchema,
@@ -77,14 +61,7 @@ export class Zagora<
 
   context<TNewContext>(
     initialContext?: TNewContext,
-  ): Zagora<
-    TIsHandlerAsync,
-    THandlerFn,
-    TNewContext,
-    TInputSchema,
-    TOutputSchema,
-    TErrorsMap
-  > {
+  ): Zagora<THandlerFn, TNewContext, TInputSchema, TOutputSchema, TErrorsMap> {
     return new Zagora({
       ...this.def,
       initialContext,
@@ -93,14 +70,7 @@ export class Zagora<
 
   errors<TErrors extends Record<string, AnySchema>>(
     errorsMap: TErrors & UppercaseKeys<TErrors>,
-  ): Zagora<
-    TIsHandlerAsync,
-    THandlerFn,
-    TContext,
-    TInputSchema,
-    TOutputSchema,
-    TErrors
-  > {
+  ): Zagora<THandlerFn, TContext, TInputSchema, TOutputSchema, TErrors> {
     return new Zagora({
       ...this.def,
       errorsMap,
@@ -122,14 +92,10 @@ export class Zagora<
             arg: InferSchemaOutput<TInputSchema>,
           ) => any
       : (options: Prettify<ProcedureOptions<TContext, TErrorsMap>>) => any,
-    TReturn = ReturnType<TFn>,
-    TIsAsync extends boolean = IsPromise<TReturn>,
-  >(
-    fn: TFn,
-  ): Zagora<TIsAsync, TFn, TContext, TInputSchema, TOutputSchema, TErrorsMap> {
+  >(fn: TFn): Zagora<TFn, TContext, TInputSchema, TOutputSchema, TErrorsMap> {
     return new Zagora({
       ...this.def,
-      handler: fn as any,
+      handler: fn,
     });
   }
 
@@ -168,19 +134,14 @@ export class Zagora<
 
     type TResolvedResult = Awaited<ReturnType<typeof procedure>>;
 
-    type TResult = TIsHandlerAsync extends true
-      ? Promise<
-          ZagoraResult<
-            InferSchemaOutputSafe<TOutputSchema>,
-            ErrorsMapResolved<TErrorsMap>,
-            TResolvedResult
-          >
-        >
-      : ZagoraResult<
-          InferSchemaOutputSafe<TOutputSchema>,
-          ErrorsMapResolved<TErrorsMap>,
-          TResolvedResult
-        >;
+    type TResult = ConditionalAsync<
+      ReturnType<THandlerFn>,
+      ZagoraResult<
+        InferSchemaOutputSafe<TOutputSchema>,
+        ErrorsMapResolved<TErrorsMap>,
+        TResolvedResult
+      >
+    >;
 
     return procedure as TInputSchema extends AnySchema
       ? InferSchemaInput<TInputSchema> extends readonly any[]
