@@ -31,8 +31,8 @@ export class Zagora<
   TIsHandlerAsync,
   THandlerFn,
   TContext extends any | undefined = undefined,
-  TInputSchema extends AnySchema = never,
-  TOutputSchema extends AnySchema = never,
+  TInputSchema extends AnySchema = AnySchema,
+  TOutputSchema extends AnySchema = AnySchema,
   TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
 > {
   constructor(

@@ -1,5 +1,11 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import type { ErrorHelpers, InternalError, ValidationError } from "./errors";
+import type {
+  ErrorHelpers,
+  ErrorsMapPlain,
+  ErrorsMapResolved,
+  InternalError,
+  ValidationError,
+} from "./errors";
 
 export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
@@ -32,6 +38,13 @@ export type Prettify<T> = {
 export type IsOptional<T> = undefined extends T ? true : false;
 export type IsPromise<T> = T extends Promise<any> ? true : false;
 
+// export type DefinedErrorsUnion<TErrorsMap> = TErrorsMap extends Record<
+//   string,
+//   AnySchema
+// >
+//   ? Prettify<Readonly<ErrorsMapPlain<TErrorsMap>[keyof TErrorsMap]>>
+//   : never;
+
 export type ZagoraResult<
   TOutput,
   TErrorsMap extends Record<string, AnySchema> | undefined,
@@ -43,20 +56,22 @@ export type ZagoraResult<
       data: TOutput;
       readonly error: undefined;
     }
-  : {
-      readonly ok: false;
-      readonly isTypedError: IsTypedError;
-      readonly error: TErrorsMap extends Record<string, any>
-        ?
-            | Prettify<Readonly<TErrorsMap[keyof TErrorsMap]>>
-            | InternalError
-            | ValidationError<keyof TErrorsMap>
-        : InternalError | ValidationError<never>;
-    };
+  : TErrorsMap extends Record<string, any>
+    ? {
+        readonly ok: false;
+        readonly isTypedError: IsTypedError;
+        readonly error:
+          | Prettify<Readonly<TErrorsMap[keyof TErrorsMap]>>
+          | ValidationError<keyof TErrorsMap>
+          | InternalError;
+      }
+    : {
+        readonly ok: false;
+        readonly isTypedError: IsTypedError;
+        readonly error: InternalError | ValidationError<never>;
+      };
 
 export interface ZagoraDef<
-  // TIsHandlerAsync,
-  // THandlerFn,
   TContext,
   TInputSchema extends AnySchema | undefined,
   TOutputSchema extends AnySchema | undefined,

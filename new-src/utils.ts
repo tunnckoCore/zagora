@@ -135,7 +135,7 @@ export function validateError<TKindNames>(
 const EXECUTION_CACHE = new Map();
 
 export function executeHandler(fn: any, args: any[]) {
-  const key = fn.toString();
+  const key = JSON.stringify({ key: fn.toString(), args });
   if (EXECUTION_CACHE.has(key)) {
     return EXECUTION_CACHE.get(key);
   }
