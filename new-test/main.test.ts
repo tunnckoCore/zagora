@@ -439,3 +439,135 @@ test("multiple procedures (calculator) from single instance (autoCallable:true)"
     expect(false, "divide should be ok").toBe(true);
   }
 });
+
+test("handle optional/default valaues in object schemas", async () => {
+  const SpeedSchema = z.enum(["slow", "normal", "fast"]);
+  const NumberSchema = z
+    .string()
+    .transform(Number)
+    .pipe(z.number().int().gte(0));
+
+  const InputSchema = z.object({
+    speed: SpeedSchema,
+    num: z.number().default(123),
+    includeDetails: z.boolean().default(false),
+  });
+
+  const SuccessSchema = z.object({
+    block_number: NumberSchema,
+    base_fee: NumberSchema,
+    next_fee: NumberSchema,
+    eth_price: z.string().transform(Number).pipe(z.number().gte(0)),
+    gas_price: z.string().transform(Number).pipe(z.number().gte(0)),
+    gas_fee: NumberSchema,
+    priority_fee: NumberSchema,
+  });
+
+  const errorSchemas = {
+    NET_ERR: z.object({
+      code: z.number(),
+      message: z.string(),
+      url: z.string().optional(),
+    }),
+    AUTH_ERR: z.object({
+      userId: z.string(),
+      url: z.url().optional(),
+    }),
+    RATE_LIMIT: z.object({
+      retryAfter: z.number(),
+      limit: z.number(),
+      message: z.string(),
+    }),
+  };
+
+  // "contract" means just access to the Zagora instance
+  const getPricesContract = zagora({ autoCallable: true })
+    .errors(errorSchemas)
+    .input(InputSchema)
+    .output(SuccessSchema);
+
+  const getPrices = getPricesContract.handler(
+    async ({ errors: err }, { speed, num, includeDetails }) => {
+      // Simulate rate limiting
+      if (num && num > 1000) {
+        throw err.RATE_LIMIT({
+          retryAfter: 60,
+          limit: 1000,
+          message: "Rate limit exceeded, try again in 60 seconds",
+        });
+      }
+
+      // Simulate validation error
+      if (speed === "slow" && includeDetails) {
+        throw err.AUTH_ERR({
+          userId: "user123",
+          url: "https://www.ethgastracker.com/api/gas/latest",
+        });
+      }
+
+      try {
+        const resp = await fetch(
+          "https://www.ethgastracker.com/api/gas/latest",
+        );
+
+        if (!resp.ok) {
+          throw err.NET_ERR({
+            code: resp.status,
+            message: `HTTP ${resp.status}: ${resp.statusText}`,
+            url: resp.url,
+          });
+        }
+
+        const { data }: any = await resp.json();
+
+        // Success case - return the data
+        return {
+          block_number: String(data.blockNr),
+          base_fee: String(data.baseFee),
+          next_fee: String(data.nextFee),
+          eth_price: String(data.ethPrice),
+          gas_price: String(data.oracle[speed].gwei),
+          gas_fee: String(data.oracle[speed].gasFee),
+          priority_fee: String(data.oracle[speed].priorityFee),
+        };
+      } catch (error) {
+        // This will be automatically wrapped in ZagoraError since we didn't handle it with our typed errors
+        throw new Error(`Failed to fetch gas prices: ${error}`);
+      }
+    },
+  );
+
+  const prices = await getPrices({
+    speed: "normal",
+    num: 50,
+    includeDetails: false,
+  });
+
+  expect(prices.ok).toBe(true);
+
+  if (prices.error && prices.error.kind === "NET_ERR") {
+    expect(prices.error.code).not.toBeUndefined();
+    expect(prices.error.code).toBeNumber();
+    expect(prices.error.url).toBeString();
+  }
+
+  const pricesLimited = await getPrices({
+    speed: "fast",
+    num: 1500,
+  });
+  expect(pricesLimited.ok).toBe(false);
+  if (pricesLimited.error && pricesLimited.error.kind === "RATE_LIMIT") {
+    expect(pricesLimited.error.limit).toStrictEqual(1000);
+    expect(pricesLimited.error.retryAfter).toStrictEqual(60);
+  }
+
+  const pricesFailing = await getPrices({
+    speed: "slow",
+    includeDetails: true,
+  });
+  expect(pricesLimited.ok).toBe(false);
+  if (pricesFailing.error && pricesFailing.error.kind === "AUTH_ERR") {
+    expect(pricesFailing.error.url).toBeString();
+    expect(pricesFailing.error.userId).toStrictEqual("user123");
+  }
+});

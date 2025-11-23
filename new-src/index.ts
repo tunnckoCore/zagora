@@ -257,7 +257,7 @@ export class Zagora<
     return procedure as TInputSchema extends AnySchema
       ? InferSchemaInput<TInputSchema> extends readonly any[]
         ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
-        : (arg: InferSchemaOutput<TInputSchema>) => TResult
+        : (arg: InferSchemaInput<TInputSchema>) => TResult
       : () => TResult;
   }
 
