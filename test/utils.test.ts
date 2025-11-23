@@ -2,8 +2,8 @@
 
 import { expect, test } from "vitest";
 import z from "zod";
-import { zagora } from "../new-src/index";
-import { deepMerge, handleTupleDefaults } from "../new-src/utils";
+import { zagora } from "../src/index";
+import { deepMerge, handleTupleDefaults } from "../src/utils";
 
 test("validateInputOutput - sync validation with issues on input (line 82)", () => {
   const fn = zagora()

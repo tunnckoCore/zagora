@@ -1,195 +1,179 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { ZagoraError } from "./error.ts";
-import type { AnySchema, InferSchemaInput, ZagoraResult } from "./types.ts";
+import { createInternalError, createValidationError } from "./errors";
+import type { AnySchema } from "./types";
 
-export const isZagoraTypedError = (error: unknown): error is ZagoraError => {
-  return Boolean(
-    error instanceof Error &&
-      error.name === "ZagoraError" &&
-      (error as any).data !== undefined,
-  );
-};
+// TEST: with expect-type
+export function createProcedure<TKindNames>({
+  inputSchema,
+  outputSchema,
+  handlerFn,
+  errorsMap,
+  options,
+  disableOptions,
+}: any) {
+  return (...args: unknown[]) => {
+    const schemaAny = inputSchema as any;
+    const isTuple =
+      schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
 
-// note: basic, but coverting a lot, if not just use `is-async-function` in future
-export function isAsyncFunction(fn: any) {
-  if (typeof fn !== "function") {
-    return false;
-  }
+    const processor = (mode: "input" | "output", schema: any, data: any) => {
+      if (schema) {
+        return validateInputOutput(mode, schema, data);
+      }
+      return createResult(data, null, false);
+    };
 
-  const str = Function.prototype.toString.call(fn);
+    const processInput = (inputData: any) => {
+      // NOTE: isTuple is safe/enough here cuz it's based on the inputSchema,
+      // thus if inputSchema is not defined, then it would be isTuple=false too.
+      const handlerArgs = isTuple
+        ? handleTupleDefaults(inputSchema, inputData as any)
+        : [inputData];
 
-  if (str.startsWith("async")) {
-    return true;
-  }
+      const executionArgs = disableOptions
+        ? handlerArgs
+        : [options, ...handlerArgs];
 
-  const obj = Object.prototype.toString.call(fn);
+      const state = executeHandler(handlerFn, executionArgs);
+      if (state.error) {
+        return validateError<TKindNames>(errorsMap, state.error, state.isAsync);
+      }
+      const handlerResult =
+        state.result ?? executeHandler(handlerFn, executionArgs).result;
 
-  if (obj === "[object AsyncFunction]") {
-    return true;
-  }
+      if (handlerResult instanceof Promise) {
+        return handlerResult
+          .then((outputResult) =>
+            processor("output", outputSchema, outputResult),
+          )
+          .catch((err) => {
+            return validateError<TKindNames>(errorsMap, err, state.isAsync);
+          });
+      }
 
-  try {
-    const result = fn();
-    return result instanceof Promise;
-  } catch (_err: unknown) {
-    return false;
-  }
-}
+      const res = processor("output", outputSchema, handlerResult);
+      return res;
+    };
 
-export function generalValidator(
-  schema: StandardSchemaV1,
-  value: unknown,
-  internal?: any,
-  isOutputValidation = false,
-  originalError?: ZagoraError,
-):
-  | { data: unknown; error: null; isDefined: boolean }
-  | { data: null; error: ZagoraError; isDefined: boolean }
-  | Promise<
-      | { data: unknown; error: null; isDefined: boolean }
-      | { data: null; error: ZagoraError; isDefined: boolean }
-    > {
-  const result = internal ?? schema["~standard"].validate(value);
-  if (result instanceof Promise) {
-    return result.then((res) => {
-      return generalValidator(
-        schema,
-        res,
-        res,
-        isOutputValidation,
-        originalError,
+    const inputArgs = isTuple ? args : args[0];
+
+    const inputResult = inputSchema
+      ? validateInputOutput("input", inputSchema, inputArgs)
+      : ({ ok: true, data: inputArgs } as const);
+
+    if (inputResult instanceof Promise) {
+      return inputResult.then((resultObj) =>
+        resultObj.error ? resultObj : processInput(resultObj.data),
       );
-    });
-  }
-
-  if (result.issues) {
-    let error = ZagoraError.fromIssues(
-      result.issues,
-      `${isOutputValidation ? "Output" : "Options"} validation failed`,
-    );
-
-    if (originalError) {
-      const key = (originalError?.data as any)?.type || "___";
-      const issues = result.issues
-        .map((issue: StandardSchemaV1.Issue) => issue.message)
-        .join(", ");
-
-      error = new ZagoraError(`Invalid error data for ${key}: ${issues}`, {
-        issues: result.issues,
-        data: value as InferSchemaInput<typeof schema>,
-        // cause: originalError,
-        reason: originalError.reason || originalError.message,
-      });
     }
 
-    return {
-      data: null,
-      error,
-      isDefined: false,
-    };
-  }
-
-  if (originalError) {
-    // Rewrite the passed error data to the processed after validation,
-    // so that it can respect defaults and options set in error schemas.
-    // (originalError as any).data = result.value;
-
-    return { data: null, error: result.value, isDefined: true };
-  }
-
-  return { data: result.value, error: null, isDefined: false };
-}
-
-export function validateInput(
-  schema: StandardSchemaV1,
-  rawArgs: unknown[],
-  processed?: unknown[],
-):
-  | { data: unknown[]; error: null; isDefined: boolean }
-  | { data: null; error: ZagoraError; isDefined: boolean }
-  | Promise<
-      | { data: unknown[]; error: null; isDefined: boolean }
-      | { data: null; error: ZagoraError; isDefined: boolean }
-    > {
-  // Handle tuple defaults if needed
-  const processedArgs = handleTupleDefaults(schema, rawArgs);
-  // console.log("valibot processed tuple defaults:::", processedArgs);
-
-  const processResult = (res: any) => {
-    if (!res.issues) {
-      // const validatedValue = res.value;
-      // const args = Array.isArray(validatedValue)
-      //   ? validatedValue
-      //   : [validatedValue];
-
-      return { data: res.value, error: null, isDefined: false };
-    }
-
-    return {
-      data: null,
-      error: ZagoraError.fromIssues(res.issues, "Input validation failed..."),
-      isDefined: false,
-    };
+    return inputResult.error ? inputResult : processInput(inputResult.data);
   };
-
-  const schemaAny = schema as any;
-  const isTupleSchema =
-    (schemaAny._def && schemaAny._def.type === "tuple") ||
-    schemaAny.type === "tuple";
-
-  const isArraySchema =
-    (schemaAny._def && schemaAny._def.type === "array") ||
-    schemaAny.type === "array";
-
-  const isPrimitiveSchema = !isTupleSchema;
-
-  // console.log({
-  //   isTupleSchema,
-  //   isArraySchema,
-  //   isPrimitiveSchema,
-  // });
-  let args = processedArgs as any;
-
-  // NOTE: if z.array() then it should allow func([1,2,3]);
-  // NOTE: if z.string() then func('foo');
-  // NOTE: if z.tuple(z.string(), z.number()) then func('foo', 123);
-  if (isPrimitiveSchema || isArraySchema) {
-    // console.log("isPrimitiveSchema || isArraySchema", {
-    //   isPrimitiveSchema,
-    //   isArraySchema,
-    //   args,
-    // });
-    args = args[0];
-  }
-
-  // Try tuple validation first
-  const result = schema["~standard"].validate(args);
-
-  if (result instanceof Promise) {
-    return result.then((res) => processResult(res));
-  }
-
-  return processResult(result);
 }
 
-export function createResult<
-  TOutputSchema extends AnySchema,
-  TErrorsSchema extends Record<string, AnySchema>,
->(data: any, error: any, isDefined: boolean) {
-  const res = [data, error, isDefined] as unknown as ZagoraResult<
-    TOutputSchema,
-    TErrorsSchema
-  >;
+// TEST: with expect-type
+export function validateInputOutput(
+  mode: "input" | "output",
+  schema: any,
+  data: any,
+) {
+  const result = schema["~standard"].validate(data);
+  if (result instanceof Promise) {
+    return result.then((or) =>
+      or.issues
+        ? createResult(null, createValidationError(mode, or.issues), false)
+        : createResult(or.value, null, false),
+    );
+  }
 
-  res.data = data;
-  res.error = error;
-  res.isDefined = isDefined;
+  return result.issues
+    ? createResult(null, createValidationError(mode, result.issues), false)
+    : createResult(result.value, null, false);
+}
 
+// TEST: with expect-type
+export function validateError<TKindNames>(
+  errorsMap: Record<string, AnySchema>,
+  error: any,
+  isAsync: boolean,
+) {
+  if (!errorsMap) {
+    return createResult(
+      null,
+      createInternalError(
+        `${isAsync ? "Async" : "Sync"} handler threw unknown error`,
+        error,
+      ),
+      false,
+    );
+  }
+
+  const kind = error?.kind;
+  if (kind in errorsMap) {
+    const kindName = kind as TKindNames;
+    const schema = errorsMap[kindName as any] as any;
+    const { kind: _, ...cleanedError } = error;
+    const result = schema["~standard"].validate(cleanedError);
+    const processError = (res: any) =>
+      res.issues
+        ? createResult(
+            null,
+            createValidationError<TKindNames>(
+              "error data",
+              res.issues,
+              kindName,
+            ),
+            false,
+          )
+        : createResult(null, { kind, ...res.value } as const, true);
+
+    if (result instanceof Promise) {
+      return result.then(processError);
+    }
+    return processError(result);
+  }
+
+  return createResult(
+    null,
+    createInternalError(`Typed Error ${kind} is not defined in errors map`),
+    false,
+  );
+}
+
+const EXECUTION_CACHE = new Map();
+
+export function executeHandler(fn: any, args: any[]) {
+  const key = JSON.stringify({ key: fn.toString(), args });
+  if (EXECUTION_CACHE.has(key)) {
+    return EXECUTION_CACHE.get(key);
+  }
+
+  const isAsync =
+    Function.prototype.toString.call(fn).startsWith("async") ||
+    Object.prototype.toString.call(fn) === "[object AsyncFunction]";
+
+  let res = { isAsync } as any;
+  try {
+    const result = fn(...args);
+    res = { isAsync: result instanceof Promise, result };
+  } catch (error: unknown) {
+    res = { isAsync, result: null, error };
+  }
+
+  EXECUTION_CACHE.set(key, res);
   return res;
 }
 
+// TEST: with expect-type
+export function createResult(data: any, error: any, isTypedError: boolean) {
+  if (error) {
+    return { ok: false, isTypedError, error: Object.freeze(error) } as const;
+  }
+
+  return { ok: true, data } as const;
+}
+
 export function handleTupleDefaults(
-  schema: StandardSchemaV1,
+  schema: AnySchema,
   rawArgs: unknown[],
 ): unknown[] {
   // Check if this might be a tuple schema by examining the schema structure
@@ -209,26 +193,21 @@ export function handleTupleDefaults(
         const itemSchema = tupleItems[i];
 
         if (itemSchema && itemSchema.type === "default" && itemSchema._def) {
-          // console.log("only zod>>");
           const defaultValue =
             typeof itemSchema._def.defaultValue === "function"
               ? itemSchema._def.defaultValue()
               : itemSchema._def.defaultValue;
 
           result[i] = defaultValue;
-          // console.log("only zod", i, defaultValue);
         } else if (
           itemSchema &&
           isValibotTuple &&
           itemSchema.type === "optional"
         ) {
-          // console.log("only valibot");
-
           result[i] = itemSchema.default;
         }
       }
 
-      // console.log("handle tuples...", result);
       return result;
     }
   }
@@ -236,76 +215,18 @@ export function handleTupleDefaults(
   return rawArgs;
 }
 
-export function createErrorHelpers(
-  schema: Record<string, StandardSchemaV1>,
-  isAsync: boolean,
-) {
-  const helpers: any = {};
-  for (const [key, errorSchema] of Object.entries(schema)) {
-    helpers[key] = createHelper(key, errorSchema, isAsync);
-  }
-  return helpers;
-}
-
-function createHelper(
-  key: string,
-  errorSchema: StandardSchemaV1,
-  isAsync: boolean,
-) {
-  return (errorData: any) => {
-    return { type: key, ...errorData };
-  };
-}
-
-export const handleError = (
-  err: any,
-  errorsSchema: Record<string, StandardSchemaV1> | undefined,
-) => {
-  if (!errorsSchema) return null;
-
-  // Check if it's a typed error object (plain object with type field)
-  if (
-    err &&
-    typeof err === "object" &&
-    "type" in err &&
-    typeof err.type === "string" &&
-    !isZagoraTypedError(err)
-  ) {
-    const errorType = err.type;
-    if (errorType in errorsSchema) {
-      const schema = errorsSchema[errorType] as any;
-      const result = schema["~standard"].validate(err);
-
-      if (result instanceof Promise) {
-        return result.then((res: any) => {
-          if (res.issues) {
-            return {
-              data: null,
-              error: ZagoraError.fromIssues(
-                res.issues,
-                `Invalid error data for ${errorType}`,
-              ),
-              isDefined: false,
-            };
-          }
-          return { data: null, error: res.value, isDefined: true };
-        });
+export function deepMerge(target: any, source: any): any {
+  if (source == null || typeof source !== "object") return source;
+  if (target == null || typeof target !== "object") return source;
+  const result = Array.isArray(target) ? [...target] : { ...target };
+  for (const key in source) {
+    if (key in source) {
+      if (typeof source[key] === "object" && source[key] !== null) {
+        result[key] = deepMerge(target[key], source[key]);
+      } else {
+        result[key] = source[key];
       }
-
-      if ((result as any).issues) {
-        return {
-          data: null,
-          error: ZagoraError.fromIssues(
-            (result as any).issues,
-            `Invalid error data for ${errorType}`,
-          ),
-          isDefined: false,
-        };
-      }
-
-      return { data: null, error: (result as any).value, isDefined: true };
     }
   }
-
-  return null;
-};
+  return result;
+}

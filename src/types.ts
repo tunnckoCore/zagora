@@ -1,5 +1,12 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import type { ZagoraError } from "./error.ts";
+import type {
+  ErrorHelpers,
+  ErrorsMapPlain,
+  InternalError,
+  ValidationError,
+} from "./errors";
+
+export * from "./is-promise";
 
 export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
@@ -21,197 +28,196 @@ export type InferSchemaInput<T extends AnySchema> = T extends StandardSchemaV1<
   ? UInput
   : never;
 
-// Helper to detect if a schema is a tuple (has fixed length, spreads args)
-export type IsTupleSchema<T extends AnySchema> = T extends StandardSchemaV1<
-  infer Input,
-  any
->
-  ? Input extends readonly any[]
-    ? // Check if it's a fixed-length tuple by seeing if it has numeric literal keys
-      Input extends readonly [any, ...any[]]
-      ? true
-      : false
-    : false
-  : false;
+export type InferSchemaOutputSafe<T> = T extends AnySchema
+  ? InferSchemaOutput<T>
+  : unknown;
 
-// Helper to detect if a schema is an array (variable length, single arg)
-export type IsArraySchema<T extends AnySchema> = T extends StandardSchemaV1<
-  infer Input,
-  any
->
-  ? Input extends any[]
-    ? Input extends readonly [any, ...any[]]
-      ? false
-      : true
-    : false
-  : false;
+// Infer output type from either output schema or handler return type
+export type InferOutput<
+  TOutputSchema extends AnySchema | undefined,
+  THandlerFn extends (...args: any[]) => any,
+> = TOutputSchema extends AnySchema
+  ? InferSchemaOutput<TOutputSchema>
+  : Awaited<ReturnType<THandlerFn>>;
 
-// Helper to generate tuple spread overloads with proper mutable array handling
-export type TupleForwardOverloads<
-  TInputArgs extends readonly any[],
-  THandlerResult,
-> = TInputArgs extends readonly any[]
-  ? UnionToIntersection<
-      | ((
-          ...args: TInputArgs extends readonly (infer E)[] ? E[] : never
-        ) => THandlerResult)
-      | (TInputArgs extends readonly (infer MutableArgs)[]
-          ? ValuePrefixes<MutableArgs[]> extends infer P
-            ? P extends readonly any[]
-              ? P extends readonly []
-                ? never
-                : (
-                    ...args: P extends readonly (infer E)[] ? E[] : never
-                  ) => THandlerResult
-              : never
-            : never
-          : never)
-    >
-  : never;
+export type InferSchemaInputSafe<T> = T extends AnySchema
+  ? InferSchemaInput<T>
+  : unknown;
 
-// convert union -> intersection helper
-export type UnionToIntersection<U> = (
-  U extends any
-    ? (k: U) => void
-    : never
-) extends (k: infer I) => void
-  ? I
-  : never;
-
-/* Given `T` a tuple type, produce an intersection of function
-    types that act as overloads for each prefix of T. */
-export type IsOptional<T> = undefined extends T ? true : false;
-export type AllOptional<T extends any[]> = T extends [infer H, ...infer R]
-  ? IsOptional<H> extends true
-    ? AllOptional<R>
-    : false
-  : true;
-
-/* prefixes of a value-tuple (mutable) */
-export type ValuePrefixes<T extends any[]> = T extends [infer H, ...infer R]
-  ? [] | [H, ...ValuePrefixes<R>]
-  : [];
-
-// NOTE: possible fix
-// export type OverloadedByPrefixes<T extends any[], R> = UnionToIntersection<
-//   ValuePrefixes<T> extends infer P
-//     ? P extends any[]
-//       ? P extends []
-//         ? AllOptional<T> extends true
-//           ? (...args: P) => R
-//           : never
-//         : (...args: P) => R
-//       : never
-//     : never
-// >;
-
-// Helper to make undefined elements optional in tuple (for Valibot compatibility)
-export type MakeUndefinedOptional<T extends any[]> = T extends [
-  infer H,
-  ...infer Rest,
-]
-  ? undefined extends H
-    ? [H?, ...MakeUndefinedOptional<Rest>]
-    : [H, ...MakeUndefinedOptional<Rest>]
-  : [];
-
-export type OverloadedByPrefixes<
-  T extends any[],
-  R,
-> = AllOptional<T> extends false
-  ? // If any element is required, check if we have undefined elements (Valibot case)
-    // Convert undefined to optional for callsite
-    undefined extends T[number]
-    ? AllOptional<MakeUndefinedOptional<T>> extends false
-      ? (...args: MakeUndefinedOptional<T>) => R
-      : UnionToIntersection<
-          ValuePrefixes<MakeUndefinedOptional<T>> extends infer P
-            ? P extends any[]
-              ? P extends []
-                ? AllOptional<MakeUndefinedOptional<T>> extends true
-                  ? (...args: P) => R
-                  : never
-                : (...args: P) => R
-              : never
-            : never
-        >
-    : // No undefined elements, use original logic
-      (...args: T) => R
-  : // If all optional, provide all prefixes
-    UnionToIntersection<
-      ValuePrefixes<T> extends infer P
-        ? P extends any[]
-          ? P extends []
-            ? AllOptional<T> extends true
-              ? (...args: P) => R
-              : never
-            : (...args: P) => R
-          : never
-        : never
-    >;
-
-export type ZagoraErrorHelpers<T extends Record<string, StandardSchemaV1>> = {
-  [K in keyof T]: (
-    error: Prettify<Omit<InferSchemaInput<T[K]>, "type">>,
-  ) => [null, InferSchemaOutput<T[K]>];
+// TEST: with expect-type
+export type UppercaseKeys<T> = {
+  [K in keyof T as Uppercase<string & K>]: T[K];
 };
 
-export type ZagoraDef<
-  TInputSchema extends AnySchema | undefined = undefined,
-  TOutputSchema extends AnySchema | undefined = undefined,
-  TErrorsSchema extends
-    | Record<string, StandardSchemaV1>
-    | undefined = undefined,
-> = {
-  inputSchema?: TInputSchema;
-  outputSchema?: TOutputSchema;
-  errorsSchema?: TErrorsSchema;
-};
-
-export type ResultObj<TOutput, TError, TIsDefined extends boolean> = {
-  data: TOutput;
-  error: TError;
-  isDefined: TIsDefined;
-};
-
-export type Result<TOutput, TError, TIsDefined extends boolean> = [
-  TOutput,
-  TError,
-  TIsDefined,
-] &
-  Prettify<ResultObj<TOutput, TError, TIsDefined>>;
-
-// typescript prettify type
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
+// TEST: with expect-type
+export type IsOptional<T> = undefined extends T ? true : false;
+
+type ObjectToUnion<T> = T[keyof T];
+
+// TEST: with expect-type
 export type ZagoraResult<
-  TOutput extends StandardSchemaV1 | undefined = undefined,
-  TErrors extends Record<string, StandardSchemaV1> | undefined = undefined,
-> = TErrors extends Record<string, StandardSchemaV1>
-  ?
-      | Result<
-          TOutput extends StandardSchemaV1
-            ? InferSchemaOutput<TOutput>
-            : unknown,
-          null,
-          false
-        > // success
-      | Result<
-          null,
-          {
-            [K in keyof TErrors]: InferSchemaOutput<TErrors[K]>;
-          }[keyof TErrors],
-          true
-        > // typed error
-      | Result<null, ZagoraError, false> // untyped error
-  :
-      | Result<
-          TOutput extends StandardSchemaV1
-            ? InferSchemaOutput<TOutput>
-            : unknown,
-          null,
-          false
-        > // success
-      | Result<null, ZagoraError, false>; // untyped error
+  TOutput,
+  TErrorsMap extends Record<string, AnySchema> | any,
+  TResolvedResult,
+  IsTypedError = TErrorsMap extends Record<string, any> ? true : false,
+> = TResolvedResult extends { readonly ok: true }
+  ? {
+      readonly ok: true;
+      data: TOutput;
+      readonly error: undefined;
+    }
+  : TErrorsMap extends Record<string, any>
+    ? {
+        readonly ok: false;
+        readonly isTypedError: IsTypedError;
+        readonly error:
+          | Prettify<
+              Readonly<Prettify<ObjectToUnion<ErrorsMapPlain<TErrorsMap>>>>
+            >
+          | ValidationError<keyof TErrorsMap>
+          | InternalError;
+      }
+    : {
+        readonly ok: false;
+        readonly isTypedError: IsTypedError;
+        readonly error: InternalError | ValidationError<never>;
+      };
+
+export interface ZagoraDef<
+  TContext,
+  TInputSchema extends AnySchema | undefined,
+  TOutputSchema extends AnySchema | undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+> {
+  disableOptions?: boolean;
+  autoCallable?: boolean;
+  initialContext: any;
+  inputSchema: TInputSchema;
+  outputSchema: TOutputSchema;
+  errorsMap: TErrorsMap;
+  handler?: (
+    options: { context: TContext; errors: any },
+    ...args: unknown[]
+  ) => any;
+}
+
+// TEST: with expect-type
+export interface ResolveHandlerOptions<
+  TContext,
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+> {
+  context: TContext;
+  errors: TErrorsMap extends Record<string, AnySchema>
+    ? ErrorHelpers<TErrorsMap>
+    : undefined;
+}
+
+// TEST: with expect-type
+export type ResolveProcedure<
+  TDisableOptions extends boolean,
+  TContext,
+  TInputSchema extends AnySchema | undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+> = TDisableOptions extends true
+  ? TInputSchema extends AnySchema
+    ? InferSchemaOutput<TInputSchema> extends readonly any[]
+      ? SpreadTuple<InferSchemaOutput<TInputSchema>, any>
+      : (arg: InferSchemaOutput<TInputSchema>) => any
+    : () => any
+  : TInputSchema extends AnySchema
+    ? InferSchemaOutput<TInputSchema> extends readonly any[]
+      ? SpreadTuple<
+          [
+            Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>,
+            ...InferSchemaOutput<TInputSchema>,
+          ],
+          any
+        >
+      : (
+          options: Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>,
+          arg: InferSchemaOutput<TInputSchema>,
+        ) => any
+    : (options: Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>) => any;
+
+// TEST: with expect-type
+export type SpreadTuple<T extends readonly any[], R> = T extends readonly [
+  infer A,
+]
+  ? (arg: A) => R
+  : T extends readonly [infer A, infer B]
+    ? IsOptional<B> extends true
+      ? ((arg1: A, arg2?: B) => R) | ((arg1: A) => R)
+      : ((arg1: A, arg2: B) => R) | ((arg1: A) => R)
+    : T extends readonly [infer A, infer B, infer C]
+      ? IsOptional<B> extends true
+        ? IsOptional<C> extends true
+          ?
+              | ((arg1: A, arg2?: B, arg3?: C) => R)
+              | ((arg1: A, arg2?: B) => R)
+              | ((arg1: A) => R)
+          :
+              | ((arg1: A, arg2?: B, arg3?: C) => R)
+              | ((arg1: A, arg2?: B) => R)
+              | ((arg1: A) => R)
+        : IsOptional<C> extends true
+          ?
+              | ((arg1: A, arg2: B, arg3?: C) => R)
+              | ((arg1: A, arg2: B) => R)
+              | ((arg1: A) => R)
+          :
+              | ((arg1: A, arg2: B, arg3: C) => R)
+              | ((arg1: A, arg2: B) => R)
+              | ((arg1: A) => R)
+      : T extends readonly [infer A, infer B, infer C, infer D]
+        ? IsOptional<B> extends true
+          ? IsOptional<C> extends true
+            ? IsOptional<D> extends true
+              ?
+                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
+                  | ((arg1: A, arg2?: B, arg3?: C) => R)
+                  | ((arg1: A, arg2?: B) => R)
+                  | ((arg1: A) => R)
+              :
+                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
+                  | ((arg1: A, arg2?: B, arg3?: C) => R)
+                  | ((arg1: A, arg2?: B) => R)
+                  | ((arg1: A) => R)
+            : IsOptional<D> extends true
+              ?
+                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
+                  | ((arg1: A, arg2?: B, arg3?: C) => R)
+                  | ((arg1: A, arg2?: B) => R)
+                  | ((arg1: A) => R)
+              :
+                  | ((arg1: A, arg2?: B, arg3?: C, arg4?: D) => R)
+                  | ((arg1: A, arg2?: B, arg3?: C) => R)
+                  | ((arg1: A, arg2?: B) => R)
+                  | ((arg1: A) => R)
+          : IsOptional<C> extends true
+            ? IsOptional<D> extends true
+              ?
+                  | ((arg1: A, arg2: B, arg3?: C, arg4?: D) => R)
+                  | ((arg1: A, arg2: B, arg3?: C) => R)
+                  | ((arg1: A, arg2: B) => R)
+                  | ((arg1: A) => R)
+              :
+                  | ((arg1: A, arg2: B, arg3?: C, arg4?: D) => R)
+                  | ((arg1: A, arg2: B, arg3?: C) => R)
+                  | ((arg1: A, arg2: B) => R)
+                  | ((arg1: A) => R)
+            : IsOptional<D> extends true
+              ?
+                  | ((arg1: A, arg2: B, arg3: C, arg4?: D) => R)
+                  | ((arg1: A, arg2: B, arg3: C) => R)
+                  | ((arg1: A, arg2: B) => R)
+                  | ((arg1: A) => R)
+              :
+                  | ((arg1: A, arg2: B, arg3: C, arg4?: D) => R)
+                  | ((arg1: A, arg2: B, arg3: C) => R)
+                  | ((arg1: A, arg2: B) => R)
+                  | ((arg1: A) => R)
+        : (...args: T) => R;

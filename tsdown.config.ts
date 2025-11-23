@@ -1,7 +1,7 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: "new-src/*.ts",
+  entry: "./src/*.ts",
   outExtensions: () => ({
     js: ".js",
     dts: ".d.ts",

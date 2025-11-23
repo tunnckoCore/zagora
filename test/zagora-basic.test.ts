@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from "bun:test";
 import * as v from "valibot";
+import { expect, test } from "vitest";
 import z from "zod";
-import { Zagora, zagora } from "../src/index.ts";
+import { Zagora, zagora } from "../src/index";
 
 const errorSchemas = {
   single: {
@@ -66,22 +66,23 @@ test("should access error helpers from handler last arg", () => {
     .output(
       z.object({
         str: z.string(),
-        helper: z.any(),
+        errHelper: z.any(),
       }),
     )
     .errors(errorSchemas.single)
-    .handler((str, errors) => {
-      return { str, helper: errors.NETWORK_ERROR };
-    });
+    .handler(({ errors }, str) => {
+      return { str, errHelper: errors.NETWORK_ERROR };
+    })
+    .callable();
 
   const res = fooFn("barry");
 
-  if (res.error) {
-    expect("should not get").toBe("to any error state");
-  } else {
+  if (res.ok) {
     expect(res.data.str).toBe("barry");
-    expect(typeof res.data.helper).toBe("function");
-    expect(res.data.helper.toString()).toContain("(errorData) =>");
+    expect(typeof res.data.errHelper).toBe("function");
+    expect(res.data.errHelper.toString()).toContain("(data) =>");
+  } else {
+    expect(false, "Should not error for error helpers access").toBe(true);
   }
 });
 
@@ -102,17 +103,15 @@ test("should work with Valibot schemas", () => {
         x: v.string(),
       }),
     )
-    .handler((x) => ({ x }));
+    .handler((_, x) => ({ x }))
+    .callable();
 
   const res = func("foo");
 
-  expect(res.data).toBeObject();
-  expect(res.data).not.toBeNil();
-  expect(typeof res.data).toBe("object");
-  if (res.data) {
+  if (res.ok) {
     expect(res.data.x).toBe("foo");
   } else {
-    expect("should not").toBe("none data");
+    expect(false, "Should not error for Valibot schemas").toBe(true);
   }
 });
 
@@ -135,18 +134,32 @@ test("should maintain immutability when chaining", () => {
 });
 
 test("should NOT throw error when handler called without input schema", async () => {
-  const fn = zagora().handler(() => "foobar");
+  const fn = zagora()
+    .handler((_) => "foobar")
+    .callable();
+
   const res = fn();
-  expect(res.data).toBe("foobar");
+
+  if (res.ok) {
+    expect(res.data).toBe("foobar");
+  } else {
+    expect(false, "Should not error for no input schema").toBe(true);
+  }
 });
 
 test("should NOT throw error when async handler called without output schema", async () => {
   const fn = zagora()
     .input(z.string())
-    .handler(async (str) => str);
+    .handler(async (_, str) => str)
+    .callable();
 
   const res = await fn("foo");
-  expect(res.data).toBe("foo");
+
+  if (res.ok) {
+    expect(res.data).toBe("foo");
+  } else {
+    expect(false, "Should not error for async no output schema").toBe(true);
+  }
 });
 
 test("should allow method chaining in different orders", () => {
@@ -174,60 +187,85 @@ test("should work with array input schemas", () => {
   const fn = zagora()
     .input(z.array(z.string()))
     .output(z.object({ arr: z.array(z.string()) }))
-    .handler((arr) => ({ arr }));
+    .handler((_, arr) => ({ arr }))
+    .callable();
 
-  const input = ["foo", "bar", "qux"];
+  const input: string[] = ["foo", "bar", "qux"];
 
-  const res = fn(input);
+  const res = fn(input as any);
 
-  expect(res.error).toBeNull();
-  expect(res.data).not.toBeNil();
-  expect(res.data?.arr).toBeArray();
-  expect(res.data?.arr[0]).toBe("foo");
-  expect(res.data?.arr[1]).toBe("bar");
-  expect(res.data?.arr[2]).toBe("qux");
+  if (res.ok) {
+    expect(res.data.arr).toBeInstanceOf(Array);
+    expect(res.data.arr[0]).toBe("foo");
+    expect(res.data.arr[1]).toBe("bar");
+    expect(res.data.arr[2]).toBe("qux");
+  } else {
+    expect(false, "Should not error for array input schemas").toBe(true);
+  }
 });
 
 test("should spread with tuple input schemas to handler args", () => {
   const func = zagora()
     .input(z.tuple([z.number(), z.number()]))
     .output(z.number())
-    .handler((x, y) => x + y);
+    .handler((_, x, y) => x + y)
+    .callable();
 
   const res = func(10, 20);
-  expect(res.data).toBe(30);
+
+  if (res.ok) {
+    expect(res.data).toBe(30);
+  } else {
+    expect(false, "Should not error for tuple input schemas").toBe(true);
+  }
 });
 
 test("should support overriding schemas", () => {
   const funcOne = zagora()
     .input(z.string())
     .input(z.number()) // Override input
-    .handler((x) => x);
+    .handler((_, x) => x)
+    .callable();
 
   const res1 = funcOne(120);
-  expect(res1.error).toBeNull();
-  expect(res1.data).toBe(120);
+
+  if (res1.ok) {
+    expect(res1.data).toBe(120);
+  } else {
+    expect(false, "Should not error for overriding input schemas").toBe(true);
+  }
 
   const funcTwo = zagora()
     .input(z.number())
     .output(z.string())
     .output(z.number()) // Override output
-    .handler((x) => x);
+    .handler((_, x) => x)
+    .callable();
 
   const res2 = funcTwo(120);
-  expect(res2.error).toBeNull();
-  expect(typeof res2.data).toBe("number");
-  expect(res2.data).toBe(120);
+
+  if (res2.ok) {
+    expect(typeof res2.data).toBe("number");
+    expect(res2.data).toBe(120);
+  } else {
+    expect(false, "Should not error for overriding output schemas").toBe(true);
+  }
 
   const funcThree = zagora()
     .input(z.string()) // TODO: support using only `.errors` without .input required
     .errors(errorSchemas.multiple)
     .errors(errorSchemas.single) // Override output
     .handler(
-      (str, errs) =>
-        `${str}-${Object.keys(errs).length}-${typeof errs.NETWORK_ERROR}`,
-    );
+      ({ errors }, str) =>
+        `${str}-${Object.keys(errors).length}-${typeof errors.NETWORK_ERROR}`,
+    )
+    .callable();
 
   const res3 = funcThree("barry");
-  expect(res3.data).toBe("barry-1-function");
+
+  if (res3.ok) {
+    expect(res3.data).toBe("barry-1-function");
+  } else {
+    expect(false, "Should not error for overriding error schemas").toBe(true);
+  }
 });

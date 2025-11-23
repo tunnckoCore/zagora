@@ -10,7 +10,7 @@ import {
   isInternalError,
   isValidationError,
   isZagoraError,
-} from "../new-src/errors";
+} from "../src/errors";
 
 test("should create basic error with message", () => {
   const error = createInternalError("Test error");

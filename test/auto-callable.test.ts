@@ -2,7 +2,7 @@
 
 import { expect, test } from "vitest";
 import z from "zod";
-import { zagora } from "../new-src/index";
+import { zagora } from "../src/index";
 
 test("autoCallable: false (default) - requires .callable() call", () => {
   const builder = zagora()

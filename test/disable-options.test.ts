@@ -2,7 +2,7 @@
 
 import { expect, test } from "vitest";
 import z from "zod";
-import { zagora } from "../new-src/index";
+import { zagora } from "../src/index";
 
 test("disableOptions: false (default) - handler receives options as first arg", () => {
   const fn = zagora()

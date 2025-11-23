@@ -1,345 +1,269 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { ZagoraError } from "./error.ts";
+import { createErrorHelpers, type ResolveErrorKindNames } from "./errors";
+import type { ConditionalAsync } from "./is-promise";
+
 import type {
   AnySchema,
+  InferOutput,
   InferSchemaInput,
-  InferSchemaOutput,
-  IsTupleSchema,
-  OverloadedByPrefixes,
-  TupleForwardOverloads,
+  Prettify,
+  ResolveHandlerOptions,
+  ResolveProcedure,
+  SpreadTuple,
+  UppercaseKeys,
   ZagoraDef,
-  ZagoraErrorHelpers,
   ZagoraResult,
-} from "./types.ts";
+} from "./types";
 
-import {
-  createErrorHelpers,
-  createResult,
-  generalValidator,
-  handleError,
-  isAsyncFunction,
-  validateInput,
-} from "./utils.ts";
+import { createProcedure, deepMerge } from "./utils";
 
-export * from "./error.ts";
-export * from "./types.ts";
-export * from "./utils.ts";
+export * as errors from "./errors";
+export * as types from "./types";
+export * as utils from "./utils";
 
-export const zagora = () => {
-  return new Zagora();
-};
+export interface ZagoraConfig {
+  disableOptions?: boolean;
+  autoCallable?: boolean;
+}
+
+export function zagora(): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  false
+>;
+export function zagora<
+  TDisableOptions extends boolean = false,
+  TAutoCallable extends boolean = false,
+>(config: {
+  disableOptions: TDisableOptions;
+  autoCallable?: TAutoCallable;
+}): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  TDisableOptions,
+  TAutoCallable
+>;
+export function zagora<TAutoCallable extends boolean = false>(config: {
+  autoCallable: TAutoCallable;
+  disableOptions?: boolean;
+}): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  false,
+  TAutoCallable
+>;
+export function zagora(config?: ZagoraConfig) {
+  return new Zagora(config) as any;
+}
 
 export class Zagora<
+  THandlerFn extends (...args: any[]) => any,
+  TContext extends any | undefined = undefined,
   TInputSchema extends AnySchema | undefined = undefined,
   TOutputSchema extends AnySchema | undefined = undefined,
-  TErrorsSchema extends
-    | Record<string, StandardSchemaV1>
-    | undefined = undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
+  TDisableOptions extends boolean = false,
+  TAutoCallable extends boolean = false,
 > {
-  "~zagora": ZagoraDef<TInputSchema, TOutputSchema, TErrorsSchema>;
-
-  constructor(def?: ZagoraDef<TInputSchema, TOutputSchema, TErrorsSchema>) {
-    this["~zagora"] = def || {};
+  constructor(
+    private def: Partial<
+      ZagoraDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
+    > = {},
+  ) {
+    // Ensure config flags are set from constructor if provided
+    if ("disableOptions" in def && def.disableOptions !== undefined) {
+      this.def.disableOptions = def.disableOptions;
+    }
+    if ("autoCallable" in def && def.autoCallable !== undefined) {
+      this.def.autoCallable = def.autoCallable;
+    }
   }
 
-  input<TSchema extends AnySchema>(
-    schema: TSchema,
-  ): Zagora<TSchema, TOutputSchema, TErrorsSchema> {
+  input<TInput extends AnySchema>(
+    inputSchema: TInput,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInput,
+    TOutputSchema,
+    TErrorsMap,
+    TDisableOptions,
+    TAutoCallable
+  > {
     return new Zagora({
-      ...this["~zagora"],
-      inputSchema: schema,
+      ...this.def,
+      inputSchema,
     });
   }
 
-  output<TSchema extends AnySchema>(
-    schema: TSchema,
-  ): Zagora<TInputSchema, TSchema, TErrorsSchema> {
+  output<TOutput extends AnySchema>(
+    outputSchema: TOutput,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutput,
+    TErrorsMap,
+    TDisableOptions,
+    TAutoCallable
+  > {
     return new Zagora({
-      ...this["~zagora"],
-      outputSchema: schema,
+      ...this.def,
+      outputSchema,
     });
   }
 
-  errors<TErrorsSchemaMap extends Record<string, StandardSchemaV1>>(
-    errorsMap: TErrorsSchemaMap,
-  ): Zagora<TInputSchema, TOutputSchema, TErrorsSchemaMap> {
+  context<TNewContext>(
+    initialContext?: TNewContext,
+  ): Zagora<
+    THandlerFn,
+    TNewContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrorsMap,
+    TDisableOptions,
+    TAutoCallable
+  > {
     return new Zagora({
-      ...this["~zagora"],
-      errorsSchema: errorsMap,
+      ...this.def,
+      initialContext,
+    }) as any;
+  }
+
+  errors<TErrors extends Record<string, AnySchema>>(
+    errorsMap: TErrors & UppercaseKeys<TErrors>,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrors,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this.def,
+      errorsMap,
     });
   }
 
   handler<
-    TFuncInput extends StandardSchemaV1 = TInputSchema extends undefined
-      ? any
-      : TInputSchema,
-    TOutArgs = InferSchemaInput<TFuncInput>,
-    Impl extends (...args: any[]) => any = TErrorsSchema extends Record<
-      string,
-      StandardSchemaV1
-    >
-      ? IsTupleSchema<TFuncInput> extends true
-        ? TOutArgs extends readonly any[]
-          ? (...args: [...TOutArgs, ZagoraErrorHelpers<TErrorsSchema>]) => any
-          : never
-        : (arg: TOutArgs, errors: ZagoraErrorHelpers<TErrorsSchema>) => any
-      : IsTupleSchema<TFuncInput> extends true
-        ? TOutArgs extends readonly any[]
-          ? (...args: TOutArgs) => any
-          : never
-        : (arg: TOutArgs) => any,
-  >(impl: Impl) {
-    const isAsync = isAsyncFunction(impl);
+    TFn extends ResolveProcedure<
+      TDisableOptions,
+      TContext,
+      TInputSchema,
+      TErrorsMap
+    >,
+  >(
+    fn: TFn,
+  ): TAutoCallable extends true
+    ? ReturnType<
+        Zagora<
+          TFn,
+          TContext,
+          TInputSchema,
+          TOutputSchema,
+          TErrorsMap,
+          TDisableOptions,
+          TAutoCallable
+        >["_createProcedure"]
+      >
+    : Zagora<
+        TFn,
+        TContext,
+        TInputSchema,
+        TOutputSchema,
+        TErrorsMap,
+        TDisableOptions,
+        TAutoCallable
+      > {
+    const newInstance = new Zagora<
+      TFn,
+      TContext,
+      TInputSchema,
+      TOutputSchema,
+      TErrorsMap,
+      TDisableOptions,
+      TAutoCallable
+    >({
+      ...this.def,
+      handler: fn,
+    });
 
-    const inputSchema = this["~zagora"].inputSchema || undefined;
-    const outputSchema = this["~zagora"].outputSchema || undefined;
-    const errorsSchema = this["~zagora"].errorsSchema || undefined;
+    // If autoCallable is true, create the procedure immediately
+    if (this.def.autoCallable) {
+      return newInstance._createProcedure() as any;
+    }
 
-    const schemaAny = inputSchema as any;
+    return newInstance as any;
+  }
 
-    const isTupleSchema =
-      (schemaAny?._def && schemaAny?._def?.type === "tuple") ||
-      schemaAny?.type === "tuple";
+  private _createProcedure<
+    TNewContext extends TContext = TContext,
+    TKindNames extends
+      ResolveErrorKindNames<TErrorsMap> = ResolveErrorKindNames<TErrorsMap>,
+  >(context?: TNewContext) {
+    if (typeof this.def.handler !== "function") {
+      this.def.handler = () => {};
+    }
 
-    const isArraySchema =
-      (schemaAny?._def && schemaAny?._def?.type === "array") ||
-      schemaAny?.type === "array";
+    const { initialContext, errorsMap, disableOptions } = this.def;
+    const handlerFn = this.def.handler;
+    const inputSchema = this.def.inputSchema as TInputSchema;
+    const outputSchema = this.def.outputSchema as TOutputSchema;
 
-    const isPrimitiveSchema = !isTupleSchema;
+    const mergedContext = context
+      ? deepMerge(initialContext, context)
+      : initialContext;
 
-    const wrapper = (rawArgs: any, processed: any) => {
-      if (
-        processed === "____$$MAGIC_VALUE_" &&
-        inputSchema &&
-        inputSchema["~standard"]
-      ) {
-        const inputResult = validateInput(inputSchema, rawArgs);
+    const errors = errorsMap ? createErrorHelpers(errorsMap as any) : undefined;
+    const options = {
+      errors: errors,
+      context: mergedContext,
+    } as Prettify<
+      ResolveHandlerOptions<Prettify<TNewContext & TContext>, TErrorsMap>
+    >;
 
-        if (inputResult instanceof Promise) {
-          return inputResult.then((res): any => {
-            if (res.error) {
-              return res;
-            }
+    const procedure = createProcedure<TKindNames>({
+      inputSchema,
+      outputSchema,
+      errorsMap,
+      options,
+      handlerFn,
+      disableOptions: disableOptions ?? false,
+    });
 
-            return wrapper(rawArgs, res.data);
-          });
-        }
+    type TResolvedResult = Awaited<ReturnType<typeof procedure>>;
 
-        if (inputResult.error) {
-          return inputResult;
-        }
-        return wrapper(rawArgs, inputResult.data);
-      }
+    type TResult = ConditionalAsync<
+      ReturnType<THandlerFn>,
+      ZagoraResult<
+        InferOutput<TOutputSchema, THandlerFn>,
+        TErrorsMap,
+        TResolvedResult
+      >
+    >;
 
-      try {
-        const errs = errorsSchema
-          ? createErrorHelpers(errorsSchema, isAsync)
-          : null;
+    // TEST: with expect-type
+    return procedure as TInputSchema extends AnySchema
+      ? InferSchemaInput<TInputSchema> extends readonly any[]
+        ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
+        : (arg: InferSchemaInput<TInputSchema>) => TResult
+      : () => TResult;
+  }
 
-        const finalArgs =
-          isArraySchema || isPrimitiveSchema
-            ? [processed, errs]
-            : [...processed, errs];
-
-        const rawResult = (impl as any)(...finalArgs.filter(Boolean));
-
-        if (rawResult instanceof Promise) {
-          return rawResult
-            .then((data) => {
-              const typedError = handleError(data, errorsSchema);
-              if (typedError) return typedError;
-              return outputSchema
-                ? generalValidator(outputSchema, data, null, true)
-                : { data, error: null, isDefined: false };
-            })
-            .catch((error) => {
-              const typedError = handleError(error, errorsSchema);
-              if (typedError) return typedError;
-              if (error instanceof ZagoraError) {
-                return { data: null, error, isDefined: false };
-              }
-              return {
-                data: null,
-                error: new ZagoraError("An async handler threw unknown error", {
-                  cause: error,
-                }),
-                isDefined: false,
-              };
-            });
-        }
-
-        const typedError = handleError(rawResult, errorsSchema);
-        if (typedError) return typedError;
-
-        const outputResult = outputSchema
-          ? (generalValidator(outputSchema, rawResult, null, true) as
-              | {
-                  data: InferSchemaOutput<typeof outputSchema>;
-                  error: null;
-                  isDefined: boolean;
-                }
-              | { data: null; error: ZagoraError; isDefined: boolean })
-          : { data: rawResult, error: null, isDefined: false };
-
-        if (outputResult.error) {
-          return outputResult;
-        }
-
-        return outputResult;
-      } catch (error: unknown) {
-        const typedError = handleError(error, errorsSchema);
-        if (typedError) return typedError;
-        if (error instanceof ZagoraError) {
-          return { data: null, error, isDefined: false };
-        }
-        return {
-          data: null,
-          error: new ZagoraError("Synchronous handler threw unknown error", {
-            cause: error,
-          }),
-          isDefined: false,
-        };
-      }
-    };
-
-    type IsOnlyPromise<T> = [T] extends [never]
-      ? false
-      : Exclude<T, Promise<any>> extends never
-        ? true
-        : false;
-
-    type ImplReturn = ReturnType<Impl>;
-    type HandlerResult = IsOnlyPromise<ImplReturn> extends true
-      ? Promise<
-          ZagoraResult<
-            TOutputSchema extends undefined ? AnySchema : TOutputSchema,
-            TErrorsSchema
-          >
-        >
-      : ZagoraResult<TOutputSchema, TErrorsSchema>;
-
-    // Forward (call-site) signatures
-    type InputArgs = InferSchemaInput<TFuncInput>;
-
-    type ForwardType = IsTupleSchema<TFuncInput> extends true
-      ? // Tuple: generate prefix overloads including full length
-        InputArgs extends readonly any[]
-        ? TupleForwardOverloads<InputArgs, HandlerResult>
-        : never
-      : // Not a tuple (array or primitive): single argument
-        ((arg: InputArgs) => HandlerResult) &
-          OverloadedByPrefixes<[InputArgs], HandlerResult>;
-
-    type ForwardWithHandler<T> = {
-      "~zagora": ZagoraDef<TInputSchema, TOutputSchema, TErrorsSchema> & {
-        handler: T;
-      };
-    };
-
-    const forwardImpl = ((...args: any[]) => {
-      const resp = wrapper(args as unknown[], "____$$MAGIC_VALUE_");
-
-      if (resp instanceof Promise) {
-        return resp.then((x) => createResult(x.data, x.error, x.isDefined));
-      }
-
-      return createResult(resp.data, resp.error, resp.isDefined);
-    }) as unknown as ForwardType;
-
-    const forward =
-      forwardImpl as unknown as ForwardType as typeof forwardImpl &
-        ForwardWithHandler<typeof forwardImpl>;
-
-    forward["~zagora"] = { ...this["~zagora"], handler: forward };
-
-    return forward;
+  callable<
+    TNewContext extends TContext,
+    TKindNames extends ResolveErrorKindNames<TErrorsMap>,
+  >(context?: TNewContext) {
+    return this._createProcedure<TNewContext, TKindNames>(context);
   }
 }
-
-// ===== EXAMPLE USAGES
-
-// const zag = new Zagora();
-
-// const foo = zag
-//   .input(
-//     z.tuple([
-//       z.enum(["login", "auth", "foobie"]),
-//       z
-//         .object({
-//           name: z.string(),
-//           age: z.number().min(0),
-//           username: z.string().optional(),
-//         })
-//         .strict()
-//         .default({
-//           name: "barry",
-//           age: 0,
-//           // username: undefined,
-//         }),
-//     ]),
-//   )
-//   // .input(z.string())
-//   .output(
-//     z
-//       .object({
-//         opts: z.any(),
-//         str: z.string().min(1),
-//       })
-//       .strict(),
-//   )
-//   .errors({
-//     AUTH_ERROR: z.object({
-//       type: z.literal("AUTH_ERROR"),
-//       userId: z.uuid(),
-//       email: z.email().default("sasa@example.com"),
-//     }),
-//     RATE_LIMIT_ERROR: z.object({
-//       type: z.literal("RATE_LIMIT_ERROR"),
-//       userId: z.uuid(),
-//       email: z.email().default("sasa@example.com"),
-//       retryAfter: z.number().min(300),
-//       attempts: z.number().min(10),
-//     }),
-//   })
-//   .handler((mode, opts, errors) => {
-//     if (mode === "login") {
-//       return errors.AUTH_ERROR({
-//         userId: crypto.randomUUID(),
-//         // sasa: 121,
-//         // email: "sasa@example.com",
-//       });
-//     }
-
-//     if (mode === "auth") {
-//       return errors.RATE_LIMIT_ERROR({
-//         userId: crypto.randomUUID(),
-//         email: "random@user.com",
-//         retryAfter: 300,
-//         attempts: 10,
-//       });
-//     }
-
-//     // console.log({ opts, mode, errors });
-//     return {
-//       str: `foo-${mode}`,
-//       opts,
-//     };
-//   });
-
-// // NOTE (works): should type error when there is a second required argument,
-// // defined in the tuple input schema.
-// // NOTE (works): should not type error when there's second arg but has set as optional/default.
-// const bar = foo("foobie", {
-//   age: 11,
-//   name: "barry",
-//   username: "asasa",
-// });
-
-// console.log(
-//   "foo::::",
-//   {
-//     data: bar.data,
-//     error: bar.error,
-//   },
-//   "<<<",
-// );

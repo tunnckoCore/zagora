@@ -25,6 +25,6 @@
     "strictNullChecks": true,
     "types": ["bun-types"]
   },
-  "include": ["new-src", "new-test"],
+  "include": ["src", "test"],
   "exclude": ["node_modules", "dist"]
 }

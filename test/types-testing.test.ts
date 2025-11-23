@@ -35,8 +35,8 @@ import type {
   ErrorsMapPlain,
   InternalError,
   ValidationError,
-} from "../new-src/errors";
-import { zagora } from "../new-src/index";
+} from "../src/errors";
+import { zagora } from "../src/index";
 import type {
   AnySchema,
   ConditionalAsync,
@@ -48,12 +48,12 @@ import type {
   SpreadTuple,
   UppercaseKeys,
   ZagoraResult,
-} from "../new-src/types";
+} from "../src/types";
 import {
   createResult,
   validateError,
   type validateInputOutput,
-} from "../new-src/utils";
+} from "../src/utils";
 
 // =============================================================================
 // IsAny Type Tests
