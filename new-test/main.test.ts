@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, test } from "bun:test";
+import { expectTypeOf } from "expect-type";
 import * as v from "valibot";
 import z from "zod";
 import { isDefinedError, isInternalError } from "../new-src/errors";
@@ -377,5 +378,65 @@ test("thrown ZagoraError passed through", () => {
     expect(res.error.cause).toEqual(customErr);
   } else {
     expect(false, "Expected internal error").toBe(true);
+  }
+});
+
+test("multiple procedures (calculator) from single instance (autoCallable:true)", () => {
+  const za = zagora({ autoCallable: true, disableOptions: true });
+
+  const add = za
+    .input(z.tuple([z.number(), z.number()]))
+    .handler((a, b) => a + b);
+
+  const subtract = za
+    .input(z.tuple([z.number(), z.number()]))
+    .handler((a, b) => a - b);
+
+  const multiply = za
+    .input(z.tuple([z.number(), z.number()]))
+    .handler((a, b) => a * b);
+
+  const divide = za
+    .input(z.tuple([z.number(), z.number()]))
+    .handler((a, b) => a / b);
+
+  const added = add(1, 2);
+  if (added.ok) {
+    expectTypeOf(added.data).toEqualTypeOf<number>();
+    expect(added.data).toBe(3);
+  } else if (added.error) {
+    expectTypeOf(added.error).not.toBeUndefined();
+    expectTypeOf(added.error.kind).not.toBeUndefined();
+    expect(false, "added should be ok").toBe(true);
+  }
+
+  const subtracted = subtract(10, 5);
+  if (subtracted.ok) {
+    expectTypeOf(subtracted.data).toEqualTypeOf<number>();
+    expect(subtracted.data).toBe(5);
+  } else if (subtracted.error) {
+    expectTypeOf(subtracted.error).not.toBeUndefined();
+    expectTypeOf(subtracted.error.kind).not.toBeUndefined();
+    expect(false, "subtracted should be ok").toBe(true);
+  }
+
+  const multiplied = multiply(2, 3);
+  if (multiplied.ok) {
+    expectTypeOf(multiplied.data).toEqualTypeOf<number>();
+    expect(multiplied.data).toBe(6);
+  } else if (multiplied.error) {
+    expectTypeOf(multiplied.error).not.toBeUndefined();
+    expectTypeOf(multiplied.error.kind).not.toBeUndefined();
+    expect(false, "multiplied should be ok").toBe(true);
+  }
+
+  const divided = divide(10, 2);
+  if (divided.ok) {
+    expectTypeOf(divided.data).toEqualTypeOf<number>();
+    expect(divided.data).toBe(5);
+  } else if (divided.error) {
+    expectTypeOf(divided.error).not.toBeUndefined();
+    expectTypeOf(divided.error.kind).not.toBeUndefined();
+    expect(false, "divide should be ok").toBe(true);
   }
 });
