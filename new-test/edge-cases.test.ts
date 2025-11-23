@@ -2,12 +2,7 @@ import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import * as v from "valibot";
 import z from "zod";
-import {
-  isDefinedError,
-  isInternalError,
-  isValidationError,
-  isZagoraError,
-} from "../new-src/errors";
+import { isInternalError } from "../new-src/errors";
 import { zagora } from "../new-src/index";
 
 test("typed errors should be in options - when input schema is defined", () => {

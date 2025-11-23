@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { expectTypeOf } from "expect-type";
-import * as v from "valibot";
 import z from "zod";
 import { isDefinedError, isInternalError } from "../new-src/errors";
 import { zagora } from "../new-src/index.ts";

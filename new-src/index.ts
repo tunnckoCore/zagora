@@ -6,7 +6,6 @@ import type {
   InferOutput,
   InferSchemaInput,
   InferSchemaOutput,
-  InferSchemaOutputSafe,
   Prettify,
   ResolveHandlerOptions,
   ResolveProcedure,
