@@ -33,29 +33,34 @@ jobs:
             ${{ runner.os }}-bun-${{ hashFiles('bun.lockb', 'bun.lock') }}-
 
       - name: Install dependencies
+        shell: bash
         id: install
         run: bun install && bun audit --fix
         continue-on-error: true
 
       - name: Linting on ${{ matrix.os }}
+        shell: bash
         id: lint
         run: bun run ci:lint
         continue-on-error: true
         if: steps.install.outcome == 'success'
 
       - name: Type Checking on ${{ matrix.os }}
+        shell: bash
         id: typecheck
         run: bun run typecheck
         continue-on-error: true
         if: steps.lint.outcome == 'success'
 
       - name: Testing on ${{ matrix.os }}
+        shell: bash
         id: test
         run: bun run ci:test
         continue-on-error: true
         if: steps.typecheck.outcome == 'success'
 
       - name: Report Status
+        shell: bash
         run: |
           echo "Install: ${{ steps.install.outcome }}"
           echo "Lint: ${{ steps.lint.outcome }}"
