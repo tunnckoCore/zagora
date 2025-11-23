@@ -42,7 +42,7 @@ jobs:
           else
             HASH_CMD="sha256sum"
           fi
-          SRC_FILES=$(find new-src new-test -maxdepth 2 -name "*.ts" | sort)
+          SRC_FILES=$(find src test -maxdepth 2 -name "*.ts" | sort)
           SRC_HASHES=""
           for file in $SRC_FILES; do
             FILE_HASH=$($HASH_CMD "$file" | awk '{print $1}')
