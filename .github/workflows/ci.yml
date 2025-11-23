@@ -27,7 +27,7 @@ jobs:
         with:
           path: |
             ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') || hashFiles('**/package.json') || 'nohash'}}
       - name: Linting on ${{ matrix.os }}
         id: lint
         run: bun run ci:lint
