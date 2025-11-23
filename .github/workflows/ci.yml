@@ -23,19 +23,30 @@ jobs:
         with:
           bun-version: 'latest'
 
+      - name: Compute cache keys
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            HASH_CMD="shasum -a 256"
+          else
+            HASH_CMD="sha256sum"
+          fi
+          HASH_BUNLOCK=$($HASH_CMD bun.lock | awk '{print $1}')
+          echo "HASH_BUNLOCK=$HASH_BUNLOCK" >> $GITHUB_ENV
+
       - name: Cache ~/.bun/install
         id: cache-bun
         uses: actions/cache@v4
         with:
           path: ~/.bun/install
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}-${{ hashFiles('package.json') }}
+          key: ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-
           restore-keys: |
-            ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}-
+            ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-
 
       - name: Install dependencies
         shell: bash
         id: install
-        run: bun install && bun audit --fix
+        run: bun install --frozen-lockfile
         continue-on-error: true
 
       - name: Linting on ${{ matrix.os }}
