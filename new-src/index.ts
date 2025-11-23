@@ -27,6 +27,7 @@ export * as utils from "./utils";
 
 export interface ZagoraConfig {
   disableOptions?: boolean;
+  autoCallable?: boolean;
 }
 
 export function zagora(): Zagora<
@@ -37,9 +38,33 @@ export function zagora(): Zagora<
   undefined,
   false
 >;
-export function zagora<TDisableOptions extends boolean = false>(config: {
+export function zagora<
+  TDisableOptions extends boolean = false,
+  TAutoCallable extends boolean = false,
+>(config: {
   disableOptions: TDisableOptions;
-}): Zagora<any, undefined, undefined, undefined, undefined, TDisableOptions>;
+  autoCallable?: TAutoCallable;
+}): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  TDisableOptions,
+  TAutoCallable
+>;
+export function zagora<TAutoCallable extends boolean = false>(config: {
+  autoCallable: TAutoCallable;
+  disableOptions?: boolean;
+}): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  false,
+  TAutoCallable
+>;
 export function zagora(config?: ZagoraConfig) {
   return new Zagora(config) as any;
 }
@@ -51,15 +76,19 @@ export class Zagora<
   TOutputSchema extends AnySchema | undefined = undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
   TDisableOptions extends boolean = false,
+  TAutoCallable extends boolean = false,
 > {
   constructor(
     private def: Partial<
       ZagoraDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
     > = {},
   ) {
-    // Ensure disableOptions is set from constructor config if provided
+    // Ensure config flags are set from constructor if provided
     if ("disableOptions" in def && def.disableOptions !== undefined) {
       this.def.disableOptions = def.disableOptions;
+    }
+    if ("autoCallable" in def && def.autoCallable !== undefined) {
+      this.def.autoCallable = def.autoCallable;
     }
   }
 
@@ -71,7 +100,8 @@ export class Zagora<
     TInput,
     TOutputSchema,
     TErrorsMap,
-    TDisableOptions
+    TDisableOptions,
+    TAutoCallable
   > {
     return new Zagora({
       ...this.def,
@@ -87,7 +117,8 @@ export class Zagora<
     TInputSchema,
     TOutput,
     TErrorsMap,
-    TDisableOptions
+    TDisableOptions,
+    TAutoCallable
   > {
     return new Zagora({
       ...this.def,
@@ -103,7 +134,8 @@ export class Zagora<
     TInputSchema,
     TOutputSchema,
     TErrorsMap,
-    TDisableOptions
+    TDisableOptions,
+    TAutoCallable
   > {
     return new Zagora({
       ...this.def,
@@ -119,7 +151,8 @@ export class Zagora<
     TInputSchema,
     TOutputSchema,
     TErrors,
-    TDisableOptions
+    TDisableOptions,
+    TAutoCallable
   > {
     return new Zagora({
       ...this.def,
@@ -136,23 +169,52 @@ export class Zagora<
     >,
   >(
     fn: TFn,
-  ): Zagora<
-    TFn,
-    TContext,
-    TInputSchema,
-    TOutputSchema,
-    TErrorsMap,
-    TDisableOptions
-  > {
-    return new Zagora({
+  ): TAutoCallable extends true
+    ? ReturnType<
+        Zagora<
+          TFn,
+          TContext,
+          TInputSchema,
+          TOutputSchema,
+          TErrorsMap,
+          TDisableOptions,
+          TAutoCallable
+        >["_createProcedure"]
+      >
+    : Zagora<
+        TFn,
+        TContext,
+        TInputSchema,
+        TOutputSchema,
+        TErrorsMap,
+        TDisableOptions,
+        TAutoCallable
+      > {
+    const newInstance = new Zagora<
+      TFn,
+      TContext,
+      TInputSchema,
+      TOutputSchema,
+      TErrorsMap,
+      TDisableOptions,
+      TAutoCallable
+    >({
       ...this.def,
       handler: fn,
     });
+
+    // If autoCallable is true, create the procedure immediately
+    if (this.def.autoCallable) {
+      return newInstance._createProcedure() as any;
+    }
+
+    return newInstance as any;
   }
 
-  callable<
-    TNewContext extends TContext,
-    TKindNames extends ResolveErrorKindNames<TErrorsMap>,
+  private _createProcedure<
+    TNewContext extends TContext = TContext,
+    TKindNames extends
+      ResolveErrorKindNames<TErrorsMap> = ResolveErrorKindNames<TErrorsMap>,
   >(context?: TNewContext) {
     if (typeof this.def.handler !== "function") {
       this.def.handler = () => {};
@@ -200,5 +262,12 @@ export class Zagora<
         ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
         : (arg: InferSchemaOutput<TInputSchema>) => TResult
       : () => TResult;
+  }
+
+  callable<
+    TNewContext extends TContext,
+    TKindNames extends ResolveErrorKindNames<TErrorsMap>,
+  >(context?: TNewContext) {
+    return this._createProcedure<TNewContext, TKindNames>(context);
   }
 }

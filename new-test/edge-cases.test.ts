@@ -281,7 +281,7 @@ test("Tuple without defaults - all args required - valibot", async () => {
   expect(res.ok).toBe(true);
   expect((res as any).data).toEqual({ foo: "fast-sasa" });
 
-  // @ts-expect-error - fine
+  // @ts-expect-error - should error because missing second required arg
   const result = await hello("fast");
 
   expect(result.ok).toBe(false);
@@ -303,7 +303,7 @@ test("Zod Tuple without defaults - missing required arg should fail", async () =
     })
     .callable();
 
-  // @ts-expect-error - fine
+  // @ts-expect-error - should error because missing second required arg
   const res = await hello("fast");
 
   expect(res.ok).toBe(false);
@@ -346,12 +346,9 @@ test("Handler without input schema should work", () => {
 });
 
 test("Handler without input schema and no errors should work", () => {
-  const func = zagora()
-    // no .input() call
-    .handler(({ context }) => {
-      return { result: "success", ctx: context };
-    })
-    .callable();
+  const func = zagora({ autoCallable: true }).handler(({ context }) => {
+    return { result: "success", ctx: context };
+  });
 
   const res = func();
 

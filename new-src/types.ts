@@ -96,6 +96,7 @@ export interface ZagoraDef<
   TErrorsMap extends Record<string, AnySchema> | undefined,
 > {
   disableOptions?: boolean;
+  autoCallable?: boolean;
   initialContext: any;
   inputSchema: TInputSchema;
   outputSchema: TOutputSchema;
