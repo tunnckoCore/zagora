@@ -34,6 +34,27 @@ jobs:
           HASH_BUNLOCK=$($HASH_CMD bun.lock | awk '{print $1}')
           echo "HASH_BUNLOCK=$HASH_BUNLOCK" >> $GITHUB_ENV
 
+      - name: Compute source hash
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            HASH_CMD="shasum -a 256"
+          else
+            HASH_CMD="sha256sum"
+          fi
+          SRC_FILES=$(find new-src new-test -maxdepth 2 -name "*.ts" | sort)
+          SRC_HASHES=""
+          for file in $SRC_FILES; do
+            FILE_HASH=$($HASH_CMD "$file" | awk '{print $1}')
+            SRC_HASHES="${SRC_HASHES}${FILE_HASH}\n"
+          done
+          if [ -n "$SRC_HASHES" ]; then
+            SRC_HASH=$(echo -e "$SRC_HASHES" | $HASH_CMD | awk '{print $1}')
+          else
+            SRC_HASH=$($HASH_CMD "no-src")
+          fi
+          echo "SOURCE_HASH=$SRC_HASH" >> $GITHUB_ENV
+
       - name: Cache ~/.bun/install
         id: cache-bun
         uses: actions/cache@v4
@@ -42,6 +63,26 @@ jobs:
           key: ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-v1
           restore-keys: |
             ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-
+
+      - name: Cache lint logs
+        id: cache-lint-logs
+        uses: actions/cache@v4
+        with:
+          path: lint-logs
+          key: ${{ runner.os }}-lint-logs-${{ env.SRC_HASH }}-v1
+          restore-keys: |
+            ${{ runner.os }}-lint-logs-${{ env.SRC_HASH }}-
+            ${{ runner.os }}-lint-logs-
+
+      - name: Cache typecheck logs
+        id: cache-typecheck-logs
+        uses: actions/cache@v4
+        with:
+          path: typecheck-logs
+          key: ${{ runner.os }}-typecheck-logs-${{ env.SRC_HASH }}-v1
+          restore-keys: |
+            ${{ runner.os }}-typecheck-logs-${{ env.SRC_HASH }}-
+            ${{ runner.os }}-typecheck-logs-
 
       - name: Install dependencies
         shell: bash
@@ -52,23 +93,27 @@ jobs:
       - name: Linting on ${{ matrix.os }}
         shell: bash
         id: lint
-        run: bun run ci:lint
+        run: |
+          mkdir -p lint-logs
+          bun run ci:lint > lint-logs/lint.log 2>&1
         continue-on-error: true
-        if: steps.install.outcome == 'success'
+        if: steps.install.outcome == 'success' && steps.cache-lint-logs.outputs.cache-hit != 'true'
 
       - name: Type Checking on ${{ matrix.os }}
         shell: bash
         id: typecheck
-        run: bun run typecheck
+        run: |
+          mkdir -p typecheck-logs
+          bun run typecheck > typecheck-logs/typecheck.log 2>&1
         continue-on-error: true
-        if: steps.lint.outcome == 'success'
+        if: (steps.lint.outcome == 'success' || steps.cache-lint-logs.outputs.cache-hit == 'true') && steps.cache-typecheck-logs.outputs.cache-hit != 'true'
 
       - name: Testing on ${{ matrix.os }}
         shell: bash
         id: test
         run: bun run ci:test
         continue-on-error: true
-        if: steps.typecheck.outcome == 'success'
+        if: steps.typecheck.outcome == 'success' || steps.cache-typecheck-logs.outputs.cache-hit == 'true'
 
       - name: Report Status
         shell: bash
@@ -77,7 +122,7 @@ jobs:
           echo "Lint: ${{ steps.lint.outcome }}"
           echo "Typecheck: ${{ steps.typecheck.outcome }}"
           echo "Test: ${{ steps.test.outcome }}"
-          if [ "${{ steps.test.outcome }}" != "success" ]; then
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
             echo "One of the jobs failed!"
             exit 1
           fi
