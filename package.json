@@ -38,7 +38,7 @@
     "test:cov-spa": "vite serve ./coverage",
     "test:gen-cov": "bun scripts/coverage-badge.ts",
     "test": "COV=1 vitest run",
-    "ci:test": "vitest run",
+    "ci:test": "vitest run --changed",
     "ci:lint": "bunx @biomejs/biome lint --max-diagnostics=none",
     "format": "bunx @biomejs/biome check --write",
     "release": "bun ci:lint && bun ci:test && bun test:gen-cov && bun run build",
