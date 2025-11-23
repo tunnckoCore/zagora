@@ -39,7 +39,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install
-          key: ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-
+          key: ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-v1
           restore-keys: |
             ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-
 
