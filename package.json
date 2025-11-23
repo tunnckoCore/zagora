@@ -44,7 +44,7 @@
   "scripts": {
     "prebuild": "bun run check:types",
     "build": "bunx tsdown",
-    "check": "exit 1 && bun run check:format && bun run check:types && bun run check:repo",
+    "check": "bun run check:format && bun run check:types && bun run check:repo",
     "check:format": "bunx @biomejs/biome check --fix --unsafe",
     "check:types": "bunx tsgo-dev -p ./tsconfig.json",
     "check:repo": "bunx sherif -r root-package-dependencies -r root-package-private-field",
@@ -55,7 +55,7 @@
     "ci:lint": "bunx @biomejs/biome lint --max-diagnostics=none",
     "release": "bun run ci:lint && bun run ci:test && bun run test:gen-cov && bun run build",
     "prepublishOnly": "bun run release",
-    "prepare": "bunx simple-git-hooks"
+    "prepare": "bunx simple-pre-commit"
   },
   "dependencies": {
     "@standard-schema/spec": "^1.0.0"
@@ -68,7 +68,7 @@
     "biome-config-xaxa": "^0.2.1",
     "bun-types": "^1.3.3",
     "is-ci": "^4.1.0",
-    "simple-git-hooks": "^2.13.1",
+    "simple-pre-commit": "^1.2.1",
     "tsdown": "^0.16.6",
     "tsgo-dev": "^2025.11.23",
     "typescript": "5.9.3",
@@ -89,7 +89,5 @@
     "funcs",
     "fn"
   ],
-  "simple-git-hooks": {
-    "pre-commit": "bun run check"
-  }
+  "simple-pre-commit": "bun run check"
 }
