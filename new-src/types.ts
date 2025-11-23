@@ -74,8 +74,7 @@ export type ZagoraResult<
     ? {
         readonly ok: false;
         readonly isTypedError: IsTypedError;
-        readonly error: // I NEED TO REPLACE THIS BELOW WITH A UNION
-        // { [K in keyof T]: { key: K; value: T[K] } }[keyof T];
+        readonly error:
           | Prettify<
               Readonly<Prettify<ObjectToUnion<ErrorsMapPlain<TErrorsMap>>>>
             >
