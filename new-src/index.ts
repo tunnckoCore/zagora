@@ -11,7 +11,8 @@ import type {
   InferSchemaOutput,
   InferSchemaOutputSafe,
   Prettify,
-  ProcedureOptions,
+  ResolveHandlerOptions,
+  ResolveProcedure,
   SpreadTuple,
   UppercaseKeys,
   ZagoraDef,
@@ -24,8 +25,23 @@ export * as errors from "./errors";
 export * as types from "./types";
 export * as utils from "./utils";
 
-export function zagora() {
-  return new Zagora();
+export interface ZagoraConfig {
+  disableOptions?: boolean;
+}
+
+export function zagora(): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  false
+>;
+export function zagora<TDisableOptions extends boolean = false>(config: {
+  disableOptions: TDisableOptions;
+}): Zagora<any, undefined, undefined, undefined, undefined, TDisableOptions>;
+export function zagora(config?: ZagoraConfig) {
+  return new Zagora(config) as any;
 }
 
 export class Zagora<
@@ -34,16 +50,29 @@ export class Zagora<
   TInputSchema extends AnySchema | undefined = undefined,
   TOutputSchema extends AnySchema | undefined = undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
+  TDisableOptions extends boolean = false,
 > {
   constructor(
     private def: Partial<
       ZagoraDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
     > = {},
-  ) {}
+  ) {
+    // Ensure disableOptions is set from constructor config if provided
+    if ("disableOptions" in def && def.disableOptions !== undefined) {
+      this.def.disableOptions = def.disableOptions;
+    }
+  }
 
   input<TInput extends AnySchema>(
     inputSchema: TInput,
-  ): Zagora<THandlerFn, TContext, TInput, TOutputSchema, TErrorsMap> {
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInput,
+    TOutputSchema,
+    TErrorsMap,
+    TDisableOptions
+  > {
     return new Zagora({
       ...this.def,
       inputSchema,
@@ -52,7 +81,14 @@ export class Zagora<
 
   output<TOutput extends AnySchema>(
     outputSchema: TOutput,
-  ): Zagora<THandlerFn, TContext, TInputSchema, TOutput, TErrorsMap> {
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutput,
+    TErrorsMap,
+    TDisableOptions
+  > {
     return new Zagora({
       ...this.def,
       outputSchema,
@@ -61,7 +97,14 @@ export class Zagora<
 
   context<TNewContext>(
     initialContext?: TNewContext,
-  ): Zagora<THandlerFn, TNewContext, TInputSchema, TOutputSchema, TErrorsMap> {
+  ): Zagora<
+    THandlerFn,
+    TNewContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrorsMap,
+    TDisableOptions
+  > {
     return new Zagora({
       ...this.def,
       initialContext,
@@ -70,7 +113,14 @@ export class Zagora<
 
   errors<TErrors extends Record<string, AnySchema>>(
     errorsMap: TErrors & UppercaseKeys<TErrors>,
-  ): Zagora<THandlerFn, TContext, TInputSchema, TOutputSchema, TErrors> {
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrors,
+    TDisableOptions
+  > {
     return new Zagora({
       ...this.def,
       errorsMap,
@@ -78,21 +128,22 @@ export class Zagora<
   }
 
   handler<
-    TFn extends TInputSchema extends AnySchema
-      ? InferSchemaOutput<TInputSchema> extends readonly any[]
-        ? SpreadTuple<
-            [
-              Prettify<ProcedureOptions<TContext, TErrorsMap>>,
-              ...InferSchemaOutput<TInputSchema>,
-            ],
-            any
-          >
-        : (
-            options: Prettify<ProcedureOptions<TContext, TErrorsMap>>,
-            arg: InferSchemaOutput<TInputSchema>,
-          ) => any
-      : (options: Prettify<ProcedureOptions<TContext, TErrorsMap>>) => any,
-  >(fn: TFn): Zagora<TFn, TContext, TInputSchema, TOutputSchema, TErrorsMap> {
+    TFn extends ResolveProcedure<
+      TDisableOptions,
+      TContext,
+      TInputSchema,
+      TErrorsMap
+    >,
+  >(
+    fn: TFn,
+  ): Zagora<
+    TFn,
+    TContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrorsMap,
+    TDisableOptions
+  > {
     return new Zagora({
       ...this.def,
       handler: fn,
@@ -107,7 +158,7 @@ export class Zagora<
       this.def.handler = () => {};
     }
 
-    const { initialContext, errorsMap } = this.def;
+    const { initialContext, errorsMap, disableOptions } = this.def;
     const handlerFn = this.def.handler;
     const inputSchema = this.def.inputSchema as TInputSchema;
     const outputSchema = this.def.outputSchema as TOutputSchema;
@@ -121,7 +172,7 @@ export class Zagora<
       errors: errors,
       context: mergedContext,
     } as Prettify<
-      ProcedureOptions<Prettify<TNewContext & TContext>, TErrorsMap>
+      ResolveHandlerOptions<Prettify<TNewContext & TContext>, TErrorsMap>
     >;
 
     const procedure = createProcedure<TKindNames>({
@@ -130,6 +181,7 @@ export class Zagora<
       errorsMap,
       options,
       handlerFn,
+      disableOptions: disableOptions ?? false,
     });
 
     type TResolvedResult = Awaited<ReturnType<typeof procedure>>;

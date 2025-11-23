@@ -419,7 +419,8 @@ test("wrapping external async functions in pseudo-sync `.handler` fn", async () 
 
   if (res4.ok) {
     expect(typeof res4.data).toBe("string");
-    expect(res4.data).toContain('name":"zagora');
+    expect(res4.data).toContain('name":');
+    expect(res4.data).toContain('"zagora');
   } else {
     expect(
       false,

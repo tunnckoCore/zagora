@@ -95,6 +95,7 @@ export interface ZagoraDef<
   TOutputSchema extends AnySchema | undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined,
 > {
+  disableOptions?: boolean;
   initialContext: any;
   inputSchema: TInputSchema;
   outputSchema: TOutputSchema;
@@ -105,7 +106,7 @@ export interface ZagoraDef<
   ) => any;
 }
 
-export interface ProcedureOptions<
+export interface ResolveHandlerOptions<
   TContext,
   TErrorsMap extends Record<string, AnySchema> | undefined,
 > {
@@ -114,6 +115,32 @@ export interface ProcedureOptions<
     ? ErrorHelpers<TErrorsMap>
     : undefined;
 }
+
+export type ResolveProcedure<
+  TDisableOptions extends boolean,
+  TContext,
+  TInputSchema extends AnySchema | undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+> = TDisableOptions extends true
+  ? TInputSchema extends AnySchema
+    ? InferSchemaOutput<TInputSchema> extends readonly any[]
+      ? SpreadTuple<InferSchemaOutput<TInputSchema>, any>
+      : (arg: InferSchemaOutput<TInputSchema>) => any
+    : () => any
+  : TInputSchema extends AnySchema
+    ? InferSchemaOutput<TInputSchema> extends readonly any[]
+      ? SpreadTuple<
+          [
+            Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>,
+            ...InferSchemaOutput<TInputSchema>,
+          ],
+          any
+        >
+      : (
+          options: Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>,
+          arg: InferSchemaOutput<TInputSchema>,
+        ) => any
+    : (options: Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>) => any;
 
 export type SpreadTuple<T extends readonly any[], R> = T extends readonly [
   infer A,

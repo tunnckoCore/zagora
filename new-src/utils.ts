@@ -7,6 +7,7 @@ export function createProcedure<TKindNames>({
   handlerFn,
   errorsMap,
   options,
+  disableOptions,
 }: any) {
   return (...args: unknown[]) => {
     const schemaAny = inputSchema as any;
@@ -27,13 +28,16 @@ export function createProcedure<TKindNames>({
         ? handleTupleDefaults(inputSchema, inputData as any)
         : [inputData];
 
-      const state = executeHandler(handlerFn, [options, ...handlerArgs]);
+      const executionArgs = disableOptions
+        ? handlerArgs
+        : [options, ...handlerArgs];
+
+      const state = executeHandler(handlerFn, executionArgs);
       if (state.error) {
         return validateError<TKindNames>(errorsMap, state.error, state.isAsync);
       }
       const handlerResult =
-        state.result ??
-        executeHandler(handlerFn, [options, ...handlerArgs]).result;
+        state.result ?? executeHandler(handlerFn, executionArgs).result;
 
       if (handlerResult instanceof Promise) {
         return handlerResult
