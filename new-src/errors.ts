@@ -43,8 +43,7 @@ export function isInternalError(val: any): val is InternalError {
 export function isDefinedError<T>(val: any): val is DefinedError<T> {
   return (
     Boolean(
-      val &&
-        val.kind &&
+      val?.kind &&
         typeof val.kind === "string" &&
         val.kind.length > 0 &&
         val.kind === val.kind.toUpperCase(),

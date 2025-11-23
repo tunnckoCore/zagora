@@ -5,7 +5,6 @@ import type {
   AnySchema,
   InferOutput,
   InferSchemaInput,
-  InferSchemaOutput,
   Prettify,
   ResolveHandlerOptions,
   ResolveProcedure,

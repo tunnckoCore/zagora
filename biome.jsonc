@@ -8,11 +8,11 @@
       "**/index.html",
       "**/vite.config.{js,ts}",
       "**/next.config.{mjs,js,ts}",
-      "!**/src/routes/__root.tsx",
-      "!**/src/routeTree.gen.ts",
-      // "!_*",
-      // "!**/_*",
-      // "!_*/**/_*",
+      "!**/src/**/*.ts",
+      "!**/test/**/*.ts",
+      "!_*",
+      "!**/_*",
+      "!_*/**/_*",
       "!node_modules",
       "!convex/tsconfig.json",
       "!convex/_generated/*",
@@ -38,7 +38,8 @@
       },
       // lint/performance/noDelete
       "performance": {
-        "noDelete": "off"
+        "noDelete": "off",
+        "noNamespaceImport": "off"
       },
       "correctness": {
         "noUnusedFunctionParameters": "off"

@@ -10,8 +10,8 @@ permissions:
   contents: read # for checkout
 
 jobs:
-  test:
-    name: Release through Bun
+  build-and-release:
+    name: Build and Release through Bun
     runs-on: ubuntu-latest
     permissions:
       contents: write # to be able to publish a GitHub release
@@ -20,14 +20,18 @@ jobs:
       id-token: write # to enable use of OIDC for npm provenance
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
         with:
           bun-version: 'latest'
-
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
       - name: Install dependencies
         run: bun install
-
+      # no need for `bun run build` because npm publishing trigger prepublishOnly,
+      # which in turn would trigger tests, coverage badge generation, and build
       - name: Semantic Release from Bun
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

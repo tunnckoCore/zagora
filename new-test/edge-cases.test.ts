@@ -38,7 +38,7 @@ test("typed errors should be in options - when input schema is defined", () => {
       expect(res.error.foo).toBe(500);
     }
   } else {
-    throw new Error("Expected BAR_ERR, but got: " + JSON.stringify(res.error));
+    throw new Error(`Expected BAR_ERR, but got: ${JSON.stringify(res.error)}`);
   }
 });
 
@@ -335,7 +335,7 @@ test("Handler without input schema should work", () => {
     }
   } else {
     throw new Error(
-      "Expected BARRY_ERR, but got: " + JSON.stringify(res.error),
+      `Expected BARRY_ERR, but got: ${JSON.stringify(res.error)}`,
     );
   }
 });

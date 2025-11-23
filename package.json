@@ -36,8 +36,12 @@
     "build": "bunx tsdown",
     "typecheck": "bunx tsgo-dev -p ./tsconfig.json",
     "test": "bun test ./new-test",
-    "test:cov": "bun run test --coverage",
-    "prepublishOnly": "bun run build"
+    "gencov": "bun scripts/coverage-badge.ts",
+    "ci:test": "bun run test --coverage",
+    "ci:lint": "bunx @biomejs/biome lint --max-diagnostics=none",
+    "format": "bunx @biomejs/biome check --write",
+    "release": "bun run ci:test && bun run gencov && bun run build",
+    "prepublishOnly": "bun run release"
   },
   "dependencies": {
     "@standard-schema/spec": "^1.0.0"

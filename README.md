@@ -1,5 +1,8 @@
 # zagora
 
+
+[![ci](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml/badge.svg)](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml) <!-- COV_BADGE:START -->![coverage](https://badgen.net/badge/coverage/98.95%25/99CC09)<!-- COV_BADGE:END -->
+
 A minimalist & robust way to create type-safe and error-safe never throwing functions & libraries in TypeScript - with input/output validation and typed errors. Schema can be any StandardSchema-compliant validation library. No batteries, no routers, it's just functions that you can export and use. Simple, but robust, alternative to oRPC and tRPC, no network layer.
 
 ## Install
