@@ -32,6 +32,14 @@ export type InferSchemaOutputSafe<T> = T extends AnySchema
   ? InferSchemaOutput<T>
   : unknown;
 
+// Infer output type from either output schema or handler return type
+export type InferOutput<
+  TOutputSchema extends AnySchema | undefined,
+  THandlerFn extends (...args: any[]) => any,
+> = TOutputSchema extends AnySchema
+  ? InferSchemaOutput<TOutputSchema>
+  : Awaited<ReturnType<THandlerFn>>;
+
 export type InferSchemaInputSafe<T> = T extends AnySchema
   ? InferSchemaInput<T>
   : unknown;

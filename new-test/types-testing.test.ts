@@ -38,7 +38,7 @@ import type {
   InternalError,
   ValidationError,
 } from "../new-src/errors";
-import { type Zagora, zagora } from "../new-src/index";
+import { zagora } from "../new-src/index";
 import type {
   AnySchema,
   ConditionalAsync,
@@ -466,9 +466,13 @@ test("not uppercased errorsMap keys must be reported", () => {
   const func = zagora()
     // @ts-expect-error -- Invalid errorsMap keys must be reported. Keys must be uppercased. DO NOT REMOVE THIS LINE! It will potentially report when this rule is incorrectly broken!
     .errors(errorsMap)
-    .handler(() => 123);
+    .handler(() => 123)
+    .callable();
 
-  func;
+  const res = func();
+  if (res.ok) {
+    expectTypeOf(res.data).toEqualTypeOf<number>();
+  }
 });
 
 test("Zagora procedures - sync handler return types", () => {

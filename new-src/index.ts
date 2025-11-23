@@ -3,6 +3,7 @@ import type { ConditionalAsync } from "./is-promise";
 
 import type {
   AnySchema,
+  InferOutput,
   InferSchemaInput,
   InferSchemaOutput,
   InferSchemaOutputSafe,
@@ -66,7 +67,7 @@ export function zagora(config?: ZagoraConfig) {
 }
 
 export class Zagora<
-  THandlerFn extends (...args: any[]) => unknown,
+  THandlerFn extends (...args: any[]) => any,
   TContext extends any | undefined = undefined,
   TInputSchema extends AnySchema | undefined = undefined,
   TOutputSchema extends AnySchema | undefined = undefined,
@@ -247,7 +248,7 @@ export class Zagora<
     type TResult = ConditionalAsync<
       ReturnType<THandlerFn>,
       ZagoraResult<
-        InferSchemaOutputSafe<TOutputSchema>,
+        InferOutput<TOutputSchema, THandlerFn>,
         TErrorsMap,
         TResolvedResult
       >
