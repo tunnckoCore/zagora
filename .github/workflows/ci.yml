@@ -88,7 +88,7 @@ jobs:
         shell: bash
         id: install
         run: bun install --frozen-lockfile
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Linting on ${{ matrix.os }}
         shell: bash
@@ -106,14 +106,14 @@ jobs:
           mkdir -p typecheck-logs
           bun run typecheck > typecheck-logs/typecheck.log 2>&1
         continue-on-error: true
-        if: (steps.lint.outcome == 'success' || steps.cache-lint-logs.outputs.cache-hit == 'true') && steps.cache-typecheck-logs.outputs.cache-hit != 'true'
+        if: steps.install.outcome == 'success' && steps.cache-typecheck-logs.outputs.cache-hit != 'true'
 
       - name: Testing on ${{ matrix.os }}
         shell: bash
         id: test
         run: bun run ci:test
         continue-on-error: true
-        if: steps.typecheck.outcome == 'success' || steps.cache-typecheck-logs.outputs.cache-hit == 'true'
+        if: steps.install.outcome == 'success'
 
       - name: Report Status
         shell: bash
@@ -122,7 +122,7 @@ jobs:
           echo "Lint: ${{ steps.lint.outcome }}"
           echo "Typecheck: ${{ steps.typecheck.outcome }}"
           echo "Test: ${{ steps.test.outcome }}"
-          if [ "${{ steps.test.outcome }}" = "failure" ]; then
-            echo "One of the jobs failed!"
+          if [ "${{ steps.install.outcome }}" = "failure" ] || [ "${{ steps.lint.outcome }}" = "failure" ] || [ "${{ steps.typecheck.outcome }}" = "failure" ] || [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "One of the steps failed!"
             exit 1
           fi
