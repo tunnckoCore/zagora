@@ -1,6 +1,6 @@
-import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import * as v from "valibot";
+import { expect, test } from "vitest";
 import z from "zod";
 import { isInternalError } from "../new-src/errors";
 import { zagora } from "../new-src/index";
@@ -444,9 +444,7 @@ test("wrapping sync throwing functions (JSON.parse -> safeJsonParse) in .handler
   if (res2.error && isInternalError(res2.error)) {
     expect(res2.error.kind).toBe("UNKNOWN_ERROR");
     expect(res2.error.message).toContain("Sync handler threw unknown err");
-    expect((res2.error.cause as Error).message).toContain(
-      "JSON Parse error: Unexpected identifier",
-    );
+    expect((res2.error.cause as Error).message).toContain("Unexpected");
   } else {
     expect(false, "Should throw error").toBeInstanceOf(true);
   }

@@ -27,8 +27,7 @@
  * Run with: `bun run typecheck`
  */
 
-import { test } from "bun:test";
-import { expectTypeOf } from "expect-type";
+import { expectTypeOf, test } from "vitest";
 import { z } from "zod";
 import type {
   createInternalError,

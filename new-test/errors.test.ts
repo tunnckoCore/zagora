@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from "bun:test";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { expect, test } from "vitest";
 import {
   createErrorHelpers,
   createInternalError,

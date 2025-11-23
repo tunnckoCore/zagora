@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from "bun:test";
 import * as v from "valibot";
+import { expect, test } from "vitest";
 import z from "zod";
-import { Zagora, zagora } from "../new-src/index.ts";
+import { Zagora, zagora } from "../new-src/index";
 
 const errorSchemas = {
   single: {
@@ -195,7 +195,7 @@ test("should work with array input schemas", () => {
   const res = fn(input as any);
 
   if (res.ok) {
-    expect(res.data.arr).toBeArray();
+    expect(res.data.arr).toBeInstanceOf(Array);
     expect(res.data.arr[0]).toBe("foo");
     expect(res.data.arr[1]).toBe("bar");
     expect(res.data.arr[2]).toBe("qux");

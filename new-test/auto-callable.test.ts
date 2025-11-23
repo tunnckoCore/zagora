@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import z from "zod";
-import { zagora } from "../new-src/index.ts";
+import { zagora } from "../new-src/index";
 
 test("autoCallable: false (default) - requires .callable() call", () => {
   const builder = zagora()

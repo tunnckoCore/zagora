@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from "bun:test";
-import { expectTypeOf } from "expect-type";
+import { expect, expectTypeOf, test } from "vitest";
 import z from "zod";
 import { isDefinedError, isInternalError } from "../new-src/errors";
 import { zagora } from "../new-src/index.ts";
@@ -547,8 +546,8 @@ test("handle optional/default valaues in object schemas", async () => {
 
   if (prices.error && prices.error.kind === "NET_ERR") {
     expect(prices.error.code).not.toBeUndefined();
-    expect(prices.error.code).toBeNumber();
-    expect(prices.error.url).toBeString();
+    expect(prices.error.code).toBeTypeOf("number");
+    expect(prices.error.url).toBeTypeOf("string");
   }
 
   const pricesLimited = await getPrices({
@@ -567,7 +566,7 @@ test("handle optional/default valaues in object schemas", async () => {
   });
   expect(pricesLimited.ok).toBe(false);
   if (pricesFailing.error && pricesFailing.error.kind === "AUTH_ERR") {
-    expect(pricesFailing.error.url).toBeString();
+    expect(pricesFailing.error.url).toBeTypeOf("string");
     expect(pricesFailing.error.userId).toStrictEqual("user123");
   }
 });

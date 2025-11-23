@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import z from "zod";
-import { zagora } from "../new-src/index.ts";
-import { deepMerge, handleTupleDefaults } from "../new-src/utils.ts";
+import { zagora } from "../new-src/index";
+import { deepMerge, handleTupleDefaults } from "../new-src/utils";
 
 test("validateInputOutput - sync validation with issues on input (line 82)", () => {
   const fn = zagora()
