@@ -22,29 +22,42 @@ jobs:
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
         with:
           bun-version: 'latest'
-      - run: bun install
-      - run: pwd && ls -al && find . -name 'bun.lock'
-      - uses: actions/cache@v4
+
+      - name: Cache ~/.bun/install
+        id: cache-bun
+        uses: actions/cache@v4
         with:
-          path: |
-            ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          path: ~/.bun/install
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb', 'bun.lock') }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-${{ hashFiles('bun.lockb', 'bun.lock') }}-
+
+      - name: Install dependencies
+        id: install
+        run: bun install && bun audit --fix
+        continue-on-error: true
+
       - name: Linting on ${{ matrix.os }}
         id: lint
         run: bun run ci:lint
         continue-on-error: true
+        if: steps.install.outcome == 'success'
+
       - name: Type Checking on ${{ matrix.os }}
         id: typecheck
         run: bun run typecheck
         continue-on-error: true
         if: steps.lint.outcome == 'success'
+
       - name: Testing on ${{ matrix.os }}
         id: test
         run: bun run ci:test
         continue-on-error: true
         if: steps.typecheck.outcome == 'success'
+
       - name: Report Status
         run: |
+          echo "Install: ${{ steps.install.outcome }}"
           echo "Lint: ${{ steps.lint.outcome }}"
           echo "Typecheck: ${{ steps.typecheck.outcome }}"
           echo "Test: ${{ steps.test.outcome }}"
