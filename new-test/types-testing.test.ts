@@ -606,7 +606,7 @@ test("Zagora procedures - async handler return types", async () => {
   const res4 = await safeParsePromiseSync("123");
 
   if (res4.error) {
-    expectTypeOf(res4.ok).toEqualTypeOf<number>();
+    expectTypeOf(res4.ok).toEqualTypeOf<false>();
     expectTypeOf(res4.error.kind).toEqualTypeOf<ErrorKinds>();
   }
 
