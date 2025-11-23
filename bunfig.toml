@@ -1,3 +1,22 @@
 [test]
 coverageDir = "coverage"
 coverageReporter = ["text", "lcov"]
+
+[install]
+# Only install package versions published at least 3 days ago
+minimumReleaseAge = 259200
+# These packages will bypass the 3-day minimum age requirement
+minimumReleaseAgeExcludes = ["@types/bun", "bun-types", "typescript"]
+
+# the directory to use for the cache
+dir = "~/.bun/install/cache"
+
+# when true, don't load from the global cache.
+# Bun may still write to node_modules/.cache
+disable = false
+
+# when true, always resolve the latest versions from the registry
+disableManifest = false
+
+# [install.security]
+# scanner = "@socketsecurity/bun-security-scanner"

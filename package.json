@@ -1,12 +1,25 @@
 {
   "name": "zagora",
-  "version": "0.4.2",
+  "version": "0.0.0-semantically-released",
   "license": "Apache-2.0",
   "description": "A minimalist & robust way to create type-safe and error-safe never throwing functions & libraries in TypeScript - with input/output validation and typed errors. Based on StandardSchema-compliant validation libraries. No batteries, no routers, it's just functions that you can export and use. Simple but robust alternative to oRPC and tRPC, no network layer.",
   "repository": {
     "type": "git",
     "url": "https://github.com/tunnckoCore/zagora.git"
   },
+  "workspaces": {
+    "packages": [
+      "."
+    ]
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "dist"
+  ],
+  "packageManager": "bun@1.3.2",
   "type": "module",
   "types": "dist/index.d.ts",
   "exports": {
@@ -28,38 +41,34 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "prebuild": "bun run typecheck",
+    "prebuild": "bun run check:types",
     "build": "bunx tsdown",
-    "typecheck": "bunx tsgo-dev -p ./tsconfig.json",
+    "check": "exit 1 && bun run check:format && bun run check:types && bun run check:repo",
+    "check:format": "bunx @biomejs/biome check --fix --unsafe",
+    "check:types": "bunx tsgo-dev -p ./tsconfig.json",
+    "check:repo": "bunx sherif -r root-package-dependencies -r root-package-private-field",
     "test:cov-spa": "vite serve ./coverage",
     "test:gen-cov": "bun scripts/coverage-badge.ts",
     "test": "COV=1 vitest run",
     "ci:test": "vitest run --changed",
     "ci:lint": "bunx @biomejs/biome lint --max-diagnostics=none",
-    "format": "bunx @biomejs/biome check --write",
-    "release": "bun ci:lint && bun ci:test && bun test:gen-cov && bun run build",
-    "prepublishOnly": "bun run release"
+    "release": "bun run ci:lint && bun run ci:test && bun run test:gen-cov && bun run build",
+    "prepublishOnly": "bun run release",
+    "prepare": "bunx simple-git-hooks"
   },
   "dependencies": {
     "@standard-schema/spec": "^1.0.0"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.7",
     "@types/bun": "^1.3.3",
     "@vitest/coverage-v8": "4.0.13",
-    "@vitest/ui": "4.0.13",
     "arktype": "2.1.27",
     "biome-config-xaxa": "^0.2.1",
     "bun-types": "^1.3.3",
-    "expect-type": "^1.2.2",
     "is-ci": "^4.1.0",
+    "simple-git-hooks": "^2.13.1",
     "tsdown": "^0.16.6",
     "tsgo-dev": "^2025.11.23",
     "typescript": "5.9.3",
@@ -79,5 +88,8 @@
     "functions",
     "funcs",
     "fn"
-  ]
+  ],
+  "simple-git-hooks": {
+    "pre-commit": "bun run check"
+  }
 }
