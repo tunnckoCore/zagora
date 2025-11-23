@@ -28,16 +28,16 @@ jobs:
             ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') || 'no-lock' }}
       - run: bun install
-      - name: Lint
+      - name: Linting on ${{ matrix.os }}
         id: lint
         run: bun run ci:lint
         continue-on-error: true
-      - name: Typecheck
+      - name: Type Checking on ${{ matrix.os }}
         id: typecheck
         run: bun run typecheck
         continue-on-error: true
         if: steps.lint.outcome == 'success'
-      - name: Test
+      - name: Testing on ${{ matrix.os }}
         id: test
         run: bun run ci:test
         continue-on-error: true
