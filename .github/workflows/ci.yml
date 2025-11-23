@@ -53,7 +53,7 @@ jobs:
           else
             SRC_HASH=$($HASH_CMD "no-src")
           fi
-          echo "SOURCE_HASH=$SRC_HASH" >> $GITHUB_ENV
+          echo "FILES_HASH=$SRC_HASH" >> $GITHUB_ENV
 
       - name: Cache ~/.bun/install
         id: cache-bun
@@ -69,9 +69,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: lint-logs
-          key: ${{ runner.os }}-lint-logs-${{ env.SOURCE_HASH }}-v1
+          key: ${{ runner.os }}-lint-logs-${{ env.FILES_HASH }}-v1
           restore-keys: |
-            ${{ runner.os }}-lint-logs-${{ env.SOURCE_HASH }}-
+            ${{ runner.os }}-lint-logs-${{ env.FILES_HASH }}-
             ${{ runner.os }}-lint-logs-
 
       - name: Cache typecheck logs
@@ -79,9 +79,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: typecheck-logs
-          key: ${{ runner.os }}-typecheck-logs-${{ env.SOURCE_HASH }}-v1
+          key: ${{ runner.os }}-typecheck-logs-${{ env.FILES_HASH }}-v1
           restore-keys: |
-            ${{ runner.os }}-typecheck-logs-${{ env.SOURCE_HASH }}-
+            ${{ runner.os }}-typecheck-logs-${{ env.FILES_HASH }}-
             ${{ runner.os }}-typecheck-logs-
 
       - name: Install dependencies
