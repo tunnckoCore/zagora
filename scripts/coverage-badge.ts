@@ -152,7 +152,7 @@ function main() {
     const readmeContent = readme.replace(badgeRegex, newBadge);
     writeFileSync(readmePath, readmeContent, "utf-8");
 
-    console.log("✅ Updated coverage badge in README.md");
+    console.log("✔ Updated coverage badge in README.md");
   } else {
     console.warn("⚠️  README.md not found, skipping badge update");
   }
