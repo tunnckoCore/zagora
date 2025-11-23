@@ -1,6 +1,7 @@
 import { createInternalError, createValidationError } from "./errors";
 import type { AnySchema } from "./types";
 
+// TEST: with expect-type
 export function createProcedure<TKindNames>({
   inputSchema,
   outputSchema,
@@ -69,6 +70,7 @@ export function createProcedure<TKindNames>({
   };
 }
 
+// TEST: with expect-type
 export function validateInputOutput(
   mode: "input" | "output",
   schema: any,
@@ -88,6 +90,7 @@ export function validateInputOutput(
     : createResult(result.value, null, false);
 }
 
+// TEST: with expect-type
 export function validateError<TKindNames>(
   errorsMap: Record<string, AnySchema>,
   error: any,
@@ -160,6 +163,7 @@ export function executeHandler(fn: any, args: any[]) {
   return res;
 }
 
+// TEST: with expect-type
 export function createResult(data: any, error: any, isTypedError: boolean) {
   if (error) {
     return { ok: false, isTypedError, error: Object.freeze(error) } as const;

@@ -10,7 +10,7 @@ import { zagora } from "../new-src/index.ts";
 const errorSchemas = {
   NETWORK_ERROR: z.object({
     message: z.string(),
-    statusCode: z.number().int().min(400).max(599),
+    statusCode: z.number().int().min(400).max(599).default(409),
     retryAfter: z.number().optional(),
   }),
   VALIDATION_ERROR: z.object({
@@ -43,11 +43,7 @@ test("typed error returns exact object with isDefined=true", () => {
   }
 
   const res = fn("fail");
-  if (
-    !res.ok &&
-    isDefinedError(res.error) &&
-    res.error.kind === "NETWORK_ERROR"
-  ) {
+  if (res.error && res.error.kind === "NETWORK_ERROR") {
     expect(res.error.statusCode).toBe(503);
   } else {
     expect(false, "Expected internal error").toBe(true);

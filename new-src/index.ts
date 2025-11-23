@@ -1,8 +1,4 @@
-import {
-  createErrorHelpers,
-  type ErrorsMapResolved,
-  type ResolveErrorKindNames,
-} from "./errors";
+import { createErrorHelpers, type ResolveErrorKindNames } from "./errors";
 import type { ConditionalAsync } from "./is-promise";
 
 import type {
@@ -252,11 +248,12 @@ export class Zagora<
       ReturnType<THandlerFn>,
       ZagoraResult<
         InferSchemaOutputSafe<TOutputSchema>,
-        ErrorsMapResolved<TErrorsMap>,
+        TErrorsMap,
         TResolvedResult
       >
     >;
 
+    // TEST: with expect-type
     return procedure as TInputSchema extends AnySchema
       ? InferSchemaInput<TInputSchema> extends readonly any[]
         ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>

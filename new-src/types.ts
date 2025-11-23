@@ -1,5 +1,10 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import type { ErrorHelpers, InternalError, ValidationError } from "./errors";
+import type {
+  ErrorHelpers,
+  ErrorsMapPlain,
+  InternalError,
+  ValidationError,
+} from "./errors";
 
 export * from "./is-promise";
 
@@ -31,6 +36,7 @@ export type InferSchemaInputSafe<T> = T extends AnySchema
   ? InferSchemaInput<T>
   : unknown;
 
+// TEST: with expect-type
 export type UppercaseKeys<T> = {
   [K in keyof T as Uppercase<string & K>]: T[K];
 };
@@ -39,27 +45,15 @@ export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
+// TEST: with expect-type
 export type IsOptional<T> = undefined extends T ? true : false;
-export type IsPromise<T> = T extends Promise<infer _>
-  ? T extends string
-    ? false
-    : T extends number
-      ? false
-      : number
-  : T extends any
-    ? string
-    : false;
 
-// export type DefinedErrorsUnion<TErrorsMap> = TErrorsMap extends Record<
-//   string,
-//   AnySchema
-// >
-//   ? Prettify<Readonly<ErrorsMapPlain<TErrorsMap>[keyof TErrorsMap]>>
-//   : never;
+type ObjectToUnion<T> = T[keyof T];
 
+// TEST: with expect-type
 export type ZagoraResult<
   TOutput,
-  TErrorsMap extends Record<string, AnySchema> | undefined,
+  TErrorsMap extends Record<string, AnySchema> | any,
   TResolvedResult,
   IsTypedError = TErrorsMap extends Record<string, any> ? true : false,
 > = TResolvedResult extends { readonly ok: true }
@@ -72,8 +66,11 @@ export type ZagoraResult<
     ? {
         readonly ok: false;
         readonly isTypedError: IsTypedError;
-        readonly error:
-          | Prettify<Readonly<TErrorsMap[keyof TErrorsMap]>>
+        readonly error: // I NEED TO REPLACE THIS BELOW WITH A UNION
+        // { [K in keyof T]: { key: K; value: T[K] } }[keyof T];
+          | Prettify<
+              Readonly<Prettify<ObjectToUnion<ErrorsMapPlain<TErrorsMap>>>>
+            >
           | ValidationError<keyof TErrorsMap>
           | InternalError;
       }
@@ -101,6 +98,7 @@ export interface ZagoraDef<
   ) => any;
 }
 
+// TEST: with expect-type
 export interface ResolveHandlerOptions<
   TContext,
   TErrorsMap extends Record<string, AnySchema> | undefined,
@@ -111,6 +109,7 @@ export interface ResolveHandlerOptions<
     : undefined;
 }
 
+// TEST: with expect-type
 export type ResolveProcedure<
   TDisableOptions extends boolean,
   TContext,
@@ -137,6 +136,7 @@ export type ResolveProcedure<
         ) => any
     : (options: Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>) => any;
 
+// TEST: with expect-type
 export type SpreadTuple<T extends readonly any[], R> = T extends readonly [
   infer A,
 ]

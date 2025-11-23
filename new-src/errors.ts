@@ -117,20 +117,26 @@ export type ErrorHelpers<
   : never;
 
 export type ErrorsMapPlain<TErrorsMap extends Record<string, AnySchema>> = {
-  [K in keyof TErrorsMap]: { kind: K } & InferSchemaOutput<TErrorsMap[K]>;
+  [K in keyof TErrorsMap]: Prettify<
+    { kind: K } & InferSchemaOutput<TErrorsMap[K]>
+  >;
 };
-
-export type ErrorsMapResolved<
-  TErrorsMap extends Record<string, AnySchema> | undefined,
-> = TErrorsMap extends Record<string, AnySchema>
-  ? ErrorsMapPlain<TErrorsMap>
-  : undefined;
 
 // export type ErrorsMapResolved<
 //   TErrorsMap extends Record<string, AnySchema> | undefined,
 // > = TErrorsMap extends Record<string, AnySchema>
-//   ? { [K in keyof TErrorsMap]: { kind: K } & InferSchemaOutput<TErrorsMap[K]> }
+//   ? ErrorsMapPlain<TErrorsMap>
 //   : undefined;
+
+export type ErrorsMapResolved<
+  TErrorsMap extends Record<string, AnySchema> | undefined,
+> = TErrorsMap extends Record<string, AnySchema>
+  ? {
+      [K in keyof TErrorsMap]: Prettify<
+        { kind: K } & InferSchemaOutput<TErrorsMap[K]>
+      >;
+    }
+  : undefined;
 
 export type ResolveErrorKindNames<TErrorsMap> = TErrorsMap extends Record<
   string,
