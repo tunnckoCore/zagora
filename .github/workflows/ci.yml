@@ -22,12 +22,12 @@ jobs:
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
         with:
           bun-version: 'latest'
+      - run: bun install
       - uses: actions/cache@v4
         with:
           path: |
             ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-      - run: bun install
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
       - name: Linting on ${{ matrix.os }}
         id: lint
         run: bun run ci:lint
