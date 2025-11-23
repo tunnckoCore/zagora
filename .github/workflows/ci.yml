@@ -23,11 +23,12 @@ jobs:
         with:
           bun-version: 'latest'
       - run: bun install
+      - run: pwd && ls -al && find . -name 'bun.lock'
       - uses: actions/cache@v4
         with:
           path: |
             ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') || hashFiles('**/package.json') || 'nohash'}}
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
       - name: Linting on ${{ matrix.os }}
         id: lint
         run: bun run ci:lint
