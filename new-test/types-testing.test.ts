@@ -38,7 +38,7 @@ import type {
   InternalError,
   ValidationError,
 } from "../new-src/errors";
-import { Zagora, zagora } from "../new-src/index";
+import { type Zagora, zagora } from "../new-src/index";
 import type {
   AnySchema,
   ConditionalAsync,
@@ -457,6 +457,19 @@ test("Function parameters - createResult, validateInputOutput, validateError sig
 // =============================================================================
 // Zagora Procedure Return Type Tests
 // =============================================================================
+
+test("not uppercased errorsMap keys must be reported", () => {
+  const errorsMap = {
+    invalid_key: z.object({ status: z.string(), code: z.number() }),
+    UNAUTHORIZED: z.object({ retryAfter: z.number(), userId: z.string() }),
+  };
+  const func = zagora()
+    // @ts-expect-error -- Invalid errorsMap keys must be reported. Keys must be uppercased. DO NOT REMOVE THIS LINE! It will potentially report when this rule is incorrectly broken!
+    .errors(errorsMap)
+    .handler(() => 123);
+
+  func;
+});
 
 test("Zagora procedures - sync handler return types", () => {
   const inputSchema = z.tuple([z.string(), z.object({ name: z.string() })]);
