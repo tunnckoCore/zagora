@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Linting
+  lint-typecheck-test:
+    name: CI on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -28,44 +28,26 @@ jobs:
             ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') || 'no-lock' }}
       - run: bun install
-      - run: bun run ci:lint
-
-  typecheck:
-    needs: lint
-    name: Type Checking
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
-        with:
-          bun-version: 'latest'
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') || 'no-lock' }}
-      - run: bun install
-      - run: bun run typecheck
-
-  test:
-    needs: typecheck
-    name: Testing with Bun latest
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
-        with:
-          bun-version: 'latest'
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') || 'no-lock' }}
-      - run: bun install
-      - run: bun run ci:test
+      - name: Lint
+        id: lint
+        run: bun run ci:lint
+        continue-on-error: true
+      - name: Typecheck
+        id: typecheck
+        run: bun run typecheck
+        continue-on-error: true
+        if: steps.lint.outcome == 'success'
+      - name: Test
+        id: test
+        run: bun run ci:test
+        continue-on-error: true
+        if: steps.typecheck.outcome == 'success'
+      - name: Report Status
+        run: |
+          echo "Lint: ${{ steps.lint.outcome }}"
+          echo "Typecheck: ${{ steps.typecheck.outcome }}"
+          echo "Test: ${{ steps.test.outcome }}"
+          if [ "${{ steps.test.outcome }}" != "success" ]; then
+            echo "Tests failed!"
+            exit 1
+          fi
