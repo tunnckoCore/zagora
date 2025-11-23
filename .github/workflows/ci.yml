@@ -48,6 +48,6 @@ jobs:
           echo "Typecheck: ${{ steps.typecheck.outcome }}"
           echo "Test: ${{ steps.test.outcome }}"
           if [ "${{ steps.test.outcome }}" != "success" ]; then
-            echo "Tests failed!"
+            echo "One of the jobs failed!"
             exit 1
           fi

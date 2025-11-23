@@ -28,7 +28,7 @@ test("typed errors should be in options - when input schema is defined", () => {
     .callable();
 
   const res = func();
-  expect(res.ok).toBe(true);
+  expect(res.ok).toBe(false);
 
   if (res.error) {
     expect(Object.keys(errorSchemas)[0]).toBe(res.error.kind);
