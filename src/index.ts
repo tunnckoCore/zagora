@@ -1,8 +1,9 @@
 import { createErrorHelpers, type ResolveErrorKindNames } from "./errors";
-import type { ConditionalAsync } from "./is-promise";
+import type { ConditionalAsync, IsPromise } from "./is-promise";
 
 import type {
   AnySchema,
+  CacheAdapter,
   InferOutput,
   InferSchemaInput,
   Prettify,
@@ -31,6 +32,7 @@ export function zagora(): Zagora<
   undefined,
   undefined,
   undefined,
+  undefined,
   false
 >;
 export function zagora<
@@ -45,6 +47,7 @@ export function zagora<
   undefined,
   undefined,
   undefined,
+  undefined,
   TDisableOptions,
   TAutoCallable
 >;
@@ -53,6 +56,7 @@ export function zagora<TAutoCallable extends boolean = false>(config: {
   disableOptions?: boolean;
 }): Zagora<
   any,
+  undefined,
   undefined,
   undefined,
   undefined,
@@ -70,12 +74,19 @@ export class Zagora<
   TInputSchema extends AnySchema | undefined = undefined,
   TOutputSchema extends AnySchema | undefined = undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
+  TCacheAdapter extends CacheAdapter | undefined = undefined,
   TDisableOptions extends boolean = false,
   TAutoCallable extends boolean = false,
 > {
   constructor(
     private def: Partial<
-      ZagoraDef<TContext, TInputSchema, TOutputSchema, TErrorsMap>
+      ZagoraDef<
+        TContext,
+        TInputSchema,
+        TOutputSchema,
+        TErrorsMap,
+        TCacheAdapter
+      >
     > = {},
   ) {
     // Ensure config flags are set from constructor if provided
@@ -95,6 +106,7 @@ export class Zagora<
     TInput,
     TOutputSchema,
     TErrorsMap,
+    TCacheAdapter,
     TDisableOptions,
     TAutoCallable
   > {
@@ -112,6 +124,7 @@ export class Zagora<
     TInputSchema,
     TOutput,
     TErrorsMap,
+    TCacheAdapter,
     TDisableOptions,
     TAutoCallable
   > {
@@ -129,6 +142,7 @@ export class Zagora<
     TInputSchema,
     TOutputSchema,
     TErrorsMap,
+    TCacheAdapter,
     TDisableOptions,
     TAutoCallable
   > {
@@ -146,12 +160,31 @@ export class Zagora<
     TInputSchema,
     TOutputSchema,
     TErrors,
+    TCacheAdapter,
     TDisableOptions,
     TAutoCallable
   > {
     return new Zagora({
       ...this.def,
       errorsMap,
+    });
+  }
+
+  cache<TNewCacheAdapter extends CacheAdapter>(
+    cacheAdapter: TNewCacheAdapter,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrorsMap,
+    TNewCacheAdapter,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this.def,
+      cacheAdapter,
     });
   }
 
@@ -172,6 +205,7 @@ export class Zagora<
           TInputSchema,
           TOutputSchema,
           TErrorsMap,
+          TCacheAdapter,
           TDisableOptions,
           TAutoCallable
         >["_createProcedure"]
@@ -182,6 +216,7 @@ export class Zagora<
         TInputSchema,
         TOutputSchema,
         TErrorsMap,
+        TCacheAdapter,
         TDisableOptions,
         TAutoCallable
       > {
@@ -191,6 +226,7 @@ export class Zagora<
       TInputSchema,
       TOutputSchema,
       TErrorsMap,
+      TCacheAdapter,
       TDisableOptions,
       TAutoCallable
     >({
@@ -219,6 +255,7 @@ export class Zagora<
     const handlerFn = this.def.handler;
     const inputSchema = this.def.inputSchema as TInputSchema;
     const outputSchema = this.def.outputSchema as TOutputSchema;
+    const cacheAdapter = this.def.cacheAdapter;
 
     const mergedContext = context
       ? deepMerge(initialContext, context)
@@ -239,25 +276,37 @@ export class Zagora<
       options,
       handlerFn,
       disableOptions: disableOptions ?? false,
+      cacheAdapter,
     });
 
     type TResolvedResult = Awaited<ReturnType<typeof procedure>>;
-
-    type TResult = ConditionalAsync<
-      ReturnType<THandlerFn>,
-      ZagoraResult<
-        InferOutput<TOutputSchema, THandlerFn>,
-        TErrorsMap,
-        TResolvedResult
-      >
+    type Result = ZagoraResult<
+      InferOutput<TOutputSchema, THandlerFn>,
+      TErrorsMap,
+      TResolvedResult
     >;
 
-    // TEST: with expect-type
+    type TResult = ConditionalAsync<ReturnType<THandlerFn>, Result>;
+
+    type TFinalResult = TCacheAdapter extends {
+      has(key: string): infer A;
+      get(key: string): infer B;
+      set(key: string, value: unknown): infer C;
+    }
+      ? IsPromise<A> extends true
+        ? Promise<Result>
+        : IsPromise<B> extends true
+          ? Promise<Result>
+          : IsPromise<C> extends true
+            ? Promise<Result>
+            : TResult
+      : TResult;
+
     return procedure as TInputSchema extends AnySchema
       ? InferSchemaInput<TInputSchema> extends readonly any[]
-        ? SpreadTuple<InferSchemaInput<TInputSchema>, TResult>
-        : (arg: InferSchemaInput<TInputSchema>) => TResult
-      : () => TResult;
+        ? SpreadTuple<InferSchemaInput<TInputSchema>, TFinalResult>
+        : (arg: InferSchemaInput<TInputSchema>) => TFinalResult
+      : () => TFinalResult;
   }
 
   callable<

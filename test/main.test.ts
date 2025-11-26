@@ -570,3 +570,57 @@ test("handle optional/default valaues in object schemas", async () => {
     expect(pricesFailing.error.userId).toStrictEqual("user123");
   }
 });
+
+test("basic in-memory caching/memoization", async () => {
+  const cache = new Map();
+  // const za = zagora({ autoCallable: true }).cache(cache);
+  const za = zagora({ autoCallable: true }).cache({
+    has(key: string) {
+      // throw new Error("Not implemented");
+      return cache.has(key);
+    },
+    get(key: string) {
+      // throw new Error("Get method not implemented yet");
+      return cache.get(key);
+    },
+    set(key: string, value: any) {
+      // throw new Error("Set method is not implemented");
+      cache.set(key, value);
+    },
+  });
+
+  let called = 0;
+  const hello = za.input(z.string()).handler(async (_, name) => {
+    called += 1;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return `Hello, ${name}!`;
+  });
+
+  const helloRes = await hello("World");
+  expect(called, "Expects to be called just once").toBe(1);
+
+  if (helloRes.ok) {
+    expect(helloRes.data).toBe("Hello, World!");
+  } else {
+    // console.log("ERR:", helloRes);
+    expect(false, "Should not reach here").toBe(true);
+  }
+
+  // NOTE: should be instant cuz the in-memory cache - eg. test takes only 100ms instead of 200ms
+  // NOTE: if the input is different, it would not be in the cache, so handler would be called again
+  const helloRes2 = await hello("World");
+  expect(called, "Expects to be called once after second call").toBe(1);
+
+  if (helloRes2.ok) {
+    expect(helloRes2.data).toBe("Hello, World!");
+  } else {
+    // console.log("helloRes2 ERR:", helloRes2);
+    expect(false, "Should be instant and not reach here").toBe(true);
+  }
+
+  // NOTE: if the any of the input, inputSchema, outputSchema, or errorsMap schema,
+  // or if the body of the handler changes, it would be a different cache key/entry,
+  // meaning that the handler would be called/executed, thus `called` would be 2 now.
+  const _ = await hello("Bobby");
+  expect(called, "Expects `called` to be incremented").toBe(2);
+});

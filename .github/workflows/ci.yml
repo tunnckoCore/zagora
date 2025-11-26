@@ -11,15 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-typecheck-test:
+  ci:
     name: CI on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 'latest'
 
@@ -84,38 +84,54 @@ jobs:
             ${{ runner.os }}-typecheck-logs-${{ env.FILES_HASH }}-
             ${{ runner.os }}-typecheck-logs-
 
-      - name: Install dependencies
+      - name: Run Install on ${{ matrix.os }}
         shell: bash
         id: install
         run: bun install --frozen-lockfile
         continue-on-error: false
 
-      - name: Linting on ${{ matrix.os }}
+      - name: Run Lint on ${{ matrix.os }}
         shell: bash
         id: lint
         run: |
-          mkdir -p lint-logs
-          bun run ci:lint > lint-logs/lint.log 2>&1
+          scriptExists=$(bun pm pkg get scripts.ci:lint)
+          if [ "$scriptExists" != "{}" ]; then
+            mkdir -p logs
+            bun run ci:lint > logs/lint.log 2>&1
+          else
+            echo "Skipping linting"
+          fi
         continue-on-error: true
         if: steps.install.outcome == 'success' && steps.cache-lint-logs.outputs.cache-hit != 'true'
 
-      - name: Type Checking on ${{ matrix.os }}
+      - name: Run Type Checking on ${{ matrix.os }}
         shell: bash
         id: typecheck
         run: |
-          mkdir -p typecheck-logs
-          bun run check:types > typecheck-logs/typecheck.log 2>&1
+          scriptExists=$(bun pm pkg get scripts.ci:typecheck)
+          if [ "$scriptExists" != "{}" ]; then
+            mkdir -p logs
+            bun run ci:typecheck > logs/typecheck.log 2>&1
+          else
+            echo "Skipping type checking"
+          fi
         continue-on-error: true
         if: steps.install.outcome == 'success' && steps.cache-typecheck-logs.outputs.cache-hit != 'true'
 
-      - name: Testing on ${{ matrix.os }}
+      - name: Run Testing on ${{ matrix.os }}
         shell: bash
         id: test
-        run: bun run ci:test
+        run: |
+          scriptExists=$(bun pm pkg get scripts.ci:test)
+          if [ "$scriptExists" != "{}" ]; then
+            bun run ci:test
+          else
+            bun run test
+          fi
         continue-on-error: true
         if: steps.install.outcome == 'success'
 
-      - name: Report Status
+      - name: Report Run Status
         shell: bash
         run: |
           echo "Install: ${{ steps.install.outcome }}"

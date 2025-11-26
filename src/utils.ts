@@ -1,5 +1,10 @@
+import nodeCrypto from "node:crypto";
 import { createInternalError, createValidationError } from "./errors";
 import type { AnySchema } from "./types";
+
+export function getCacheHash(data: string) {
+  return nodeCrypto.createHash("sha256").update(data).digest("hex");
+}
 
 // TEST: with expect-type
 export function createProcedure<TKindNames>({
@@ -9,6 +14,7 @@ export function createProcedure<TKindNames>({
   errorsMap,
   options,
   disableOptions,
+  cacheAdapter,
 }: any) {
   return (...args: unknown[]) => {
     const schemaAny = inputSchema as any;
@@ -33,25 +39,31 @@ export function createProcedure<TKindNames>({
         ? handlerArgs
         : [options, ...handlerArgs];
 
-      const state = executeHandler(handlerFn, executionArgs);
-      if (state.error) {
-        return validateError<TKindNames>(errorsMap, state.error, state.isAsync);
-      }
-      const handlerResult =
-        state.result ?? executeHandler(handlerFn, executionArgs).result;
+      const state = executeHandler(handlerFn, executionArgs, cacheAdapter, {
+        inputSchema,
+        outputSchema,
+        errorsMap,
+      });
 
-      if (handlerResult instanceof Promise) {
-        return handlerResult
-          .then((outputResult) =>
-            processor("output", outputSchema, outputResult),
-          )
-          .catch((err) => {
-            return validateError<TKindNames>(errorsMap, err, state.isAsync);
-          });
+      const handleState = (st: any) => {
+        if (st.ok) {
+          return processor("output", outputSchema, st.data);
+        }
+
+        const { isAsync, handlerFailed, ...rest } = st;
+
+        // if handler failed, then we need to validate the error if errorShema,
+        // otherwise we can passthrough the Result object whatever it is.
+        return handlerFailed
+          ? validateError<TKindNames>(errorsMap, st.error, isAsync)
+          : rest;
+      };
+
+      if (state instanceof Promise) {
+        return state.then((st) => handleState(st));
       }
 
-      const res = processor("output", outputSchema, handlerResult);
-      return res;
+      return handleState(state);
     };
 
     const inputArgs = isTuple ? args : args[0];
@@ -139,28 +151,129 @@ export function validateError<TKindNames>(
   );
 }
 
-const EXECUTION_CACHE = new Map();
+export function executeHandler(
+  handlerFn: any,
+  args: any[],
+  cache: any,
+  incoming: any,
+) {
+  const key = cache
+    ? getCacheHash(
+        JSON.stringify({ ...incoming, fnStr: handlerFn.toString(), args }),
+      )
+    : "";
 
-export function executeHandler(fn: any, args: any[]) {
-  const key = JSON.stringify({ key: fn.toString(), args });
-  if (EXECUTION_CACHE.has(key)) {
-    return EXECUTION_CACHE.get(key);
+  const processor = (argz: any) => {
+    const handlerResult = tryCatch(() => handlerFn(...argz), true);
+    if (handlerResult instanceof Promise) {
+      return handlerResult.then((handlerResolved) => {
+        if (handlerResolved.ok) {
+          // NOTE: no need to await (if cache adapter is async to begin with)
+          // NOTE: we only store successful results in cache
+          // cache?.set(key, result.data);
+
+          const resp = tryCatch(
+            // NOTE: that `?` and `?.` are important here because `processor` can in both cases,
+            // whether there is cacheAdapter or not.
+            () => cache?.set?.(key, handlerResolved.data),
+            false,
+            "set",
+          );
+          if (resp instanceof Promise) {
+            return resp.then((resolved) =>
+              resolved.ok ? handlerResolved : resolved,
+            );
+          }
+          return resp.ok ? handlerResolved : resp;
+        }
+
+        return handlerResolved;
+      });
+    }
+
+    if (handlerResult.ok) {
+      // NOTE: no need to await (if cache adapter is async to begin with)
+      // NOTE: we only store successful results in cache
+      // cache?.set(key, handlerResult.data);
+      const resp = tryCatch(
+        // NOTE: that `?` and `?.` are important here because `processor` can in both cases,
+        // whether there is cacheAdapter or not.
+        () => cache?.set?.(key, handlerResult.data),
+        false,
+        "set",
+      );
+      if (resp instanceof Promise) {
+        return resp.then((resolved) =>
+          resolved.ok ? handlerResult : resolved,
+        );
+      }
+      return resp.ok ? handlerResult : resp;
+    }
+    return handlerResult;
+  };
+
+  if (cache) {
+    const ret = tryCatch(() => cache.has?.(key), false, "has");
+    if (ret instanceof Promise) {
+      return ret.then((r) => {
+        if (r.ok) {
+          // r.data is the result of the `cache.has`
+          return r.data
+            ? tryCatch(() => cache.get?.(key), false, "get")
+            : processor(args);
+        }
+        return r;
+      });
+    }
+
+    if (ret.ok) {
+      // ret.data is the result of the `cache.has`
+      return ret.data
+        ? tryCatch(() => cache.get?.(key), false, "get")
+        : processor(args);
+    }
+    return ret;
   }
 
-  const isAsync =
-    Function.prototype.toString.call(fn).startsWith("async") ||
-    Object.prototype.toString.call(fn) === "[object AsyncFunction]";
+  const result = processor(args);
 
-  let res = { isAsync } as any;
+  return result;
+}
+
+function tryCatch(fn: any, isHandler: boolean, method: string = "") {
   try {
-    const result = fn(...args);
-    res = { isAsync: result instanceof Promise, result };
+    const res = fn();
+    if (res instanceof Promise) {
+      return res
+        .then((data) => createResult(data, null, false))
+        .catch((error) => {
+          if (isHandler) {
+            const res = createResult(null, error, false);
+            return { ...res, handlerFailed: true, isAsync: true };
+          }
+          return createResult(
+            null,
+            createInternalError(
+              `Failure in async CacheAdapter.${method} method`,
+              error,
+            ),
+            false,
+          );
+        });
+    }
+    return createResult(res, null, false);
   } catch (error: unknown) {
-    res = { isAsync, result: null, error };
-  }
+    if (isHandler) {
+      const res = createResult(null, error, false);
+      return { ...res, handlerFailed: true, isAsync: false };
+    }
 
-  EXECUTION_CACHE.set(key, res);
-  return res;
+    return createResult(
+      null,
+      createInternalError(`Failure in CacheAdapter.${method} method`, error),
+      false,
+    );
+  }
 }
 
 // TEST: with expect-type
@@ -172,6 +285,7 @@ export function createResult(data: any, error: any, isTypedError: boolean) {
   return { ok: true, data } as const;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: it's fine
 export function handleTupleDefaults(
   schema: AnySchema,
   rawArgs: unknown[],

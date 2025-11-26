@@ -56,7 +56,25 @@ export type Prettify<T> = {
 // TEST: with expect-type
 export type IsOptional<T> = undefined extends T ? true : false;
 
-type ObjectToUnion<T> = T[keyof T];
+export type ObjectToUnion<T> = T[keyof T];
+
+export type CacheAdapter =
+  | {
+      has(key: string): boolean;
+      get(key: string): unknown;
+      set(key: string, value: unknown): any;
+    }
+  | {
+      has(key: string): Promise<boolean>;
+      get(key: string): Promise<unknown>;
+      // NOTE: if we gotta be strict, it should be Promise<any> or Promise<void>
+      // but it's fine, cuz we don't really care and we never await it anyway
+      // NOTE: Making it the same as the "sync version" above
+      // allows end users to provide CacheAdapters with mixed sync & async methods,
+      // without reporting them an error, because we allow and handle
+      // ALL the cases at runtime anyway
+      set(key: string, value: unknown): any;
+    };
 
 // TEST: with expect-type
 export type ZagoraResult<
@@ -92,6 +110,7 @@ export interface ZagoraDef<
   TInputSchema extends AnySchema | undefined,
   TOutputSchema extends AnySchema | undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined,
+  TCacheAdapter extends CacheAdapter | undefined = undefined,
 > {
   disableOptions?: boolean;
   autoCallable?: boolean;
@@ -99,6 +118,7 @@ export interface ZagoraDef<
   inputSchema: TInputSchema;
   outputSchema: TOutputSchema;
   errorsMap: TErrorsMap;
+  cacheAdapter: TCacheAdapter;
   handler?: (
     options: { context: TContext; errors: any },
     ...args: unknown[]
