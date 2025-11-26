@@ -1,6 +1,6 @@
 import nodeCrypto from "node:crypto";
 import { createInternalError, createValidationError } from "./errors";
-import type { AnySchema } from "./types";
+import type { AnySchema, CacheAdapter } from "./types";
 
 export function getCacheHash(data: string) {
   return nodeCrypto.createHash("sha256").update(data).digest("hex");
@@ -39,7 +39,7 @@ export function createProcedure<TKindNames>({
         ? handlerArgs
         : [options, ...handlerArgs];
 
-      const state = executeHandler(handlerFn, executionArgs, cacheAdapter, {
+      const state = processHandler(handlerFn, executionArgs, cacheAdapter, {
         inputSchema,
         outputSchema,
         errorsMap,
@@ -151,76 +151,27 @@ export function validateError<TKindNames>(
   );
 }
 
-export function executeHandler(
+export function processHandler(
   handlerFn: any,
   args: any[],
-  cache: any,
+  cacheAdapter: any,
   incoming: any,
 ) {
-  const key = cache
+  const key = cacheAdapter
     ? getCacheHash(
         JSON.stringify({ ...incoming, fnStr: handlerFn.toString(), args }),
       )
     : "";
 
-  const processor = (argz: any) => {
-    const handlerResult = tryCatch(() => handlerFn(...argz), true);
-    if (handlerResult instanceof Promise) {
-      return handlerResult.then((handlerResolved) => {
-        if (handlerResolved.ok) {
-          // NOTE: no need to await (if cache adapter is async to begin with)
-          // NOTE: we only store successful results in cache
-          // cache?.set(key, result.data);
-
-          const resp = tryCatch(
-            // NOTE: that `?` and `?.` are important here because `processor` can in both cases,
-            // whether there is cacheAdapter or not.
-            () => cache?.set?.(key, handlerResolved.data),
-            false,
-            "set",
-          );
-          if (resp instanceof Promise) {
-            return resp.then((resolved) =>
-              resolved.ok ? handlerResolved : resolved,
-            );
-          }
-          return resp.ok ? handlerResolved : resp;
-        }
-
-        return handlerResolved;
-      });
-    }
-
-    if (handlerResult.ok) {
-      // NOTE: no need to await (if cache adapter is async to begin with)
-      // NOTE: we only store successful results in cache
-      // cache?.set(key, handlerResult.data);
-      const resp = tryCatch(
-        // NOTE: that `?` and `?.` are important here because `processor` can in both cases,
-        // whether there is cacheAdapter or not.
-        () => cache?.set?.(key, handlerResult.data),
-        false,
-        "set",
-      );
-      if (resp instanceof Promise) {
-        return resp.then((resolved) =>
-          resolved.ok ? handlerResult : resolved,
-        );
-      }
-      return resp.ok ? handlerResult : resp;
-    }
-    return handlerResult;
-  };
-
-  if (cache) {
-    const ret = tryCatch(() => cache.has?.(key), false, "has");
+  if (cacheAdapter) {
+    const ret = tryCatch(() => cacheAdapter.has?.(key), false, "has");
     if (ret instanceof Promise) {
       return ret.then((r) => {
         if (r.ok) {
           // r.data is the result of the `cache.has`
           return r.data
-            ? tryCatch(() => cache.get?.(key), false, "get")
-            : processor(args);
+            ? tryCatch(() => cacheAdapter.get?.(key), false, "get")
+            : executeHandler(args, { handlerFn, cacheAdapter, key });
         }
         return r;
       });
@@ -229,18 +180,70 @@ export function executeHandler(
     if (ret.ok) {
       // ret.data is the result of the `cache.has`
       return ret.data
-        ? tryCatch(() => cache.get?.(key), false, "get")
-        : processor(args);
+        ? tryCatch(() => cacheAdapter.get?.(key), false, "get")
+        : executeHandler(args, { handlerFn, cacheAdapter, key });
     }
     return ret;
   }
 
-  const result = processor(args);
-
-  return result;
+  return executeHandler(args, { handlerFn, cacheAdapter, key });
 }
 
-function tryCatch(fn: any, isHandler: boolean, method: string = "") {
+export function executeHandler(
+  argz: any,
+  {
+    handlerFn,
+    cacheAdapter,
+    key,
+  }: { handlerFn: any; cacheAdapter: CacheAdapter; key: string },
+) {
+  const handlerResult = tryCatch(() => handlerFn(...argz), true);
+  if (handlerResult instanceof Promise) {
+    return handlerResult.then((handlerResolved) => {
+      if (handlerResolved.ok) {
+        // NOTE: no need to await (if cache adapter is async to begin with)
+        // NOTE: we only store successful results in cache
+        // cache?.set(key, result.data);
+
+        const resp = tryCatch(
+          // NOTE: that `?` and `?.` are important here because `processor` can in both cases,
+          // whether there is cacheAdapter or not.
+          () => cacheAdapter?.set?.(key, handlerResolved.data),
+          false,
+          "set",
+        );
+        if (resp instanceof Promise) {
+          return resp.then((resolved) =>
+            resolved.ok ? handlerResolved : resolved,
+          );
+        }
+        return resp.ok ? handlerResolved : resp;
+      }
+
+      return handlerResolved;
+    });
+  }
+
+  if (handlerResult.ok) {
+    // NOTE: no need to await (if cache adapter is async to begin with)
+    // NOTE: we only store successful results in cache
+    // cache?.set(key, handlerResult.data);
+    const resp = tryCatch(
+      // NOTE: that `?` and `?.` are important here because `processor` can in both cases,
+      // whether there is cacheAdapter or not.
+      () => cacheAdapter?.set?.(key, handlerResult.data),
+      false,
+      "set",
+    );
+    if (resp instanceof Promise) {
+      return resp.then((resolved) => (resolved.ok ? handlerResult : resolved));
+    }
+    return resp.ok ? handlerResult : resp;
+  }
+  return handlerResult;
+}
+
+export function tryCatch(fn: any, isHandler: boolean, method: string = "") {
   try {
     const res = fn();
     if (res instanceof Promise) {
