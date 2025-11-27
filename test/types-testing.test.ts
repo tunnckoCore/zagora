@@ -210,10 +210,9 @@ test("IsOptional<T> - detects if type includes undefined", () => {
 // =============================================================================
 
 test("ZagoraResult<...> - result type structure for success/error cases", () => {
-  type TestSchema1 = AnySchema;
   type TestErrorsMap = {
-    validation: TestSchema1;
-    notFound: TestSchema1;
+    NOT_VALID: AnySchema;
+    NOT_FOUND: AnySchema;
   };
 
   // Success result shape
@@ -240,7 +239,7 @@ test("ZagoraResult<...> - result type structure for success/error cases", () => 
     TestErrorsMap,
     { readonly ok: true }
   >;
-  expectTypeOf<SuccessWithErrorMap>().toMatchTypeOf<{
+  expectTypeOf<SuccessWithErrorMap>().toEqualTypeOf<{
     readonly ok: true;
     data: number;
     readonly error: undefined;
@@ -252,7 +251,7 @@ test("ZagoraResult<...> - result type structure for success/error cases", () => 
     TestErrorsMap,
     { readonly ok: false }
   >;
-  expectTypeOf<ErrorWithMap>().toMatchTypeOf<{
+  expectTypeOf<ErrorWithMap>().toMatchObjectType<{
     readonly ok: false;
     readonly isTypedError: true;
   }>();
@@ -308,15 +307,15 @@ test("ResolveProcedure<...> - handler function signature based on disableOptions
 
   // With disableOptions = true, no input schema
   type Proc1 = ResolveProcedure<true, TestContext, undefined, undefined>;
-  expectTypeOf<Proc1>().toMatchTypeOf<() => any>();
+  expectTypeOf<Proc1>().toEqualTypeOf<() => any>();
 
   // With disableOptions = true, single input schema
   type Proc2 = ResolveProcedure<true, TestContext, StringSchema, undefined>;
-  expectTypeOf<Proc2>().toMatchTypeOf<(arg: string) => any>();
+  expectTypeOf<Proc2>().toExtend<(arg: string) => any>();
 
   // With disableOptions = false, no input schema
   type Proc3 = ResolveProcedure<false, TestContext, undefined, TestErrorsMap>;
-  expectTypeOf<Proc3>().toMatchTypeOf<
+  expectTypeOf<Proc3>().toEqualTypeOf<
     (options: ResolveHandlerOptions<TestContext, TestErrorsMap>) => any
   >();
 
@@ -327,7 +326,7 @@ test("ResolveProcedure<...> - handler function signature based on disableOptions
     StringSchema,
     TestErrorsMap
   >;
-  expectTypeOf<Proc4>().toMatchTypeOf<
+  expectTypeOf<Proc4>().toExtend<
     (
       options: ResolveHandlerOptions<TestContext, TestErrorsMap>,
       arg: string,
@@ -342,24 +341,24 @@ test("ResolveProcedure<...> - handler function signature based on disableOptions
 test("SpreadTuple<T, R> - spreads tuple types into function parameters with optional handling", () => {
   // Single element tuple
   type Spread1 = SpreadTuple<readonly [string], number>;
-  expectTypeOf<Spread1>().toMatchTypeOf<(arg: string) => number>();
+  expectTypeOf<Spread1>().toEqualTypeOf<(arg: string) => number>();
 
   // Two element tuple (both required)
   type Spread2 = SpreadTuple<readonly [string, number], boolean>;
-  expectTypeOf<Spread2>().toMatchTypeOf<
+  expectTypeOf<Spread2>().toEqualTypeOf<
     ((arg1: string, arg2: number) => boolean) | ((arg1: string) => boolean)
   >();
 
   // Two element tuple (second optional)
   type Spread3 = SpreadTuple<readonly [string, number | undefined], boolean>;
-  expectTypeOf<Spread3>().toMatchTypeOf<
+  expectTypeOf<Spread3>().toEqualTypeOf<
     | ((arg1: string, arg2?: number | undefined) => boolean)
     | ((arg1: string) => boolean)
   >();
 
   // Three element tuple (all required)
   type Spread4 = SpreadTuple<readonly [string, number, boolean], void>;
-  expectTypeOf<Spread4>().toMatchTypeOf<
+  expectTypeOf<Spread4>().toEqualTypeOf<
     | ((arg1: string, arg2: number, arg3: boolean) => void)
     | ((arg1: string, arg2: number) => void)
     | ((arg1: string) => void)
@@ -370,7 +369,7 @@ test("SpreadTuple<T, R> - spreads tuple types into function parameters with opti
     readonly [string, number, boolean | undefined],
     void
   >;
-  expectTypeOf<Spread5>().toMatchTypeOf<
+  expectTypeOf<Spread5>().toEqualTypeOf<
     | ((arg1: string, arg2: number, arg3?: boolean | undefined) => void)
     | ((arg1: string, arg2: number) => void)
     | ((arg1: string) => void)
@@ -378,14 +377,14 @@ test("SpreadTuple<T, R> - spreads tuple types into function parameters with opti
 
   // Empty tuple
   type Spread6 = SpreadTuple<readonly [], string>;
-  expectTypeOf<Spread6>().toMatchTypeOf<() => string>();
+  expectTypeOf<Spread6>().toEqualTypeOf<() => string>();
 
   // Many element tuple (rest parameter)
   type Spread7 = SpreadTuple<
     readonly [string, number, boolean, object, symbol],
     any
   >;
-  expectTypeOf<Spread7>().toMatchTypeOf<
+  expectTypeOf<Spread7>().toEqualTypeOf<
     (...args: readonly [string, number, boolean, object, symbol]) => any
   >();
 });
@@ -418,18 +417,18 @@ test("Function parameters - createResult, validateInputOutput, validateError sig
   // Test validateInputOutput parameters
   // validateInputOutput(mode: "input" | "output", schema: any, data: any)
   type ValidateInputOutputFn = typeof validateInputOutput;
-  expectTypeOf<ValidateInputOutputFn>().toMatchTypeOf<
+  expectTypeOf<ValidateInputOutputFn>().toExtend<
     (mode: "input" | "output", schema: any, data: any) => any
   >();
 
-  expectTypeOf<ValidateInputOutputFn>().parameters.toMatchTypeOf<
+  expectTypeOf<ValidateInputOutputFn>().parameters.toEqualTypeOf<
     ["input" | "output", any, any]
   >();
 
   // Test validateError parameters
   // validateError<TKindNames>(errorsMap: Record<string, AnySchema>, error: any, isAsync: boolean)
   type ValidateErrorFn = typeof validateError;
-  expectTypeOf<ValidateErrorFn>().toMatchTypeOf<
+  expectTypeOf<ValidateErrorFn>().toExtend<
     <_TKindNames>(
       errorsMap: Record<string, AnySchema>,
       error: any,
@@ -439,16 +438,31 @@ test("Function parameters - createResult, validateInputOutput, validateError sig
 
   // Test with specific error map type
   type SpecificErrorMap = {
-    notFound: AnySchema;
-    unauthorized: AnySchema;
+    NOT_FOUND: AnySchema;
+    UNAUTHORIZED: AnySchema;
   };
   const testValidateError = validateError<keyof SpecificErrorMap>(
     {} as SpecificErrorMap,
-    { kind: "notFound" },
+    { kind: "NOT_FOUND" },
     false,
   );
+
+  type Res =
+    | {
+        readonly ok: false;
+        readonly isTypedError: boolean;
+        readonly error: any;
+        readonly data?: undefined;
+      }
+    | {
+        readonly ok: true;
+        readonly data: any;
+        readonly isTypedError?: undefined;
+        readonly error?: undefined;
+      };
+
   // validateError returns a result object or a Promise of result object
-  expectTypeOf(testValidateError).toMatchTypeOf<any>();
+  expectTypeOf(testValidateError).toExtend<Res | Promise<Res>>();
 });
 
 // =============================================================================
@@ -510,7 +524,7 @@ test("Zagora procedures - sync handler return types", () => {
   expectTypeOf(syncProc).toBeCallableWith("foo", { name: "World" });
 
   const syncResult = syncProc("foo", { name: "World" });
-  expectTypeOf(syncResult).toMatchTypeOf<ZagoraResult<any, any, any>>();
+  expectTypeOf(syncResult).toExtend<ZagoraResult<any, any, any>>();
 
   if (syncResult.error) {
     expectTypeOf(syncResult.ok).toEqualTypeOf<false>();
@@ -561,9 +575,7 @@ test("Zagora procedures - async handler return types", async () => {
     .callable();
 
   const res1promise = safeAsyncParse();
-  expectTypeOf(res1promise).toMatchTypeOf<
-    Promise<ZagoraResult<any, any, any>>
-  >();
+  expectTypeOf(res1promise).toExtend<Promise<ZagoraResult<any, any, any>>>();
 
   type ErrorKinds = InternalError["kind"] | ValidationError["kind"];
 
