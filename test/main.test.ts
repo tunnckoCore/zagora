@@ -2,7 +2,11 @@
 
 import { expect, expectTypeOf, test } from "vitest";
 import z from "zod";
-import { isDefinedError, isInternalError } from "../src/errors.ts";
+import {
+  isDefinedError,
+  isInternalError,
+  isValidationError,
+} from "../src/errors.ts";
 import { zagora } from "../src/index.ts";
 
 // Schemas
@@ -716,4 +720,30 @@ test("cache adapter passed through `.callable` method", async () => {
   fixture(true, false);
   fixture(true, true, false);
   fixture(false, false, true);
+});
+
+test("basic env schema support through `.env` method", () => {
+  const envPopulatedProcedure = zagora()
+    .input(z.string())
+    .env(
+      z.object({
+        DATABASE_URL: z.string().min(4),
+        SOME_SECRET: z.string().min(2),
+      }),
+      process.env,
+    )
+    .handler(({ env }, input) => {
+      return `input=${input};url=${env.DATABASE_URL};secret=${env.SOME_SECRET}`;
+    })
+    .callable({
+      env: { SOME_SECRET: "sasa" },
+    });
+
+  const res = envPopulatedProcedure("foo");
+  if (!res.ok && isValidationError(res.error)) {
+    expect(res.error.kind).toBe("VALIDATION_ERROR");
+    expect(res.error.message).toContain("Env validation failed");
+  } else {
+    expect(false, "env validatio should fail").toBe(true);
+  }
 });

@@ -1,6 +1,6 @@
 # Zagora
 
-[![ci](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml/badge.svg)](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml) <!-- COV_BADGE:START -->![coverage](https://badgen.net/badge/coverage/96.13%25/99CC09)<!-- COV_BADGE:END -->
+[![ci](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml/badge.svg)](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml) <!-- COV_BADGE:START -->![coverage](https://badgen.net/badge/coverage/95.85%25/99CC09)<!-- COV_BADGE:END -->
 
 Elevate your TypeScript workflow with Zagora: a sleek, bulletproof toolkit for forging type-safe, error-proof functions and libraries that never throw. Powered by StandardSchema-compliant validators like Zod, Valibot, and Arktype, it delivers rock-solid input/output validation and richly typed errors. No routers, no network baggage — just pure, exportable functions ready to supercharge your code. The ultimate streamlined alternative to oRPC and tRPC, stripping away the network layer for unmatched type-safety, simplicity and robustness.
 
@@ -15,7 +15,7 @@ Elevate your TypeScript workflow with Zagora: a sleek, bulletproof toolkit for f
 - 🔒 **Type-Safe:** Full type inference across inputs, outputs, errors, context, optionals, and defaults.
 - ✋ **Ergonomic:** Pure functions with auto-filled defaults, optional args, and detailed diagnostics.
 - 🏠 **Familiar:** Echoes remote-RPC patterns from oRPC and tRPC, but focused on libraries, not apps.
-- ⚖️ **Unopinionated:** Zero assumptions - no routers, middlewares, or network dependencies.
+- ⚖️ **Unopinionated:** Zero assumptions - no routers, middlewares, or network concepts.
 - 🎁 **No Unwrapping:** Direct access to results, unlike `neverthrow` - no extra steps required.
 - 🤖 **Agents Ready:** Rules for LLMs with subtle nuances and where to be careful. [Read/get here](./AGENTS.md)
 
@@ -694,7 +694,7 @@ Creates a new Zagora instance.
 - `.context<T>(initial)` - Type the context with generic, and optionally set initial context
 - `.cache(adapter)` - Set cache adapter that should have `has`, `get`, `set`, methods
 - `.handler(fn)` - Set handler/procedure function
-- `.callable(runtimeContext?)` - Create callable procedure, context is deep merged with the initial context.
+- `.callable(opts?: { context?, cache? })` - Create callable procedure, context is deep merged with the initial context.
 
 ## Error Types
 

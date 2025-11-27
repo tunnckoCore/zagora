@@ -58,7 +58,7 @@ export function isZagoraError<T>(val: any): val is ZagoraError<T> {
 }
 
 export function createValidationError<ErrorKindNames = never>(
-  mode: "input" | "output" | "error data",
+  mode: "input" | "output" | "error data" | "env",
   issues: SchemaIssue[],
   key?: ErrorKindNames,
 ) {
@@ -115,27 +115,14 @@ export type ErrorHelpers<
     }
   : never;
 
-export type ErrorsMapPlain<TErrorsMap extends Record<string, AnySchema>> = {
-  [K in keyof TErrorsMap]: Prettify<
-    { kind: K } & InferSchemaOutput<TErrorsMap[K]>
-  >;
+export type InferSchemaMapPlain<
+  T extends Record<string, AnySchema>,
+  ResolveErr extends boolean,
+> = {
+  [K in keyof T]: ResolveErr extends true
+    ? Prettify<{ kind: K } & InferSchemaOutput<T[K]>>
+    : Prettify<InferSchemaOutput<T[K]>>;
 };
-
-// export type ErrorsMapResolved<
-//   TErrorsMap extends Record<string, AnySchema> | undefined,
-// > = TErrorsMap extends Record<string, AnySchema>
-//   ? ErrorsMapPlain<TErrorsMap>
-//   : undefined;
-
-export type ErrorsMapResolved<
-  TErrorsMap extends Record<string, AnySchema> | undefined,
-> = TErrorsMap extends Record<string, AnySchema>
-  ? {
-      [K in keyof TErrorsMap]: Prettify<
-        { kind: K } & InferSchemaOutput<TErrorsMap[K]>
-      >;
-    }
-  : undefined;
 
 export type ResolveErrorKindNames<TErrorsMap> = TErrorsMap extends Record<
   string,

@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type {
   ErrorHelpers,
-  ErrorsMapPlain,
+  InferSchemaMapPlain,
   InternalError,
   ValidationError,
 } from "./errors";
@@ -49,6 +49,11 @@ export type UppercaseKeys<T> = {
   [K in keyof T as Uppercase<string & K>]: T[K];
 };
 
+export type ZagoraEnvVars =
+  | Record<string, string>
+  | NodeJS.ProcessEnv
+  | ImportMetaEnv;
+
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
@@ -94,7 +99,9 @@ export type ZagoraResult<
         readonly isTypedError: IsTypedError;
         readonly error:
           | Prettify<
-              Readonly<Prettify<ObjectToUnion<ErrorsMapPlain<TErrorsMap>>>>
+              Readonly<
+                Prettify<ObjectToUnion<InferSchemaMapPlain<TErrorsMap, true>>>
+              >
             >
           | ValidationError<keyof TErrorsMap>
           | InternalError;
@@ -110,6 +117,7 @@ export interface ZagoraDef<
   TInputSchema extends AnySchema | undefined,
   TOutputSchema extends AnySchema | undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined,
+  TEnvVarsMap extends AnySchema | undefined,
   TCacheAdapter extends CacheAdapter | undefined = undefined,
 > {
   disableOptions?: boolean;
@@ -118,6 +126,8 @@ export interface ZagoraDef<
   inputSchema: TInputSchema;
   outputSchema: TOutputSchema;
   errorsMap: TErrorsMap;
+  envVarsMapSchema: TEnvVarsMap;
+  envVars: ZagoraEnvVars;
   cacheAdapter: TCacheAdapter;
   handler?: (
     options: { context: TContext; errors: any },
@@ -129,11 +139,13 @@ export interface ZagoraDef<
 export interface ResolveHandlerOptions<
   TContext,
   TErrorsMap extends Record<string, AnySchema> | undefined,
+  TEnvVarsMap extends AnySchema | undefined,
 > {
   context: TContext;
   errors: TErrorsMap extends Record<string, AnySchema>
     ? ErrorHelpers<TErrorsMap>
     : undefined;
+  env: InferSchemaOutputSafe<TEnvVarsMap>;
 }
 
 // TEST: with expect-type
@@ -142,6 +154,7 @@ export type ResolveProcedure<
   TContext,
   TInputSchema extends AnySchema | undefined,
   TErrorsMap extends Record<string, AnySchema> | undefined,
+  TEnvVarsMap extends AnySchema | undefined,
 > = TDisableOptions extends true
   ? TInputSchema extends AnySchema
     ? InferSchemaOutput<TInputSchema> extends readonly any[]
@@ -152,16 +165,22 @@ export type ResolveProcedure<
     ? InferSchemaOutput<TInputSchema> extends readonly any[]
       ? SpreadTuple<
           [
-            Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>,
+            Prettify<ResolveHandlerOptions<TContext, TErrorsMap, TEnvVarsMap>>,
             ...InferSchemaOutput<TInputSchema>,
           ],
           any
         >
       : (
-          options: Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>,
+          options: Prettify<
+            ResolveHandlerOptions<TContext, TErrorsMap, TEnvVarsMap>
+          >,
           arg: InferSchemaOutput<TInputSchema>,
         ) => any
-    : (options: Prettify<ResolveHandlerOptions<TContext, TErrorsMap>>) => any;
+    : (
+        options: Prettify<
+          ResolveHandlerOptions<TContext, TErrorsMap, TEnvVarsMap>
+        >,
+      ) => any;
 
 // TEST: with expect-type
 export type SpreadTuple<T extends readonly any[], R> = T extends readonly [

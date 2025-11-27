@@ -7,84 +7,130 @@ export function getCacheHash(data: string) {
 }
 
 // TEST: with expect-type
-export function createProcedure<TKindNames>({
-  inputSchema,
-  outputSchema,
-  handlerFn,
-  errorsMap,
-  options,
-  disableOptions,
-  cacheAdapter,
-}: any) {
-  return (...args: unknown[]) => {
-    const schemaAny = inputSchema as any;
-    const isTuple =
-      schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
+// export function createProcedure<TKindNames, TEnv, TNewContext, TContext>({
+//   zagora,
+//   env,
+//   context,
+// }: {
+//   zagora: ZagoraDef;
+//   env: TEnv;
+//   context: TNewContext;
+// }) {
+//   const disableOptions = zagora.disableOptions ?? false;
+//   const handlerFn = zagora.handler;
+//   const errorsMap = zagora.errorsMap;
+//   const inputSchema = zagora.inputSchema as TInputSchema;
+//   const outputSchema = zagora.outputSchema as TOutputSchema;
+//   const cacheAdapter = zagora.cacheAdapter;
+//   const envVarsMapSchema = zagora.envVarsMapSchema;
+//   const baseEnvVars = zagora.envVars;
 
-    const processor = (mode: "input" | "output", schema: any, data: any) => {
-      if (schema) {
-        return validateInputOutput(mode, schema, data);
-      }
-      return createResult(data, null, false);
-    };
+//   const mergedEnvVars = baseEnvVars ? deepMerge(baseEnvVars, env) : env;
 
-    const processInput = (inputData: any) => {
-      // NOTE: isTuple is safe/enough here cuz it's based on the inputSchema,
-      // thus if inputSchema is not defined, then it would be isTuple=false too.
-      const handlerArgs = isTuple
-        ? handleTupleDefaults(inputSchema, inputData as any)
-        : [inputData];
+//   return (...args: unknown[]) => {
+//     const envVars = validateInputOutputOrEnv(
+//       "env",
+//       envVarsMapSchema,
+//       mergedEnvVars,
+//     );
 
-      const executionArgs = disableOptions
-        ? handlerArgs
-        : [options, ...handlerArgs];
+//     if (envVars instanceof Promise) {
+//       return createInternalError(
+//         "Environment Variables cannot have async schema validation",
+//       );
+//     }
+//     if (!envVars.ok) {
+//       return envVars;
+//     }
 
-      const state = processHandler(handlerFn, executionArgs, cacheAdapter, {
-        inputSchema,
-        outputSchema,
-        errorsMap,
-      });
+//     const mergedContext = context
+//       ? deepMerge(zagora.initialContext, context)
+//       : zagora.initialContext;
 
-      const handleState = (st: any) => {
-        if (st.ok) {
-          return processor("output", outputSchema, st.data);
-        }
+//     const errors = zagora.errorsMap
+//       ? createErrorHelpers(zagora.errorsMap as any)
+//       : undefined;
+//     const options = {
+//       errors: errors,
+//       context: mergedContext,
+//       env: envVars.data,
+//     } as Prettify<
+//       ResolveHandlerOptions<
+//         Prettify<TNewContext & TContext>,
+//         TErrorsMap,
+//         TEnvVarsMap
+//       >
+//     >;
 
-        const { isAsync, handlerFailed, ...rest } = st;
+//     const schemaAny = inputSchema as any;
+//     const isTuple =
+//       schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
 
-        // if handler failed, then we need to validate the error if errorShema,
-        // otherwise we can passthrough the Result object whatever it is.
-        return handlerFailed
-          ? validateError<TKindNames>(errorsMap, st.error, isAsync)
-          : rest;
-      };
+//     const processor = (mode: "input" | "output", schema: any, data: any) => {
+//       if (schema) {
+//         return validateInputOutputOrEnv(mode, schema, data);
+//       }
+//       return createResult(data, null, false);
+//     };
 
-      if (state instanceof Promise) {
-        return state.then((st) => handleState(st));
-      }
+//     const processInput = (inputData: any) => {
+//       // NOTE: isTuple is safe/enough here cuz it's based on the inputSchema,
+//       // thus if inputSchema is not defined, then it would be isTuple=false too.
+//       const handlerArgs = isTuple
+//         ? handleTupleDefaults(inputSchema, inputData as any)
+//         : [inputData];
 
-      return handleState(state);
-    };
+//       const executionArgs = disableOptions
+//         ? handlerArgs
+//         : [options, ...handlerArgs];
 
-    const inputArgs = isTuple ? args : args[0];
+//       const state = processHandler(handlerFn, executionArgs, cacheAdapter, {
+//         inputSchema,
+//         outputSchema,
+//         envVarsMapSchema,
+//         errorsMap,
+//       });
 
-    const inputResult = inputSchema
-      ? validateInputOutput("input", inputSchema, inputArgs)
-      : ({ ok: true, data: inputArgs } as const);
+//       const handleState = (st: any) => {
+//         if (st.ok) {
+//           return processor("output", outputSchema, st.data);
+//         }
 
-    if (inputResult instanceof Promise) {
-      return inputResult.then((resultObj) =>
-        resultObj.error ? resultObj : processInput(resultObj.data),
-      );
-    }
+//         const { isAsync, handlerFailed, ...rest } = st;
 
-    return inputResult.error ? inputResult : processInput(inputResult.data);
-  };
-}
+//         // if handler failed, then we need to validate the error if errorShema,
+//         // otherwise we can passthrough the Result object whatever it is.
+//         return handlerFailed
+//           ? validateError<TKindNames>(errorsMap, st.error, isAsync)
+//           : rest;
+//       };
+
+//       if (state instanceof Promise) {
+//         return state.then((st) => handleState(st));
+//       }
+
+//       return handleState(state);
+//     };
+
+//     const inputArgs = isTuple ? args : args[0];
+
+//     const inputResult = inputSchema
+//       ? validateInputOutputOrEnv("input", inputSchema, inputArgs)
+//       : ({ ok: true, data: inputArgs } as const);
+
+//     if (inputResult instanceof Promise) {
+//       return inputResult.then((resultObj) =>
+//         resultObj.error ? resultObj : processInput(resultObj.data),
+//       );
+//     }
+
+//     return inputResult.error ? inputResult : processInput(inputResult.data);
+//   };
+// }
 
 // TEST: with expect-type
-export function validateInputOutput(
-  mode: "input" | "output",
+export function validateInputOutputOrEnv(
+  mode: "input" | "output" | "env",
   schema: any,
   data: any,
 ) {
@@ -155,7 +201,7 @@ export function processHandler(
   handlerFn: any,
   args: any[],
   cacheAdapter: any,
-  incoming: any,
+  incoming: any, // inputSchema, outputSchema, errorsMapSchema, envVarsMapSchema
 ) {
   const key = cacheAdapter
     ? getCacheHash(

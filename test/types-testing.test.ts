@@ -15,7 +15,7 @@
  * 7. **ResolveHandlerOptions<...>** - Handler options signature with context and errors
  * 8. **ResolveProcedure<...>** - Handler function signature based on disableOptions flag
  * 9. **SpreadTuple<T, R>** - Spreads tuple types into function parameters with optional handling
- * 10. **Function parameters** - createResult, validateInputOutput, validateError signatures
+ * 10. **Function parameters** - createResult, validateInputOutputOrEnv, validateError signatures
  *
  * ## Edge cases covered:
  *
@@ -32,7 +32,7 @@ import { z } from "zod";
 import type {
   createInternalError,
   ErrorHelpers,
-  ErrorsMapPlain,
+  InferSchemaMapPlain,
   InternalError,
   ValidationError,
 } from "../src/errors";
@@ -40,6 +40,7 @@ import { zagora } from "../src/index";
 import type {
   AnySchema,
   ConditionalAsync,
+  InferSchemaOutputSafe,
   IsAny,
   IsOptional,
   IsPromise,
@@ -52,7 +53,7 @@ import type {
 import {
   createResult,
   validateError,
-  type validateInputOutput,
+  type validateInputOutputOrEnv,
 } from "../src/utils";
 
 // =============================================================================
@@ -265,28 +266,36 @@ test("ResolveHandlerOptions<...> - handler options signature with context and er
   type TestContext = { userId: string };
   type TestSchema1 = AnySchema;
   type TestErrorsMap = {
-    validation: TestSchema1;
-    notFound: TestSchema1;
+    NOT_VALID: TestSchema1;
+    NOT_FOUND: TestSchema1;
   };
+  type TestEnvMap = TestSchema1;
 
   // With error map
   expectTypeOf<
-    ResolveHandlerOptions<TestContext, TestErrorsMap>
+    ResolveHandlerOptions<TestContext, TestErrorsMap, TestEnvMap>
   >().toEqualTypeOf<{
     context: TestContext;
     errors: ErrorHelpers<TestErrorsMap>;
+    env: InferSchemaOutputSafe<TestEnvMap>;
   }>();
 
   // Without error map (errors should be undefined)
-  expectTypeOf<ResolveHandlerOptions<TestContext, undefined>>().toEqualTypeOf<{
+  expectTypeOf<
+    ResolveHandlerOptions<TestContext, undefined, AnySchema>
+  >().toEqualTypeOf<{
     context: TestContext;
     errors: undefined;
+    env: InferSchemaOutputSafe<TestEnvMap>;
   }>();
 
   // With empty context
-  expectTypeOf<ResolveHandlerOptions<{}, TestErrorsMap>>().toEqualTypeOf<{
+  expectTypeOf<
+    ResolveHandlerOptions<{}, TestErrorsMap, undefined>
+  >().toEqualTypeOf<{
     context: {};
     errors: ErrorHelpers<TestErrorsMap>;
+    env: InferSchemaOutputSafe<undefined>;
   }>();
 });
 
@@ -298,25 +307,46 @@ test("ResolveProcedure<...> - handler function signature based on disableOptions
   type TestContext = { userId: string };
   type TestSchema1 = AnySchema;
   type TestErrorsMap = {
-    validation: TestSchema1;
-    notFound: TestSchema1;
+    NOT_VALID: TestSchema1;
+    NOT_FOUND: TestSchema1;
   };
+  type TestEnvMap = TestSchema1;
 
   // Mock schema types for testing
   type StringSchema = AnySchema & { __output: string };
 
   // With disableOptions = true, no input schema
-  type Proc1 = ResolveProcedure<true, TestContext, undefined, undefined>;
+  type Proc1 = ResolveProcedure<
+    true,
+    TestContext,
+    undefined,
+    undefined,
+    undefined
+  >;
   expectTypeOf<Proc1>().toEqualTypeOf<() => any>();
 
   // With disableOptions = true, single input schema
-  type Proc2 = ResolveProcedure<true, TestContext, StringSchema, undefined>;
+  type Proc2 = ResolveProcedure<
+    true,
+    TestContext,
+    StringSchema,
+    undefined,
+    undefined
+  >;
   expectTypeOf<Proc2>().toExtend<(arg: string) => any>();
 
   // With disableOptions = false, no input schema
-  type Proc3 = ResolveProcedure<false, TestContext, undefined, TestErrorsMap>;
+  type Proc3 = ResolveProcedure<
+    false,
+    TestContext,
+    undefined,
+    TestErrorsMap,
+    TestEnvMap
+  >;
   expectTypeOf<Proc3>().toEqualTypeOf<
-    (options: ResolveHandlerOptions<TestContext, TestErrorsMap>) => any
+    (
+      options: ResolveHandlerOptions<TestContext, TestErrorsMap, TestEnvMap>,
+    ) => any
   >();
 
   // With disableOptions = false, single input schema
@@ -324,11 +354,12 @@ test("ResolveProcedure<...> - handler function signature based on disableOptions
     false,
     TestContext,
     StringSchema,
-    TestErrorsMap
+    TestErrorsMap,
+    TestEnvMap
   >;
   expectTypeOf<Proc4>().toExtend<
     (
-      options: ResolveHandlerOptions<TestContext, TestErrorsMap>,
+      options: ResolveHandlerOptions<TestContext, TestErrorsMap, TestEnvMap>,
       arg: string,
     ) => any
   >();
@@ -393,7 +424,7 @@ test("SpreadTuple<T, R> - spreads tuple types into function parameters with opti
 // Function Parameter Type Tests
 // =============================================================================
 
-test("Function parameters - createResult, validateInputOutput, validateError signatures", () => {
+test("Function parameters - createResult, validateInputOutputOrEnv, validateError signatures", () => {
   // Test createResult parameters
   // createResult(data: any, error: any, isTypedError: boolean)
   // Returns a union type: { ok: true, data } | { ok: false, isTypedError, error }
@@ -414,15 +445,15 @@ test("Function parameters - createResult, validateInputOutput, validateError sig
   expectTypeOf(createResult).toBeCallableWith(null, new Error(), true);
   expectTypeOf(createResult).toBeCallableWith({ any: "data" }, null, false);
 
-  // Test validateInputOutput parameters
-  // validateInputOutput(mode: "input" | "output", schema: any, data: any)
-  type ValidateInputOutputFn = typeof validateInputOutput;
+  // Test validateInputOutputOrEnv parameters
+  // validateInputOutputOrEnv(mode: "input" | "output", schema: any, data: any)
+  type ValidateInputOutputFn = typeof validateInputOutputOrEnv;
   expectTypeOf<ValidateInputOutputFn>().toExtend<
     (mode: "input" | "output", schema: any, data: any) => any
   >();
 
   expectTypeOf<ValidateInputOutputFn>().parameters.toEqualTypeOf<
-    ["input" | "output", any, any]
+    ["input" | "output" | "env", any, any]
   >();
 
   // Test validateError parameters
@@ -502,7 +533,7 @@ test("Zagora procedures - sync handler return types", () => {
     | InternalError["kind"]
     | ValidationError["kind"];
 
-  type ErrorsResolvedType = ErrorsMapPlain<typeof errorsMap>;
+  type ErrorsResolvedType = InferSchemaMapPlain<typeof errorsMap, true>;
   type ErrorHelpersType = ErrorHelpers<typeof errorsMap>;
 
   const syncProc = zagora()
