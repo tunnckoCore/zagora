@@ -154,6 +154,7 @@ import * ZagoraTypes from 'zagora/types';
 import * zagoraUtils from 'zagora/utils';
 ```
 
+[Back to top](#zagora)
 
 ## Why zagora?
 
@@ -163,6 +164,8 @@ While `orpc` is great and you can use it for direct function calls (and not netw
 Both `tRPC` and `oRPC` are promoted as "backend", or specifically for when you're building "apps". Recently, all major frameworks also introduced similar concepts, like "server actions" and so on. All that is cool, but `zagora` is focused on building just functions, a low-level library for building other libraries - I have a lot of them, so i need a simple way for building type-safe and error-safe functions, where i don't necessarily need network layer and i don't need "routers" concept, and etc.
 
 They are built around the network, Zagora is built around functions with excellent egonomics, developer experience, and no assumptions. **It produces just functions, i cannot stress that enough.**
+
+[Back to top](#zagora)
 
 ### Why Zagora over oRPC/tRPC/neverthrow/effect.ts?
 
@@ -193,11 +196,15 @@ They are built around the network, Zagora is built around functions with excelle
   
 Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generated detailed help, based on the provided schemas. I have another library for that, which i will overhaul soon - [zodest](https://npmjs.com/package/zodest).
 
+[Back to top](#zagora)
+
 ### Why Zagora over plain TypeScript functions?
 
 - Plain TypeScript offers compile-time types but no runtime validation — a mismatch between runtime and
   compile-time can blow up.
 - Zagora combines runtime validation/transforms (StandardSchema) with full compile-time inference, and returns a safe, uniform result tuple inspired by true functional programming
+
+[Back to top](#zagora)
 
 ### Why Zagora over standalone Zod/Valibot usage?
 
@@ -208,6 +215,8 @@ Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generat
 - handler gets fully populated args (defaults applied) at runtime
 - single place to validate inputs/outputs/errors
 - unified non-throwing result shape
+
+[Back to top](#zagora)
 
 ## Features
 
@@ -229,24 +238,26 @@ const procedure = zagora()
 // NOTE: you don't need to pass `age` because it has a default value set in schema.
 const result = procedure({ name: 'John' });
 if (result.ok) {
-    console.log(result.data);
-    // ^ { id: string, age: number, verified: boolean }
+  console.log(result.data);
+  // ^ { id: string, age: number, verified: boolean }
 }
 
 // @ts-expect-error -- this will be reported at compile-time, AND error at runtime.
 const res2 = procedure('foobar');
 if (!res2.ok) {
-    console.error(res2.error);
-    // ^ { kind: 'VALIDATION_ERROR', message: string, issues: Schema.Issue[] }
+  console.error(res2.error);
+  // ^ { kind: 'VALIDATION_ERROR', message: string, issues: Schema.Issue[] }
 }
 
 // note: this will error at runtime - age is no valid schema defined number
 const resul3 = procedure({ name: 'Barry', age: -5 });
 if (!resul3.ok) {
-    console.error(resul3.error);
-    // ^ { kind: 'VALIDATION_ERROR', message: string, issues: Schema.Issue[] }
+  console.error(resul3.error);
+  // ^ { kind: 'VALIDATION_ERROR', message: string, issues: Schema.Issue[] }
 }
 ```
+
+[Back to top](#zagora)
 
 ### Typed Errors
 
@@ -285,6 +296,9 @@ if (res.ok) {
 }
 ```
 
+[Back to top](#zagora)
+
+### Error Type Guards
 Isn't it amazing? You will never see `Error` or `try/catch` blocks again, and everything is typed top to bottom, well-known and intuitive.
 
 But wait, there's more: **Type Guards**!
@@ -419,6 +433,8 @@ hello('invalid-keys');
 
 **Important:** if you want the error validation to actually throw on unknown keys passed to the error helper, then you need to make the error object schema more strict - just like `z.object(...).strict()`.
 
+[Back to top](#zagora)
+
 ### Context Management
 
 In some advanced scenarios, you may need to pass runtime context to handlers, like `req`, `db`, `user`, sessions, and other dependencies. It's fully typed dependency injection mechanism.
@@ -443,6 +459,7 @@ procedure('charlie');
 // => 'foo-bar has foo -> qux, id = charlie'
 ```
 
+[Back to top](#zagora)
 
 ### Object Inputs
 
@@ -452,6 +469,8 @@ zagora()
   .handler((_, { name, age }) => `${name} is ${age}`)
   .callable()
 ```
+
+[Back to top](#zagora)
 
 ### Tuple Inputs (Multiple Arguments)
 
@@ -494,6 +513,8 @@ fnTwo('Barry', 25) // => Barry is 25, from unknown
 fnTwo('Barry', 33, 'USA') // => Barry is 33, from USA
 ```
 
+[Back to top](#zagora)
+
 ### Default Values
 
 Optionals and default values are supported at any level with any schema, whether it's through the Tuple Args, or if it's primitive schema for `string`, `array`, or `object`.
@@ -511,6 +532,8 @@ const fn = zagora()
 fn({ name: 'John' }) // age defaults to 18
 // => 'John is 18, from unknown'
 ```
+
+[Back to top](#zagora)
 
 ### Async Support
 
@@ -573,6 +596,8 @@ const procAsyncOutput = zagora()
 const result2 = await procAsyncOutput('hello'); // ZagoraResult
 ```
 
+[Back to top](#zagora)
+
 ### Caching/Memoization
 
 Built-in caching with custom cache adapter. Cache key includes the input, the input/output/error schemas, and handler function body. That can be used to implement custom caching strategies, and memoization.
@@ -622,6 +647,8 @@ const res = await proc(22);
 
 You can also provide the cache through `.callable({ cache })`. That is useful, if you want to provide it at "execution place", not at "definition place". For example, you'd have a set of procedures written at one place, then throgh "router" or some object that combiens them you want to call them at a `Request/Response` server handler.
 
+[Back to top](#zagora)
+
 ### Environment Variables
 
 You can provide the runtime env vars (either `process.env` or `import.meta.env`) through the second argument of `.env(schema, envs)` or at later stage through the `.callable({ env })` call. Either way, they will be validated. The parsed variables will be accessible through the handler's `options` object.
@@ -644,6 +671,8 @@ const fn1 = zaWithEnv
 Keep in mind that if you have `autoCallable: true` enabled in the instance, then you may need to provide the runtime env vars through the second argument, otherwise the types will say you have something, but in runtime you will get error.
 
 Also important to note that when `disableOptions` you will loose access to the `env` vars, as well `context` and `errors` which is normal behavior.
+
+[Back to top](#zagora)
 
 ### Handler Options Object
 
@@ -687,6 +716,8 @@ zagora({ disableOptions: true })
   .handler((userId) => userId); // No options
 ```
 
+[Back to top](#zagora)
+
 ### Auto-Callable Mode
 
 Skip the need for `.callable()` call and get the procedure function directly:
@@ -706,6 +737,8 @@ const hello = zagora({ autoCallable: true, disableOptions: true })
 hello('bob'); // ZagoraResult => 'Hello, BOB'
 hello('alice'); // ZagoraResult => 'Hello, ALICE'
 ```
+
+[Back to top](#zagora)
 
 ### Never-Throwing Guarantees
 
@@ -727,6 +760,8 @@ const result = procedure();
 // result.error.cause.message === 'Oops'
 ```
 
+[Back to top](#zagora)
+
 ### Type Safety Guarantees
 
 Full TypeScript support with type inference:
@@ -738,6 +773,8 @@ Full TypeScript support with type inference:
 And because the type system of Zagora is pretty complex, we also have tests not only for the implementation and the code, but ALSO the type-system and most of the types. This guarantees robust type-system, type-safety, and type-compatibility across changes. It's just impossible to break, since any minimal change to the behavior of the type system will be caught by the type-testing.
 
 If you are interested, you can inspect the [test/types-testing.test.ts](./test/types-testing.test.ts) file.
+
+[Back to top](#zagora)
 
 ## API Reference
 
@@ -762,6 +799,8 @@ Creates a new Zagora instance.
   + passed `context` (if any) will be deep-merged with the `initialContext` (if any)
   + if `cache` passed, it will override the previously passed through `.cache` method (if so)
   + if `env` passed, it will be deep-merged with the provided through the `.env` method (if so)
+
+[Back to top](#zagora)
 
 ## Error Types
 
