@@ -75,7 +75,7 @@ test("context override in callable", () => {
     .handler(({ context }, input) => {
       return `${input}-${context.db}`;
     })
-    .callable({ db: "override" });
+    .callable({ context: { db: "override" } });
 
   const res = fn("baz");
   if (res.ok) {
@@ -623,4 +623,26 @@ test("basic in-memory caching/memoization", async () => {
   // meaning that the handler would be called/executed, thus `called` would be 2 now.
   const _ = await hello("Bobby");
   expect(called, "Expects `called` to be incremented").toBe(2);
+});
+
+test("cache adapter passed through `.callable` method", async () => {
+  let called = 0;
+  const hello = zagora()
+    .context({ age: 10 })
+    .input(z.string())
+    .handler(({ context }) => {
+      called += 1;
+      return context.age + called;
+    })
+    .callable({ cache: new Map() });
+
+  const res = hello("foo");
+  expect(res.ok).toBe(true);
+  expect(called, "expects to be called once").toBe(1);
+  expect((res as any).data).toStrictEqual(11);
+
+  const res2 = hello("foo");
+  expect(res2.ok).toBe(true);
+  expect(called, "expects to be called only once").toBe(1);
+  expect((res2 as any).data).toStrictEqual(11);
 });

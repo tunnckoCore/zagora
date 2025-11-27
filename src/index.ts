@@ -318,7 +318,13 @@ export class Zagora<
   callable<
     TNewContext extends TContext,
     TKindNames extends ResolveErrorKindNames<TErrorsMap>,
-  >(context?: TNewContext) {
-    return this._createProcedure<TNewContext, TKindNames>(context);
+    TNewCacheAdapter extends CacheAdapter,
+  >(options: { context?: TNewContext; cache?: TNewCacheAdapter } = {}) {
+    let za = this;
+    if (options.cache) {
+      za = this.cache(options.cache) as any;
+    }
+
+    return za._createProcedure<TNewContext, TKindNames>(options.context);
   }
 }

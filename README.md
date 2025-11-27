@@ -382,7 +382,9 @@ hello('invalid-keys');
 
 In some advanced scenarios, you may need to pass runtime context to handlers, like `req`, `db`, `user`, sessions, and other dependencies. It's fully typed dependency injection mechanism.
 
-You may or may not provide initial context that will be merged with the context you provide through `.callable`
+You may or may not provide initial context that will be merged with the context you provide through `.callable({ context })`.
+
+Providing context (and cache for that matter) can be done through the `.callable` method - that's useful for passing it from "execution place", not where you "define" your procedures - like server `Request/Response` (fetch API) handler.
 
 ```ts
 const procedure = zagora()
@@ -394,7 +396,7 @@ const procedure = zagora()
   })
   // NOTE: a) you will get intellisense here
   // NOTE: b) you can override context
-  .callable({ userId: 'foo-bar', foo: 'qux' });
+  .callable({ context: { userId: 'foo-bar', foo: 'qux' } });
 
 procedure('charlie');
 // => 'foo-bar has foo -> qux, id = charlie'
@@ -545,7 +547,8 @@ Built-in caching with custom cache adapter. Cache key includes the input, the in
 const cache = new Map();
 
 const procedure = zagora()
-  .cache(cache)
+  // NOTE: you can either pass through `.cache` or through `.callable({ cache })`
+  // .cache(cache)
   .input(z.string())
   // NOTE: the handler is NOT marked as async!
   .handler((_, input) => {
@@ -574,6 +577,8 @@ const proc = zagora()
 // thus the whole procedure becomes asynchronous.
 const res = await proc(22);
 ```
+
+You can also provide the cache through `.callable({ cache })`. That is useful, if you want to provide it at "execution place", not at "definition place". For example, you'd have a set of procedures written at one place, then throgh "router" or some object that combiens them you want to call them at a `Request/Response` server handler.
 
 
 ### Options Object
