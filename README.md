@@ -461,7 +461,7 @@ Optionals and default values are supported at any level with any schema, whether
 const fn = zagora()
   .input(z.object({
     name: z.string(),
-    age: z.number().default(18)
+    age: z.number().default(18),
     country: z.string().optional()
   }))
   .handler((_, { name, age, country }) => `${name} is ${age}, from ${country || 'unknown'}`)
