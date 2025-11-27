@@ -25,7 +25,39 @@ _It's the best library I've ever done (i have 300+)._<br>
 _It's the best TypeScript library i've ever wrote (i love it)._<br>
 _It's the most complex TypeScript I've ever wrote._<br>
 _It's the most TypeScript I've ever learned._<br>
-_I went all-in on TypeScript just this year - the experience is unparalleled._
+_I went all-in on TypeScript just this year - the experience is unparalleled._<br>
+
+## Table of Contents
+
+- [Install](#install)
+- [Usage](#usage)
+- [Why zagora?](#why-zagora)
+  - [Motivation](#motivation)
+  - [Why Zagora over oRPC/tRPC/neverthrow/effect.ts?](#why-zagora-over-orpctrpcneverthroweffectts)
+  - [Why Zagora over plain TypeScript functions?](#why-zagora-over-plain-typescript-functions)
+  - [Why Zagora over standalone Zod/Valibot usage?](#why-zagora-over-standalone-zodvalibot-usage)
+- [Features](#features)
+  - [Type-Safe Input/Output Validation](#type-safe-inputoutput-validation)
+  - [Typed Errors](#typed-errors)
+  - [Error Type Guards](#error-type-guards)
+  - [Context Management](#context-management)
+  - [Object Inputs](#object-inputs)
+  - [Tuple Inputs (Multiple Arguments)](#tuple-inputs-multiple-arguments)
+  - [Default Values](#default-values)
+  - [Async Support](#async-support)
+  - [Caching/Memoization](#cachingmemoization)
+  - [Environment Variables](#environment-variables)
+  - [Handler Options Object](#handler-options-object)
+  - [Auto-Callable Mode](#auto-callable-mode)
+  - [Never-Throwing Guarantees](#never-throwing-guarantees)
+  - [Type Safety Guarantees](#type-safety-guarantees)
+- [API Reference](#api-reference)
+  - [`zagora(config?)`](#zagoraconfig)
+  - [Instance Methods](#instance-methods)
+- [Error Types](#error-types)
+- [ZagoraResult Type](#zagoraresult-type)
+- [License](#license)
+
 
 <!--### Highlights
 
