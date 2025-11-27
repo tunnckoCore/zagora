@@ -722,10 +722,14 @@ Creates a new Zagora instance.
 - `.input(schema)` - Set input validation schema
 - `.output(schema)` - Set output validation schema  
 - `.errors(Record<string, schema>)` - Define typed errors
-- `.context<T>(initial)` - Type the context with generic, and optionally set initial context
+- `.context<TInitialContext>(initialContext)` - Type the context with generic, and optionally set initial context
 - `.cache(adapter)` - Set cache adapter that should have `has`, `get`, `set`, methods
 - `.handler(fn)` - Set handler/procedure function
-- `.callable(opts?: { context?, cache? })` - Create callable procedure, context is deep merged with the initial context.
+- `.env(schema, processEnv?)` - Set handler/procedure function
+- `.callable(opts?: { context?, cache?, env? })` - Create callable procedure
+  + passed `context` (if any) will be deep-merged with the `initialContext` (if any)
+  + if `cache` passed, it will override the previously passed through `.cache` method (if so)
+  + if `env` passed, it will be deep-merged with the provided through the `.env` method (if so)
 
 ## Error Types
 
