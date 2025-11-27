@@ -78,8 +78,12 @@ export class Zagora<
   TDisableOptions extends boolean = false,
   TAutoCallable extends boolean = false,
 > {
+  "~zagora": Partial<
+    ZagoraDef<TContext, TInputSchema, TOutputSchema, TErrorsMap, TCacheAdapter>
+  >;
+
   constructor(
-    private def: Partial<
+    def: Partial<
       ZagoraDef<
         TContext,
         TInputSchema,
@@ -89,12 +93,14 @@ export class Zagora<
       >
     > = {},
   ) {
+    this["~zagora"] = def;
+
     // Ensure config flags are set from constructor if provided
     if ("disableOptions" in def && def.disableOptions !== undefined) {
-      this.def.disableOptions = def.disableOptions;
+      this["~zagora"].disableOptions = def.disableOptions;
     }
     if ("autoCallable" in def && def.autoCallable !== undefined) {
-      this.def.autoCallable = def.autoCallable;
+      this["~zagora"].autoCallable = def.autoCallable;
     }
   }
 
@@ -111,7 +117,7 @@ export class Zagora<
     TAutoCallable
   > {
     return new Zagora({
-      ...this.def,
+      ...this["~zagora"],
       inputSchema,
     });
   }
@@ -129,7 +135,7 @@ export class Zagora<
     TAutoCallable
   > {
     return new Zagora({
-      ...this.def,
+      ...this["~zagora"],
       outputSchema,
     });
   }
@@ -147,7 +153,7 @@ export class Zagora<
     TAutoCallable
   > {
     return new Zagora({
-      ...this.def,
+      ...this["~zagora"],
       initialContext,
     }) as any;
   }
@@ -165,7 +171,7 @@ export class Zagora<
     TAutoCallable
   > {
     return new Zagora({
-      ...this.def,
+      ...this["~zagora"],
       errorsMap,
     });
   }
@@ -183,7 +189,7 @@ export class Zagora<
     TAutoCallable
   > {
     return new Zagora({
-      ...this.def,
+      ...this["~zagora"],
       cacheAdapter,
     });
   }
@@ -230,12 +236,12 @@ export class Zagora<
       TDisableOptions,
       TAutoCallable
     >({
-      ...this.def,
+      ...this["~zagora"],
       handler: fn,
     });
 
     // If autoCallable is true, create the procedure immediately
-    if (this.def.autoCallable) {
+    if (this["~zagora"].autoCallable) {
       return newInstance._createProcedure() as any;
     }
 
@@ -247,15 +253,15 @@ export class Zagora<
     TKindNames extends
       ResolveErrorKindNames<TErrorsMap> = ResolveErrorKindNames<TErrorsMap>,
   >(context?: TNewContext) {
-    if (typeof this.def.handler !== "function") {
-      this.def.handler = () => {};
+    if (typeof this["~zagora"].handler !== "function") {
+      this["~zagora"].handler = () => {};
     }
 
-    const { initialContext, errorsMap, disableOptions } = this.def;
-    const handlerFn = this.def.handler;
-    const inputSchema = this.def.inputSchema as TInputSchema;
-    const outputSchema = this.def.outputSchema as TOutputSchema;
-    const cacheAdapter = this.def.cacheAdapter;
+    const { initialContext, errorsMap, disableOptions } = this["~zagora"];
+    const handlerFn = this["~zagora"].handler;
+    const inputSchema = this["~zagora"].inputSchema as TInputSchema;
+    const outputSchema = this["~zagora"].outputSchema as TOutputSchema;
+    const cacheAdapter = this["~zagora"].cacheAdapter;
 
     const mergedContext = context
       ? deepMerge(initialContext, context)

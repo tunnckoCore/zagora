@@ -12,7 +12,7 @@ const errorSchemas = {
     statusCode: z.number().int().min(400).max(599).default(409),
     retryAfter: z.number().optional(),
   }),
-  VALIDATION_ERROR: z.object({
+  AUTH_ERR: z.object({
     message: z.string(),
     field: z.string(),
   }),
@@ -116,7 +116,7 @@ test("multiple typed errors discriminated union", () => {
         throw errors.NETWORK_ERROR({ message: "Failed", statusCode: 500 });
       }
       if (input === "val") {
-        throw errors.VALIDATION_ERROR({ message: "Bad", field: "email" });
+        throw errors.AUTH_ERR({ message: "Bad", field: "email" });
       }
       return input;
     })
@@ -131,7 +131,7 @@ test("multiple typed errors discriminated union", () => {
 
   const valRes = fn("val");
   if (!valRes.ok && isDefinedError(valRes.error)) {
-    expect(valRes.error.kind).toBe("VALIDATION_ERROR");
+    expect(valRes.error.kind).toBe("AUTH_ERR");
   } else {
     expect(false, "Expected success").toBe(true);
   }

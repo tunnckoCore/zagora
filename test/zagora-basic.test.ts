@@ -49,6 +49,8 @@ test("should chain input method", () => {
 test("should chain output method", () => {
   const instance = zagora().input(z.string()).output(z.string());
   expect(instance).toBeInstanceOf(Zagora);
+  expect(instance["~zagora"]).toHaveProperty("inputSchema");
+  expect(instance["~zagora"]).toHaveProperty("outputSchema");
 });
 
 test("should chain errors method", () => {
