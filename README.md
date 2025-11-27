@@ -609,9 +609,9 @@ const fn1 = zaWithEnv
   .callable({ env: process.env })
 ````
 
-Keep in mind that if you have `autoCallable: true` in enabled in the instance, then you may need to provide the runtime env vars through the second argument, otherwise the types will say you have something, but in runtime you will get error.
+Keep in mind that if you have `autoCallable: true` enabled in the instance, then you may need to provide the runtime env vars through the second argument, otherwise the types will say you have something, but in runtime you will get error.
 
-Also important to note that when `disableOptions` you will loose access to the `env` vars, as well `context` and `errors`.
+Also important to note that when `disableOptions` you will loose access to the `env` vars, as well `context` and `errors` which is normal behavior.
 
 ### Handler Options Object
 
@@ -725,7 +725,7 @@ Creates a new Zagora instance.
 - `.context<TInitialContext>(initialContext)` - Type the context with generic, and optionally set initial context
 - `.cache(adapter)` - Set cache adapter that should have `has`, `get`, `set`, methods
 - `.handler(fn)` - Set handler/procedure function
-- `.env(schema, processEnv?)` - Set handler/procedure function
+- `.env(schema, processEnv?)` - Set env vars schema, and optionally runtime envs.
 - `.callable(opts?: { context?, cache?, env? })` - Create callable procedure
   + passed `context` (if any) will be deep-merged with the `initialContext` (if any)
   + if `cache` passed, it will override the previously passed through `.cache` method (if so)
