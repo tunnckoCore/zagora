@@ -17,6 +17,7 @@ Elevate your TypeScript workflow with Zagora: a sleek, bulletproof toolkit for f
 - 🏠 **Familiar:** Echoes remote-RPC patterns from oRPC and tRPC, but focused on libraries, not apps.
 - ⚖️ **Unopinionated:** Zero assumptions - no routers, middlewares, or network concepts.
 - 🎁 **No Unwrapping:** Direct access to results, unlike `neverthrow` - no extra steps required.
+- 🎁 **EnvVars Handling:** Handling and validation of environment variables.
 - 🤖 **Agents Ready:** Rules for LLMs with subtle nuances and where to be careful. [Read/get here](./AGENTS.md)
 
 _This library is product of 3+ months of dedication and passion, after 10 years in Open Source._<br>
@@ -589,23 +590,53 @@ const res = await proc(22);
 
 You can also provide the cache through `.callable({ cache })`. That is useful, if you want to provide it at "execution place", not at "definition place". For example, you'd have a set of procedures written at one place, then throgh "router" or some object that combiens them you want to call them at a `Request/Response` server handler.
 
+### Environment Variables
 
-### Options Object
+You can provide the runtime env vars (either `process.env` or `import.meta.env`) through the second argument of `.env(schema, envs)` or at later stage through the `.callable({ env })` call. Either way, they will be validated. The parsed variables will be accessible through the handler's `options` object.
+
+```ts
+const zaWithEnv = zagora()
+  .env(z.object({
+    DATABASE_URL: z.string().min(1).default('file://db.sqlite'),
+    BETTER_AUTH_SECRET: z.string().min(1)
+  }))
+  .cache(new Map())
+
+const fn1 = zaWithEnv
+  .handler(({ env }) => {
+    // env: { DATABASE_URL: string, BETTER_AUTH_SECRET: string }
+  })
+  .callable({ env: process.env })
+````
+
+Keep in mind that if you have `autoCallable: true` in enabled in the instance, then you may need to provide the runtime env vars through the second argument, otherwise the types will say you have something, but in runtime you will get error.
+
+Also important to note that when `disableOptions` you will loose access to the `env` vars, as well `context` and `errors`.
+
+### Handler Options Object
 
 Handlers receive an `options` (or "config") object as the first parameter containing:
 
 - `context`: The typed & merged context (initial + runtime)
 - `errors`: Constructed error helpers (if errors map schemas are defined)
+- `env`: Parsed and validated environment variables (if env schema provided)
 
 ```ts
 const procedure = zagora()
   .context({ user: 'bobby' })
   .errors({ NOT_FOUND: z.object({ id: z.string() }) })
   .input(z.string())
+  .env(z.object({
+    DATABASE_URL: z.string().min(1).default('file://db.sqlite'),
+    AUTH_SECRET: z.string().min(1),
+    PORT: z.coerce.number(), // env.PORT type will be number
+  }), process.env)
   .handler((options, userId) => {
-    const { context, errors } = options;
+    const { context, errors, env } = options;
     // context: { user: 'bobby', id: 123 }
     // errors: { NOT_FOUND: (data) => throw { kind: 'NOT_FOUND', ...data } }
+    // env: { DATABASE_URL: string, AUTH_SECRET: string, PORT: number }
+    
     if (context.user !== 'bobby') {
       throw errors.NOT_FOUND({ id: userId });
     }

@@ -727,13 +727,15 @@ test("basic env schema support through `.env` method", () => {
     .input(z.string())
     .env(
       z.object({
-        DATABASE_URL: z.string().min(4),
+        DATABASE_URL: z.string().min(4).default("file://db.sqlite"),
         SOME_SECRET: z.string().min(2),
+        PORT: z.coerce.number(),
       }),
       process.env,
     )
     .handler(({ env }, input) => {
-      return `input=${input};url=${env.DATABASE_URL};secret=${env.SOME_SECRET}`;
+      // env: { DATABASE_URL: string, SOME_SECRET: string, PORT: number }
+      return `input=${input};url=${env.DATABASE_URL};secret=${env.SOME_SECRET};PORT=${env.PORT}`;
     })
     .callable({
       env: { SOME_SECRET: "sasa" },
