@@ -7,13 +7,13 @@ Elevate your TypeScript workflow with Zagora: a sleek, bulletproof toolkit for f
 
 ### Highlights
 
-- 🪶 **Minimal:** Lightweight and focused, built on StandardSchema (Zod, Valibot, Arktype) for seamless validation.
-- 🛡️ **Error-Safe:** Eliminates exceptions - always returns `{ ok, data, error }` for predictable, crash-free execution.
+- 🪶 **Minimal:** Lightweight and focused, built on [StandardSchema](https://standardschema.dev) for seamless validation.
+- 🛡️ **Error-Safe:** Eliminates exceptions - always `{ ok, data, error }` for predictable, crash-free execution.
 - 🦢 **Graceful:** Functions never throw or disrupt your process, akin to `effect.ts` and `neverthrow`.
 - 📝 **Typed Errors:** Define error schemas for strongly-typed error helpers, enhancing handler reliability.
 - 🧹 **Clean Error Model:** Three distinct error types - unknown, validation, and user-defined—for clarity.
-- 🔒 **Type-Safe:** Comprehensive type inference across inputs, outputs, errors, context, optionals, and defaults.
-- ✋ **Ergonomic:** Pure functions with auto-filled defaults, optional args, and per-argument type & validation diagnostics.
+- 🔒 **Type-Safe:** Full type inference across inputs, outputs, errors, context, optionals, and defaults.
+- ✋ **Ergonomic:** Pure functions with auto-filled defaults, optional args, and detailed diagnostics.
 - 🏠 **Familiar:** Echoes remote-RPC patterns from oRPC and tRPC, but focused on libraries, not apps.
 - ⚖️ **Unopinionated:** Zero assumptions - no routers, middlewares, or network dependencies.
 - 🎁 **No Unwrapping:** Direct access to results, unlike `neverthrow` - no extra steps required.
