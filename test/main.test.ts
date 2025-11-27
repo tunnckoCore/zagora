@@ -626,23 +626,94 @@ test("basic in-memory caching/memoization", async () => {
 });
 
 test("cache adapter passed through `.callable` method", async () => {
-  let called = 0;
-  const hello = zagora()
-    .context({ age: 10 })
-    .input(z.string())
-    .handler(({ context }) => {
-      called += 1;
-      return context.age + called;
-    })
-    .callable({ cache: new Map() });
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: ok
+  async function fixture(
+    withSetError = false,
+    withGetError = false,
+    withHasError = false,
+  ) {
+    let called = 0;
+    const cache = new Map();
+    const hello = zagora()
+      .context({ age: 10 })
+      .input(z.string())
+      .handler(({ context }) => {
+        called += 1;
+        return context.age + called;
+      })
+      .callable({
+        cache: {
+          has(key: string) {
+            if (withHasError) {
+              throw new Error("The has is not implemented");
+            }
+            return cache.has(key);
+          },
+          get(key: string) {
+            if (withGetError) {
+              throw new Error("Get method not implemented yet");
+            }
+            return cache.get(key);
+          },
+          async set(key: string, value: any) {
+            if (withSetError) {
+              throw new Error("Set method is not implemented");
+            }
+            cache.set(key, value);
+          },
+        },
+      });
 
-  const res = hello("foo");
-  expect(res.ok).toBe(true);
-  expect(called, "expects to be called once").toBe(1);
-  expect((res as any).data).toStrictEqual(11);
+    const res = await hello("foo");
+    if (withSetError || withHasError) {
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.error.kind).toBe("UNKNOWN_ERROR");
+        expect(res.error.message).toContain(
+          withSetError
+            ? "Failure in async CacheAdapter.set"
+            : "Failure in CacheAdapter.has",
+        );
+        if (withSetError) {
+          expect((res.error as any)?.cause?.message).toContain("Set method is");
+        }
+        if (withHasError) {
+          expect((res.error as any)?.cause?.message).toContain(
+            "The has is not impl",
+          );
+        }
+      }
 
-  const res2 = hello("foo");
-  expect(res2.ok).toBe(true);
-  expect(called, "expects to be called only once").toBe(1);
-  expect((res2 as any).data).toStrictEqual(11);
+      return;
+    }
+    expect(res.ok).toBe(true);
+    expect(called, "expects to be called once").toBe(1);
+    expect((res as any).data).toStrictEqual(11);
+
+    const res2 = await hello("foo");
+    if (withGetError) {
+      expect(res2.ok).toBe(false);
+      if (!res2.ok) {
+        expect(res2.error.kind).toBe("UNKNOWN_ERROR");
+        expect(res2.error.message).toContain("Failure in CacheAdapter.get");
+        expect((res2.error as any)?.cause?.message).toContain(
+          "Get method not impl",
+        );
+      }
+
+      return;
+    }
+    expect(res2.ok).toBe(true);
+    expect(called, "expects to be called only once").toBe(1);
+    expect((res2 as any).data).toStrictEqual(11);
+  }
+
+  fixture();
+  fixture(true);
+  fixture(true, true);
+  fixture(false, true);
+  fixture(false, true, true);
+  fixture(true, false);
+  fixture(true, true, false);
+  fixture(false, false, true);
 });

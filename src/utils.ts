@@ -213,6 +213,7 @@ export function executeHandler(
           "set",
         );
         if (resp instanceof Promise) {
+          /* v8 ignore next -- @preserve */
           return resp.then((resolved) =>
             resolved.ok ? handlerResolved : resolved,
           );

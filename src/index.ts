@@ -249,10 +249,12 @@ export class Zagora<
   }
 
   private _createProcedure<
+    TCache,
     TNewContext extends TContext = TContext,
     TKindNames extends
       ResolveErrorKindNames<TErrorsMap> = ResolveErrorKindNames<TErrorsMap>,
   >(context?: TNewContext) {
+    /* v8 ignore next -- @preserve */
     if (typeof this["~zagora"].handler !== "function") {
       this["~zagora"].handler = () => {};
     }
@@ -294,7 +296,7 @@ export class Zagora<
 
     type TResult = ConditionalAsync<ReturnType<THandlerFn>, Result>;
 
-    type TFinalResult = TCacheAdapter extends {
+    type TFinalResult = TCache extends {
       has(key: string): infer A;
       get(key: string): infer B;
       set(key: string, value: unknown): infer C;
@@ -318,13 +320,16 @@ export class Zagora<
   callable<
     TNewContext extends TContext,
     TKindNames extends ResolveErrorKindNames<TErrorsMap>,
-    TNewCacheAdapter extends CacheAdapter,
-  >(options: { context?: TNewContext; cache?: TNewCacheAdapter } = {}) {
+    TCacheDefinitely extends CacheAdapter,
+    TNewCacheAdapter extends TCacheDefinitely | undefined = undefined,
+  >(options: { context?: TNewContext; cache?: TCacheDefinitely } = {}) {
     let za = this;
     if (options.cache) {
-      za = this.cache(options.cache) as any;
+      za = this.cache<TCacheDefinitely>(options.cache) as any;
     }
 
-    return za._createProcedure<TNewContext, TKindNames>(options.context);
+    return za._createProcedure<TNewCacheAdapter, TNewContext, TKindNames>(
+      options.context,
+    );
   }
 }

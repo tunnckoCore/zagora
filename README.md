@@ -1,6 +1,6 @@
 # Zagora
 
-[![ci](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml/badge.svg)](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml) <!-- COV_BADGE:START -->![coverage](https://badgen.net/badge/coverage/91.24%25/99CC09)<!-- COV_BADGE:END -->
+[![ci](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml/badge.svg)](https://github.com/tunnckoCore/zagora/actions/workflows/ci.yml) <!-- COV_BADGE:START -->![coverage](https://badgen.net/badge/coverage/96.13%25/99CC09)<!-- COV_BADGE:END -->
 
 Elevate your TypeScript workflow with Zagora: a sleek, bulletproof toolkit for forging type-safe, error-proof functions and libraries that never throw. Powered by StandardSchema-compliant validators like Zod, Valibot, and Arktype, it delivers rock-solid input/output validation and richly typed errors. No routers, no network baggage — just pure, exportable functions ready to supercharge your code. The ultimate streamlined alternative to oRPC and tRPC, stripping away the network layer for unmatched type-safety, simplicity and robustness.
 
@@ -542,6 +542,7 @@ Built-in caching with custom cache adapter. Cache key includes the input, the in
 - if cache method throws, the process never crash - you can find the error at the standard `result.error`
 - failures in cache adapter will be reported as `UNKNOWN_ERROR` in `result.error` with `result.error.cause` set to the error thrown 
 - in future this could change to be `CACHE_ERROR` with `cause`
+- when cache is passed through `.callable` - and has async methods, make sure to await the procedure and ignore the TypeScript warning that "you may not need await here" - you do need to await
 
 ```ts
 const cache = new Map();
