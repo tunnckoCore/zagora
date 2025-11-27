@@ -642,7 +642,7 @@ const procedure = zagora()
     }
     return 'bobby found';
   })
-  .callable({ id: 123 });
+  .callable({ context: { user: 'bobby ' }});
 
 procedure('bob-id-123');
 ```

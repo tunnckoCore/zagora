@@ -103,7 +103,7 @@ const agent = zagora()
   .handler(({ context }, input) => ({
     greeting: `Hello ${input.name}, you are ${input.age} years old!`
   }))
-  .callable();
+  .callable(/* { context, cache, env } */);
 
 const result = agent({ name: 'Alice' });
 ```
@@ -132,6 +132,33 @@ const mathAgent = zagora()
 
 const sum = mathAgent(5, 10); // { ok: true, data: 15 }
 ```
+
+## Env Vars validation
+
+Define schemas for type-safe environment variables with Zod, Valibot, or any Standard Schema V1 compliant library
+
+```typescript
+const safeApi = zagora()
+  .env(z.object({
+    DATABASE_URL: z.string().min(1).default('file://db.sqlite'),
+    JWT_SECRET: z.string().min(10),
+    PORT: z.coerce.number() // env.PORT will be number
+  }))
+  .input(z.tuple([z.number(), z.number()]))
+  .output(z.number())
+  .handler(({ env }) => {
+    // env: { DATABASE_URL: string, JWT_SECRET: string, PORT: number }
+    return a + b + env.PORT;
+  });
+  .callable({ env: process.env });
+
+// PORT is coming from env vars
+const sum = safeApi(5, 10); // { ok: true, data: 15 + PORT }
+```
+
+**Important notes:**
+- When `disableOptions` is enabled (eg. `true`) then handler WILL NOT have access to type-safe env vars.
+- When `autoCallable` is enabled (eg. `true`) make sure to provide the runtime env vars as second argument to the `.env(schema, processEnvOrImportMetaEnv)` method.
 
 ## Error Handling
 
