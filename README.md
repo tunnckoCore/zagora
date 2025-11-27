@@ -384,7 +384,7 @@ In some advanced scenarios, you may need to pass runtime context to handlers, li
 
 You may or may not provide initial context that will be merged with the context you provide through `.callable({ context })`.
 
-Providing context (and cache for that matter) can be done through the `.callable` method - that's useful for passing it from "execution place", not where you "define" your procedures - like server `Request/Response` (fetch API) handler.
+Providing context (and cache for that matter) can be done through the `.callable` method - that's useful for passing it from "execution place", not where you "define" your procedures. Such place is like server `Request/Response` (fetch API) handler.
 
 ```ts
 const procedure = zagora()
@@ -555,7 +555,7 @@ const procedure = zagora()
     // Expensive operation
     return input.toUpperCase();
   })
-  .callable();
+  .callable({ cache });
 
 // First call executes handler
 const result1 = procedure('hello');
