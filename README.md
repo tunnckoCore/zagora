@@ -17,6 +17,7 @@ Elevate your TypeScript workflow with Zagora: a sleek, bulletproof toolkit for f
 - 🏠 **Familiar:** Echoes remote-RPC patterns from oRPC and tRPC, but focused on libraries, not apps.
 - ⚖️ **Unopinionated:** Zero assumptions - no routers, middlewares, or network dependencies.
 - 🎁 **No Unwrapping:** Direct access to results, unlike `neverthrow` - no extra steps required.
+- 🤖 **Agents Ready:** Rules for LLMs with subtle nuances and where to be careful. [Read/get here](./AGENTS.md)
 
 <!--### Highlights
 
