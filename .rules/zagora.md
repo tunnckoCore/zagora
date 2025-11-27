@@ -137,6 +137,8 @@ const sum = mathAgent(5, 10); // { ok: true, data: 15 }
 
 Define schemas for type-safe environment variables with Zod, Valibot, or any Standard Schema V1 compliant library
 
+**Important: Providing async schema for env variables is not supported, at least for now.**
+
 ```typescript
 const safeApi = zagora()
   .env(z.object({
@@ -159,6 +161,7 @@ const sum = safeApi(5, 10); // { ok: true, data: 15 + PORT }
 **Important notes:**
 - When `disableOptions` is enabled (eg. `true`) then handler WILL NOT have access to type-safe env vars.
 - When `autoCallable` is enabled (eg. `true`) make sure to provide the runtime env vars as second argument to the `.env(schema, processEnvOrImportMetaEnv)` method.
+- Async schema validation is not supported, for now
 
 ## Error Handling
 

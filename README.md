@@ -653,6 +653,8 @@ You can also provide the cache through `.callable({ cache })`. That is useful, i
 
 You can provide the runtime env vars (either `process.env` or `import.meta.env`) through the second argument of `.env(schema, envs)` or at later stage through the `.callable({ env })` call. Either way, they will be validated. The parsed variables will be accessible through the handler's `options` object.
 
+**Important: Providing async schema for env variables is not supported, at least for now.**
+
 ```ts
 const zaWithEnv = zagora()
   .env(z.object({
@@ -671,6 +673,9 @@ const fn1 = zaWithEnv
 Keep in mind that if you have `autoCallable: true` enabled in the instance, then you may need to provide the runtime env vars through the second argument, otherwise the types will say you have something, but in runtime you will get error.
 
 Also important to note that when `disableOptions` you will loose access to the `env` vars, as well `context` and `errors` which is normal behavior.
+
+**Important: Providing async schema for env variables is not supported, at least for now.**
+
 
 [Back to top](#table-of-contents)
 
