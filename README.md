@@ -19,6 +19,13 @@ Elevate your TypeScript workflow with Zagora: a sleek, bulletproof toolkit for f
 - 🎁 **No Unwrapping:** Direct access to results, unlike `neverthrow` - no extra steps required.
 - 🤖 **Agents Ready:** Rules for LLMs with subtle nuances and where to be careful. [Read/get here](./AGENTS.md)
 
+_This library is product of 3+ months of dedication and passion, after 10 years in Open Source._<br>
+_It's the best library I've ever done (i have 300+)._<br>
+_It's the best TypeScript library i've ever wrote (i love it)._<br>
+_It's the most complex TypeScript I've ever wrote._<br>
+_It's the most TypeScript I've ever learned._<br>
+_I went all-in on TypeScript just this year - the experience is unparalleled._
+
 <!--### Highlights
 
 - **Minimal:** Tiny surface, powered by StandardSchema (Zod, Valibot, Arktype)
