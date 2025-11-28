@@ -56,16 +56,19 @@ test("typed error returns exact object with isDefined=true", () => {
 test("context method works", () => {
   const fn = zagora()
     .context({ db: "mock" })
-    .input(z.string())
+    .input(z.number())
     .output(z.string())
     .handler(({ context }, input) => {
+      expectTypeOf(input).toEqualTypeOf<number>();
+      expectTypeOf(context).toEqualTypeOf<{ db: string }>();
+
       return `${input}-${context.db}`;
     })
     .callable();
 
-  const res = fn("bar");
+  const res = fn(1001);
   if (res.ok) {
-    expect(res.data).toBe("bar-mock");
+    expect(res.data).toBe("1001-mock");
   } else {
     expect(false, "Expected success").toBe(true);
   }
@@ -149,7 +152,11 @@ test("async input schema", async () => {
   const fn = zagora()
     .input(asyncSchema)
     .output(z.string())
-    .handler((_, input) => input.toUpperCase())
+    .handler((_, input) => {
+      expectTypeOf(input).toEqualTypeOf<string>();
+
+      return input.toUpperCase();
+    })
     .callable();
 
   const res = await fn("ab");
@@ -261,6 +268,7 @@ test("Error.cause is set on wrapped errors", () => {
     .input(z.string())
     .output(z.string())
     .handler((_, input) => {
+      expectTypeOf(input).toEqualTypeOf<string>();
       if (input === "fail") {
         throw originalError;
       }
@@ -278,21 +286,25 @@ test("Error.cause is set on wrapped errors", () => {
   }
 });
 
-test("both tuple and object access formats work", () => {
-  const fn = zagora()
-    .input(z.string())
-    .output(z.string())
-    .handler((_, input) => input)
-    .callable();
+// TODO: fix to support array schemas, and not treat it as tuple schemas!
+// test("input schema array of string should work", () => {
+//   const fn = zagora()
+//     .input(z.array(z.string()))
+//     .output(z.string())
+//     .handler((_, input) => {
+//       expectTypeOf(input).toEqualTypeOf<string[]>();
+//       return input.map((x) => x.toUpperCase());
+//     })
+//     .callable();
 
-  const res = fn("foo");
+//   const res = fn(["foo", "bar"]);
 
-  if (res.ok) {
-    expect(res.data).toBe("foo");
-  } else {
-    expect(false, "Expected success").toBe(true);
-  }
-});
+//   if (res.ok) {
+//     expect(res.data).toBe(["foo", "bar"]);
+//   } else {
+//     expect(false, "Expected success").toBe(true);
+//   }
+// });
 
 test("input validation failure", () => {
   const fn = zagora()
@@ -331,6 +343,8 @@ test("no error schema works", () => {
     .input(z.string())
     .output(z.string())
     .handler((_, input) => {
+      expectTypeOf(input).toEqualTypeOf<string>();
+
       if (input === "fail") {
         throw new Error("Untyped");
       }
@@ -350,7 +364,12 @@ test("tuple input arguments", () => {
   const fn = zagora()
     .input(z.tuple([z.string(), z.number()]))
     .output(z.string())
-    .handler((_, str, num) => `${str}-${num}`)
+    .handler((_, str, num) => {
+      expectTypeOf(str).toEqualTypeOf<string>();
+      expectTypeOf(num).toEqualTypeOf<number>();
+
+      return `${str}-${num}`;
+    })
     .callable();
 
   const res = fn("hello", 42);
@@ -368,6 +387,8 @@ test("thrown ZagoraError passed through", () => {
     .input(z.string())
     .output(z.string())
     .handler((_, input) => {
+      expectTypeOf(input).toEqualTypeOf<string>();
+
       if (input === "throw now") {
         throw customErr;
       }
@@ -386,9 +407,14 @@ test("thrown ZagoraError passed through", () => {
 test("multiple procedures (calculator) from single instance (autoCallable:true)", () => {
   const za = zagora({ autoCallable: true, disableOptions: true });
 
-  const add = za
-    .input(z.tuple([z.number(), z.number()]))
-    .handler((a, b) => a + b);
+  const add = za.input(z.tuple([z.number(), z.number()])).handler((a, b) => {
+    expectTypeOf({ a, b }).toEqualTypeOf<{
+      a: number;
+      b: number;
+    }>();
+
+    return a + b;
+  });
 
   const subtract = za
     .input(z.tuple([z.number(), z.number()]))
@@ -490,7 +516,14 @@ test("handle optional/default valaues in object schemas", async () => {
     .output(SuccessSchema);
 
   const getPrices = getPricesContract.handler(
-    async ({ errors: err }, { speed, num, includeDetails }) => {
+    async ({ errors: err }, input) => {
+      const { speed, num, includeDetails } = input;
+      expectTypeOf(input).toEqualTypeOf<{
+        speed: "slow" | "normal" | "fast";
+        num: number;
+        includeDetails: boolean;
+      }>();
+
       // Simulate rate limiting
       if (num && num > 1000) {
         throw err.RATE_LIMIT({
@@ -595,6 +628,8 @@ test("basic in-memory caching/memoization", async () => {
 
   let called = 0;
   const hello = za.input(z.string()).handler(async (_, name) => {
+    expectTypeOf(name).toEqualTypeOf<string>();
+
     called += 1;
     await new Promise((resolve) => setTimeout(resolve, 100));
     return `Hello, ${name}!`;
@@ -642,6 +677,10 @@ test("cache adapter passed through `.callable` method", async () => {
       .context({ age: 10 })
       .input(z.string())
       .handler(({ context }) => {
+        expectTypeOf(context).toEqualTypeOf<{
+          age: number;
+        }>;
+
         called += 1;
         return context.age + called;
       })
@@ -734,7 +773,12 @@ test("basic env schema support through `.env` method", () => {
       process.env,
     )
     .handler(({ env }, input) => {
-      // env: { DATABASE_URL: string, SOME_SECRET: string, PORT: number }
+      expectTypeOf(env).toEqualTypeOf<{
+        DATABASE_URL: string;
+        SOME_SECRET: string;
+        PORT: number;
+      }>;
+
       return `input=${input};url=${env.DATABASE_URL};secret=${env.SOME_SECRET};PORT=${env.PORT}`;
     })
     .callable({

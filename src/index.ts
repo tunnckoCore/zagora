@@ -359,8 +359,15 @@ export class Zagora<
       >;
 
       const schemaAny = inputSchema as any;
-      const isTuple =
-        schemaAny?._def?.type === "tuple" || schemaAny?.type === "tuple";
+      const isTupleSchema =
+        (schemaAny?._def && schemaAny?._def?.type === "tuple") ||
+        schemaAny?.type === "tuple";
+
+      const isArraySchema =
+        (schemaAny?._def && schemaAny?._def?.type === "array") ||
+        schemaAny?.type === "array";
+
+      const isPrimitiveSchema = !isTupleSchema;
 
       const processor = (mode: "input" | "output", schema: any, data: any) => {
         if (schema) {
@@ -372,9 +379,10 @@ export class Zagora<
       const processInput = (inputData: any) => {
         // NOTE: isTuple is safe/enough here cuz it's based on the inputSchema,
         // thus if inputSchema is not defined, then it would be isTuple=false too.
-        const handlerArgs = isTuple
-          ? handleTupleDefaults(inputSchema as any, inputData as any)
-          : [inputData];
+        const handlerArgs =
+          !isArraySchema && !isPrimitiveSchema
+            ? handleTupleDefaults(inputSchema as any, inputData as any)
+            : [inputData];
 
         const executionArgs = disableOptions
           ? handlerArgs
@@ -408,7 +416,7 @@ export class Zagora<
         return handleState(state);
       };
 
-      const inputArgs = isTuple ? args : args[0];
+      const inputArgs = !isArraySchema && !isPrimitiveSchema ? args : args[0];
 
       const inputResult = inputSchema
         ? validateInputOutputOrEnv("input", inputSchema, inputArgs)

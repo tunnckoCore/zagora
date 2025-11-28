@@ -77,7 +77,7 @@ _I went all-in on TypeScript just this year - the experience is unparalleled._<b
 This is ESM-only package with built-in types.
 
 ```bash
-bun install zagora
+bun install zagora@next
 ```
 
 ## Usage
