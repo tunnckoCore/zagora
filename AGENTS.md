@@ -152,6 +152,7 @@ const safeApi = zagora()
     // env: { DATABASE_URL: string, JWT_SECRET: string, PORT: number }
     return a + b + env.PORT;
   });
+  // NOTE: you may need to cast with `as any` beause process.env differs from the schema!
   .callable({ env: process.env });
 
 // PORT is coming from env vars
@@ -162,6 +163,7 @@ const sum = safeApi(5, 10); // { ok: true, data: 15 + PORT }
 - When `disableOptions` is enabled (eg. `true`) then handler WILL NOT have access to type-safe env vars.
 - When `autoCallable` is enabled (eg. `true`) make sure to provide the runtime env vars as second argument to the `.env(schema, processEnvOrImportMetaEnv)` method.
 - Async schema validation is not supported, for now
+- the passed runtime env vars must match the provided schema (on type-level), thus you may need to cast to `as any` when you are providing `process.env` or `import.meta.env`. That is intentional because we want to be able to warn you (typescript report you) if you manually providing them.
 
 ## Error Handling
 

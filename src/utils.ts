@@ -89,6 +89,7 @@ export function processHandler(
 
   if (cacheAdapter) {
     const ret = tryCatch(() => cacheAdapter.has?.(key), false, "has");
+    /* v8 ignore next -- @preserve */
     if (ret instanceof Promise) {
       return ret.then((r) => {
         if (r.ok) {

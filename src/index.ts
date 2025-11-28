@@ -10,6 +10,7 @@ import type {
   CacheAdapter,
   InferOutput,
   InferSchemaInput,
+  InferSchemaInputSafe,
   Prettify,
   ResolveHandlerOptions,
   ResolveProcedure,
@@ -331,8 +332,12 @@ export class Zagora<
         : ({ ok: true, data: mergedEnvVars } as const);
 
       if (envVars instanceof Promise) {
-        return createInternalError(
-          "Environment Variables cannot have async schema validation",
+        return createResult(
+          null,
+          createInternalError(
+            "Environment Variables cannot have async schema validation",
+          ),
+          false,
         );
       }
       if (!envVars.ok) {
@@ -471,7 +476,7 @@ export class Zagora<
     options: {
       context?: TNewContext;
       cache?: TCacheDefinitely;
-      env?: TIncomingEnv;
+      env?: InferSchemaInputSafe<TEnvVarsMap>;
     } = {},
   ) {
     let za = this;
@@ -484,6 +489,6 @@ export class Zagora<
       TIncomingEnv,
       TNewContext,
       TKindNames
-    >(options.context, options.env);
+    >(options.context, options.env as any);
   }
 }

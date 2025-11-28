@@ -293,6 +293,7 @@ test("input schema array of string should work", () => {
     .output(z.array(z.string()))
     .handler((_, input) => {
       expectTypeOf(input).toEqualTypeOf<string[]>();
+
       return input.map((x) => {
         expectTypeOf(x).toEqualTypeOf<string>();
 
@@ -681,9 +682,7 @@ test("cache adapter passed through `.callable` method", async () => {
       .context({ age: 10 })
       .input(z.string())
       .handler(({ context }) => {
-        expectTypeOf(context).toEqualTypeOf<{
-          age: number;
-        }>;
+        expectTypeOf(context).toEqualTypeOf<{ age: number }>;
 
         called += 1;
         return context.age + called;
@@ -765,7 +764,7 @@ test("cache adapter passed through `.callable` method", async () => {
   fixture(false, false, true);
 });
 
-test("basic env schema support through `.env` method", () => {
+test("failing env validation schema through `.env` method", () => {
   const envPopulatedProcedure = zagora()
     .input(z.string())
     .env(
@@ -781,12 +780,12 @@ test("basic env schema support through `.env` method", () => {
         DATABASE_URL: string;
         SOME_SECRET: string;
         PORT: number;
-      }>;
+      }>();
 
       return `input=${input};url=${env.DATABASE_URL};secret=${env.SOME_SECRET};PORT=${env.PORT}`;
     })
     .callable({
-      env: { SOME_SECRET: "sasa" },
+      env: { SOME_SECRET: "sasa" } as any,
     });
 
   const res = envPopulatedProcedure("foo");
@@ -794,6 +793,74 @@ test("basic env schema support through `.env` method", () => {
     expect(res.error.kind).toBe("VALIDATION_ERROR");
     expect(res.error.message).toContain("Env validation failed");
   } else {
-    expect(false, "env validatio should fail").toBe(true);
+    expect(false, "env validation should fail").toBe(true);
+  }
+});
+
+test("async env schema should fail", async () => {
+  const failingAsyncEnvSchemaProc = zagora()
+    .input(z.string())
+    .env(
+      z.union([
+        z.object({
+          ABC: z
+            .string()
+            .min(2)
+            .refine(async (x) => x.length > 2),
+        }),
+        z.record(z.string(), z.string()),
+      ]),
+    )
+    .handler(({ env }, input) => {
+      expectTypeOf(env.ABC).toEqualTypeOf<string>();
+      expectTypeOf(input).toEqualTypeOf<string>();
+
+      return `env.ABC=${env.ABC}-${input}`;
+    })
+    .callable({
+      env: {
+        ABC: "sasa",
+        // NOTE: as long as the schema is actually `z.union([object, record])`
+        // it is fine, otherwise this line will be reported
+        BAR: "env-not-defined-in-schema-is-fine",
+      },
+    });
+
+  const res = await failingAsyncEnvSchemaProc("foo");
+  if (!res.ok) {
+    expect(res.error.kind).toBe("UNKNOWN_ERROR");
+    expect(res.error.message).toContain("cannot have async schema");
+  } else {
+    expect(false, "async env schema should fail").toBe(true);
+  }
+});
+
+test("passning and sync env schema", () => {
+  const func1 = zagora()
+    .env(
+      z.object({
+        FOO_NAME: z.string(),
+      }),
+    )
+    .handler(({ env }) => {
+      expectTypeOf(env).toEqualTypeOf<{ FOO_NAME: string }>();
+
+      return `Hello ${env.FOO_NAME}, wasup`;
+    })
+    .callable({
+      // env: process.env as any,
+      env: {
+        FOO_NAME: "Charlie",
+        // @ts-expect-error -- expected to report type-error! Because the env schema is only `z.object()`
+        BARRY: "expected-fail",
+      },
+    });
+
+  const res = func1();
+  expect(res.ok).toBe(true);
+  if (res.ok) {
+    expect(res.data).toStrictEqual("Hello Charlie, wasup");
+  } else {
+    expect(false, "sync env schema should be fine and test passing").toBe(true);
   }
 });
