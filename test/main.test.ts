@@ -287,24 +287,28 @@ test("Error.cause is set on wrapped errors", () => {
 });
 
 // TODO: fix to support array schemas, and not treat it as tuple schemas!
-// test("input schema array of string should work", () => {
-//   const fn = zagora()
-//     .input(z.array(z.string()))
-//     .output(z.string())
-//     .handler((_, input) => {
-//       expectTypeOf(input).toEqualTypeOf<string[]>();
-//       return input.map((x) => x.toUpperCase());
-//     })
-//     .callable();
+test("input schema array of string should work", () => {
+  const fn = zagora()
+    .input(z.array(z.string()))
+    .output(z.array(z.string()))
+    .handler((_, input) => {
+      expectTypeOf(input).toEqualTypeOf<string[]>();
+      return input.map((x) => {
+        expectTypeOf(x).toEqualTypeOf<string>();
 
-//   const res = fn(["foo", "bar"]);
+        return x.toUpperCase();
+      });
+    })
+    .callable();
 
-//   if (res.ok) {
-//     expect(res.data).toBe(["foo", "bar"]);
-//   } else {
-//     expect(false, "Expected success").toBe(true);
-//   }
-// });
+  const res = fn(["foo", "bar"]);
+
+  if (res.ok) {
+    expect(res.data).toStrictEqual(["FOO", "BAR"]);
+  } else {
+    expect(false, "Expected success").toBe(true);
+  }
+});
 
 test("input validation failure", () => {
   const fn = zagora()

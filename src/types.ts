@@ -157,12 +157,12 @@ export type ResolveProcedure<
   TEnvVarsMap extends AnySchema | undefined,
 > = TDisableOptions extends true
   ? TInputSchema extends AnySchema
-    ? InferSchemaOutput<TInputSchema> extends readonly any[]
+    ? InferSchemaOutput<TInputSchema> extends readonly [any, ...any[]]
       ? SpreadTuple<InferSchemaOutput<TInputSchema>, any>
       : (arg: InferSchemaOutput<TInputSchema>) => any
     : () => any
   : TInputSchema extends AnySchema
-    ? InferSchemaOutput<TInputSchema> extends readonly any[]
+    ? InferSchemaOutput<TInputSchema> extends readonly [any, ...any[]]
       ? SpreadTuple<
           [
             Prettify<ResolveHandlerOptions<TContext, TErrorsMap, TEnvVarsMap>>,
