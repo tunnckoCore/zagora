@@ -135,7 +135,7 @@ const sum = mathAgent(5, 10); // { ok: true, data: 15 }
 
 ## Env Vars validation
 
-Define schemas for type-safe environment variables with Zod, Valibot, or any Standard Schema V1 compliant library
+Define schemas for type-safe environment variables with Zod, Valibot, or any Standard Schema V1 compliant library. Env vars are passed to the handler's `options` object as `options.env`, not in `options.context` or somewhere else. All default filling, optionals, coercing works as in any other place. Though, in theory you can provide whatever you want in `options.context` including env vars, if you want to match the bahavior of oRPC or something else.
 
 **Important: Providing async schema for env variables is not supported, at least for now.**
 
@@ -164,6 +164,7 @@ const sum = safeApi(5, 10); // { ok: true, data: 15 + PORT }
 - When `autoCallable` is enabled (eg. `true`) make sure to provide the runtime env vars as second argument to the `.env(schema, processEnvOrImportMetaEnv)` method.
 - Async schema validation is not supported, for now
 - the passed runtime env vars must match the provided schema (on type-level), thus you may need to cast to `as any` when you are providing `process.env` or `import.meta.env`. That is intentional because we want to be able to warn you (typescript report you) if you manually providing them.
+- in case `env: process.env` is wanted, then just make the schema like `z.union([z.object(), z.record(z.string(), z.string())])` and you will not need to case with `as any` at `.callable`.
 
 ## Error Handling
 
