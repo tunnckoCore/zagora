@@ -150,11 +150,11 @@ import {
   isZagoraError,
 } from 'zagora/errors';
 
-import * ZagoraTypes from 'zagora/types';
-import * zagoraUtils from 'zagora/utils';
+import * as ZagoraTypes from 'zagora/types';
+import * as zagoraUtils from 'zagora/utils';
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ## Why zagora?
 
@@ -165,7 +165,7 @@ Both `tRPC` and `oRPC` are promoted as "backend", or specifically for when you'r
 
 They are built around the network, Zagora is built around functions with excellent egonomics, developer experience, and no assumptions. **It produces just functions, i cannot stress that enough.**
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Why Zagora over oRPC/tRPC/neverthrow/effect.ts?
 
@@ -196,7 +196,7 @@ They are built around the network, Zagora is built around functions with excelle
   
 Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generated detailed help, based on the provided schemas. I have another library for that, which i will overhaul soon - [zodest](https://npmjs.com/package/zodest).
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Why Zagora over plain TypeScript functions?
 
@@ -204,7 +204,7 @@ Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generat
   compile-time can blow up.
 - Zagora combines runtime validation/transforms (StandardSchema) with full compile-time inference, and returns a safe, uniform result tuple inspired by true functional programming
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Why Zagora over standalone Zod/Valibot usage?
 
@@ -216,7 +216,7 @@ Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generat
 - single place to validate inputs/outputs/errors
 - unified non-throwing result shape
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ## Features
 
@@ -257,7 +257,7 @@ if (!resul3.ok) {
 }
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Typed Errors
 
@@ -300,7 +300,7 @@ Isn't it amazing? You will never see `Error` or `try/catch` blocks again, and ev
 
 But wait, there's more: **Type Guards**!
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Error Type Guards
 
@@ -432,7 +432,7 @@ hello('invalid-keys');
 
 **Important:** if you want the error validation to actually throw on unknown keys passed to the error helper, then you need to make the error object schema more strict - just like `z.object(...).strict()`.
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Context Management
 
@@ -458,7 +458,7 @@ procedure('charlie');
 // => 'foo-bar has foo -> qux, id = charlie'
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Object Inputs
 
@@ -469,7 +469,7 @@ zagora()
   .callable()
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Tuple Inputs (Multiple Arguments)
 
@@ -512,7 +512,7 @@ fnTwo('Barry', 25) // => Barry is 25, from unknown
 fnTwo('Barry', 33, 'USA') // => Barry is 33, from USA
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Default Values
 
@@ -532,7 +532,7 @@ fn({ name: 'John' }) // age defaults to 18
 // => 'John is 18, from unknown'
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Async Support
 
@@ -595,7 +595,7 @@ const procAsyncOutput = zagora()
 const result2 = await procAsyncOutput('hello'); // ZagoraResult
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Caching/Memoization
 
@@ -646,7 +646,7 @@ const res = await proc(22);
 
 You can also provide the cache through `.callable({ cache })`. That is useful, if you want to provide it at "execution place", not at "definition place". For example, you'd have a set of procedures written at one place, then throgh "router" or some object that combiens them you want to call them at a `Request/Response` server handler.
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Environment Variables
 
@@ -676,7 +676,7 @@ Also important to note that when `disableOptions` you will loose access to the `
 **Important: Providing async schema for env variables is not supported, at least for now.**
 
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Handler Options Object
 
@@ -720,7 +720,7 @@ zagora({ disableOptions: true })
   .handler((userId) => userId); // No options
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Auto-Callable Mode
 
@@ -742,7 +742,7 @@ hello('bob'); // ZagoraResult => 'Hello, BOB'
 hello('alice'); // ZagoraResult => 'Hello, ALICE'
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Never-Throwing Guarantees
 
@@ -764,7 +764,7 @@ const result = procedure();
 // result.error.cause.message === 'Oops'
 ```
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ### Type Safety Guarantees
 
@@ -778,7 +778,7 @@ And because the type system of Zagora is pretty complex, we also have tests not 
 
 If you are interested, you can inspect the [test/types-testing.test.ts](./test/types-testing.test.ts) file.
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ## API Reference
 
@@ -804,7 +804,7 @@ Creates a new Zagora instance.
   + if `cache` passed, it will override the previously passed through `.cache` method (if so)
   + if `env` passed, it will be deep-merged with the provided through the `.env` method (if so)
 
-[Back to top](#table-of-contents)
+[**Back to top**](#table-of-contents)
 
 ## Error Types
 
