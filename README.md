@@ -170,7 +170,7 @@ They are built around the network, Zagora is built around functions with excelle
 ### Why Zagora over oRPC/tRPC/neverthrow/effect.ts?
 
 - Zagora is focused on producing "just functions", not networks, routers, or groups.
-- oRPC and tRPC does not "support" creating synchornous functions, they always are async
+- oRPC and tRPC does not "support" creating synchornous functions, they are always async
   + in contrast, Zagora does not use `async/await` anywhere in the codebase, but `instanceof Promise` checks
   + the return type of Zagora procedures is dynamically inferred based on many factors
   - return type is NOT a union like `ZagoraResult | Promise<ZagoraResult>` which gives amazing DX
