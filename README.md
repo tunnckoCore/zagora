@@ -171,7 +171,7 @@ They are built around the network, Zagora is built around functions with excelle
 
 - Zagora is focused on producing "just functions", not networks, routers, or groups.
 - oRPC and tRPC does not "support" creating synchornous functions, they always are async
-  + in contrast, Zagora does not use `async/await `anywhere in the codebase, but `instanceof Promise` checks
+  + in contrast, Zagora does not use `async/await` anywhere in the codebase, but `instanceof Promise` checks
   + the return type of Zagora procedures is dynamically inferred based on many factors
   - return type is NOT a union like `ZagoraResult | Promise<ZagoraResult>` which gives amazing DX
 - oRPC/tRPC cannot create procedures that look like regular functions, they always accept a single object
@@ -296,12 +296,11 @@ if (res.ok) {
 }
 ```
 
-[Back to top](#table-of-contents)
-
-### Error Type Guards
 Isn't it amazing? You will never see `Error` or `try/catch` blocks again, and everything is typed top to bottom, well-known and intuitive.
 
 But wait, there's more: **Type Guards**!
+
+[Back to top](#table-of-contents)
 
 ### Error Type Guards
 
@@ -424,7 +423,7 @@ hello('ok');
 
 hello('missing-required-keys');
 // result.error => { kind: 'VALIDATION_ERROR', key: 'RATE_LIMIT', issues: Schema.Issue[] }
-// result.error.issues - will contain the issue that `userId` and `messatge` are required
+// result.error.issues - will contain the issue that `userId` and `message` are required
 
 hello('invalid-keys');
 // result.error => { kind: 'VALIDATION_ERROR', key: 'RATE_LIMIT', issues: Schema.Issue[] }

@@ -474,7 +474,7 @@ test("multiple procedures (calculator) from single instance (autoCallable:true)"
   }
 });
 
-test("handle optional/default valaues in object schemas", async () => {
+test("handle optional/default values in object schemas", async () => {
   const SpeedSchema = z.enum(["slow", "normal", "fast"]);
   const NumberSchema = z
     .string()
@@ -754,14 +754,14 @@ test("cache adapter passed through `.callable` method", async () => {
     expect((res2 as any).data).toStrictEqual(11);
   }
 
-  fixture();
-  fixture(true);
-  fixture(true, true);
-  fixture(false, true);
-  fixture(false, true, true);
-  fixture(true, false);
-  fixture(true, true, false);
-  fixture(false, false, true);
+  await fixture();
+  await fixture(true);
+  await fixture(true, true);
+  await fixture(false, true);
+  await fixture(false, true, true);
+  await fixture(true, false);
+  await fixture(true, true, false);
+  await fixture(false, false, true);
 });
 
 test("failing env validation schema through `.env` method", () => {

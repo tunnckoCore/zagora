@@ -85,8 +85,8 @@ import {
   isZagoraError,
 } from 'zagora/errors';
 
-import * ZagoraTypes from 'zagora/types';
-import * zagoraUtils from 'zagora/utils';
+import * as ZagoraTypes from 'zagora/types';
+import * as zagoraUtils from 'zagora/utils';
 ```
 
 ## Creating procedures
@@ -113,8 +113,8 @@ const result = agent({ name: 'Alice' });
 - oRPC/tRPC - `.handler(({ input, context }) => {})` - always a single object
 - zagora with primitive input (string, object, array) - `.handler(({ context }, input) => {})` 
 - zagora with tuple schemas (spreaded args) - `.handler(({ context }, name, age) => {})` 
-- zagora with errprs map - `.errors({ NOT_FOUND: z.object({ id: z.string() })}).handler(({ context, errors }, name, age) => {})`
-- zagora without options object - `zagora({ disableOptions: true }).input(z.string()).handle((input) => input)`
+- zagora with errors map - `.errors({ NOT_FOUND: z.object({ id: z.string() })}).handler(({ context, errors }, name, age) => {})`
+- zagora without options object - `zagora({ disableOptions: true }).input(z.string()).handler((input) => input)`
 
 ## Input and Output Validation
 
@@ -151,7 +151,7 @@ const safeApi = zagora()
   .handler(({ env }) => {
     // env: { DATABASE_URL: string, JWT_SECRET: string, PORT: number }
     return a + b + env.PORT;
-  });
+  })
   // NOTE: you may need to cast with `as any` beause process.env differs from the schema!
   .callable({ env: process.env });
 
@@ -237,7 +237,7 @@ For simpler procedures and API look, enable auto-callable mode to skip `.callabl
 const simpleProcedure = zagora({ autoCallable: true, disableOptions: true })
   .input(z.tuple([z.string(), z.number().default(10)]))
   .output(z.string())
-  .handler((str, num) => input.toUpperCase());
+  .handler((str, num) => str.toUpperCase());
   
 const result = simpleProcedure('hello'); // Direct call
 ```
@@ -267,28 +267,28 @@ const asyncAgent = zagora()
 
 Agents built with Zagora are composable, testable, and maintain type safety throughout the application lifecycle.
 
+---
+
 ## Rules and Special Notes for Zagora usage
 
 The following rules outlines critical points, edge cases, and things to be careful about when using Zagora. These are derived from specially noted sections, examples, and warnings in the documentation.
 
-## Error Handling
+### Error Handling Cautions
 
-### Uppercase Error Keys
+#### Uppercase Error Keys
 - **Caution**: All keys in the error map must be uppercased (e.g., `NOT_FOUND`, not `not_found`). TypeScript will report a type error if not.
 - **Why**: These keys represent error "kinds" and are used in `result.error.kind`.
 
-### Error Helper Validation
+#### Error Helper Validation
 - **Caution**: If you pass invalid or missing keys to error helpers (e.g., `errors.NOT_FOUND({ invalidKey: 'value' })`), you get a `VALIDATION_ERROR` with a `key` property indicating which error validation failed.
 - **Example**: `throw errors.RATE_LIMIT({ retryAfter: 'invalid' })` → `VALIDATION_ERROR` because `retryAfter` expects a number.
 - **Tip**: Use `.strict()` on error schemas to throw on unknown keys: `z.object({...}).strict()`.
 
-### Error Type Guards
+#### Error Type Guards
 - **Caution**: Use `isValidationError`, `isInternalError`, `isDefinedError`, `isZagoraError` to narrow error types safely.
 - **Note**: Even syntax errors in handlers return `ZagoraResult` with error, never crashing the process.
 
-## Context Management
-
-### Context Merging
+### Context Merging and Management
 - **Caution**: Initial context (from `.context()`) is deep-merged with runtime context (from `.callable({ context })`).
 - **Example**: `.context({ userId: 'default' })` + `.callable({ context: { foo: 'bar' } })` → merged `{ userId: 'default', foo: 'bar' }`.
 - **Tip**: Useful for dependency injection; override at execution site (e.g., in server handlers).

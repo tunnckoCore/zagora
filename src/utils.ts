@@ -263,7 +263,7 @@ export function deepMerge(target: any, source: any): any {
   if (target == null || typeof target !== "object") return source;
   const result = Array.isArray(target) ? [...target] : { ...target };
   for (const key in source) {
-    if (key in source) {
+    if (Object.hasOwn(source, key)) {
       if (typeof source[key] === "object" && source[key] !== null) {
         result[key] = deepMerge(target[key], source[key]);
       } else {

@@ -67,7 +67,7 @@ export function createValidationError<ErrorKindNames = never>(
   const issuesMsg = issues
     // strip "input" cuz it can be confusing when we are schema validating output and errors too
     .map((issue) => {
-      const key = issue.path?.join(".");
+      const key = issue.path?.join(".") || "(root)";
       const message = issue.message.replace("Invalid input: ", "");
       return `${key} => ${message}`;
     })

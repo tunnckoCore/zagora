@@ -407,7 +407,7 @@ export class Zagora<
 
           const { isAsync, handlerFailed, ...rest } = st;
 
-          // if handler failed, then we need to validate the error if errorShema,
+          // if handler failed, then we need to validate the error if errorSchema,
           // otherwise we can passthrough the Result object whatever it is.
           return handlerFailed
             ? validateError<TKindNames>(errorsMap as any, st.error, isAsync)

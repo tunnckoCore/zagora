@@ -44,7 +44,8 @@
   "scripts": {
     "prebuild": "bun run check:types",
     "build": "bunx tsdown",
-    "check": "bun run check:format && bun run check:types && bun run check:repo",
+    "check": "bun run check:copy-rules && bun run check:format && bun run check:types && bun run check:repo",
+    "check:copy-rules": "cp AGENTS.md .rules/zagora.md",
     "check:format": "bunx @biomejs/biome check --fix --unsafe",
     "check:types": "bunx tsgo-dev -p ./tsconfig.json",
     "check:repo": "bunx sherif -r root-package-dependencies -r root-package-private-field",
