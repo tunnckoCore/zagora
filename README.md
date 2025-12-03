@@ -163,7 +163,7 @@ While `orpc` is great and you can use it for direct function calls (and not netw
 
 Both `tRPC` and `oRPC` are promoted as "backend", or specifically for when you're building "apps". Recently, all major frameworks also introduced similar concepts, like "server actions" and so on. All that is cool, but `zagora` is focused on building just functions, a low-level library for building other libraries - I have a lot of them, so i need a simple way for building type-safe and error-safe functions, where i don't necessarily need network layer and i don't need "routers" concept, and etc.
 
-They are built around the network, Zagora is built around functions with excellent egonomics, developer experience, and no assumptions. **It produces just functions, i cannot stress that enough.**
+They are built around the network, Zagora is built around functions with excellent ergonomics, developer experience, and no assumptions. **It produces just functions, regular TypeScript functions, I cannot stress that enough.**
 
 [**Back to top**](#table-of-contents)
 
@@ -192,7 +192,7 @@ They are built around the network, Zagora is built around functions with excelle
 - Zagora does not have the concept of "middlewares" - that should and can be outside
   + use some type-safe middlware/plugins processing library, i believe there are few - like `use` and `useware` are just one oldschool example
   + process "middleware" stuff, then provide the final result to the procedure's `.callable` method
-  + i tried adding `.use`, but once i realize all the possible scenarios with all the rest of more important features, it got too complex too fast, especially on type-system level, **I am open tho**
+  + I tried adding `.use`, but once I realized all the possible scenarios with all the rest of more important features, it got too complex too fast, especially on type-system level, **I am open though**
   
 Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generated detailed help, based on the provided schemas. I have another library for that, which i will overhaul soon - [zodest](https://npmjs.com/package/zodest).
 
@@ -209,7 +209,7 @@ Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generat
 ### Why Zagora over standalone Zod/Valibot usage?
 
 - zagora gives a small ergonomic layer
-- fluent and intutive builder pattern
+- fluent and intuitive builder pattern
 - supports omitted trailing args via schema defaults
 - supports passing multiple arguments in form of schema tuples
 - handler gets fully populated args (defaults applied) at runtime
@@ -644,7 +644,7 @@ const proc = zagora()
 const res = await proc(22);
 ```
 
-You can also provide the cache through `.callable({ cache })`. That is useful, if you want to provide it at "execution place", not at "definition place". For example, you'd have a set of procedures written at one place, then throgh "router" or some object that combiens them you want to call them at a `Request/Response` server handler.
+You can also provide the cache through `.callable({ cache })`. That is useful, if you want to provide it at "execution place", not at "definition place". For example, you'd have a set of procedures written at one place, then through "router" or some object that combiens them you want to call them at a `Request/Response` server handler.
 
 [**Back to top**](#table-of-contents)
 
