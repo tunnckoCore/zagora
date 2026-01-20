@@ -1,0 +1,57 @@
+---
+title: Why Zagora?
+description: Understand what makes Zagora different and why you should use it
+---
+
+## Motivation
+
+While `orpc` is great and you can use it for direct function calls (and not network requests with `createRouterClient`), and for example for building "type-safe SDK"s, it does have a few opinions that may get in the way. I use it extensively in my projects, but `zagora` is smaller and even more focused approach - i always wanted "just functions" where you define input, outputs, and you get error-safe, typed function back not a wrapper around it.
+
+Both `tRPC` and `oRPC` are promoted as "backend", or specifically for when you're building "apps". Recently, all major frameworks also introduced similar concepts, like "server actions" and so on. All that is cool, but `zagora` is focused on building just functions, a low-level library for building other libraries - I have a lot of them, so i need a simple way for building type-safe and error-safe functions, where i don't necessarily need network layer and i don't need "routers" concept, and etc.
+
+They are built around the network, Zagora is built around functions with excellent ergonomics, developer experience, and no assumptions. **It produces just functions, regular TypeScript functions, I cannot stress that enough.**
+
+## Why Zagora over oRPC/tRPC/neverthrow/effect.ts?
+
+- Zagora is focused on producing "just functions", not networks, routers, or groups.
+- oRPC and tRPC does not "support" creating synchornous functions, they are always async
+  + in contrast, Zagora does not use `async/await` anywhere in the codebase, but `instanceof Promise` checks
+  + the return type of Zagora procedures is dynamically inferred based on many factors
+  - return type is NOT a union like `ZagoraResult | Promise<ZagoraResult>` which gives amazing DX
+- oRPC/tRPC cannot create procedures that look like regular functions, they always accept a single object
+  + that's important if you want to create a basic function with multiple input arguments
+  + of course, with oRPC/tRPC you can just pass them as object, but that's not always wanted effect for end-users of libraries
+- Zagora allows you to use schema tuples (`z.tuple([z.string(), z.number().default(10)])` to define multiple arguments
+- Zagora is lower-level, focused on building libraries, but can be used to build groups and routers.
+  + groups/routers could be just `const router = { users: { get: getUserProcedure }  }` and everything remains type-safe
+  + for more complex stuff, or if type performance is reached, we can explore further
+- Zagora does support injecting typed/runtime "context" to procedures, if/when needed.
+- The whole error system across Zagora is build around typed error objects, never Errors.
+  + meaning, even if your handler fail with syntax error - you'll get ZagoraResult with error in it
+  + it also gives absolute guarantees for never crashing the process, total predictability and type-safety
+  + error determinism - if there's ANY error at ANY level - you'll get `result.error`
+- With Zagora, unlike `neverthrow`, you don't need any kind of "unwrapping" nor need to jump into too much functional programming - you always have either the "ok result" or the "error result".
+- With Zagora, unlike `Effect.ts`, you don't need to learn a whole other mindset or kind of a language
+  + please, just check out `ReScript Lang` before even considering `Effect.ts` - it's far better, compiles to efficient TypeScript, and you'd have to learn NOTHING new other than TypeScript
+- Zagora does not have the concept of "middlewares" - that should and can be outside
+  + use some type-safe middlware/plugins processing library, i believe there are few - like `use` and `useware` are just one oldschool example
+  + process "middleware" stuff, then provide the final result to the procedure's `.callable` method
+  + I tried adding `.use`, but once I realized all the possible scenarios with all the rest of more important features, it got too complex too fast, especially on type-system level, **I am open though**
+
+Funny enough, you can use Zagora to build fully type-safe CLIs with auto-generated detailed help, based on the provided schemas. I have another library for that, which i will overhaul soon - [zodest](https://npmjs.com/package/zodest).
+
+## Why Zagora over plain TypeScript functions?
+
+- Plain TypeScript offers compile-time types but no runtime validation — a mismatch between runtime and
+  compile-time can blow up.
+- Zagora combines runtime validation/transforms (StandardSchema) with full compile-time inference, and returns a safe, uniform result tuple inspired by true functional programming
+
+## Why Zagora over standalone Zod/Valibot usage?
+
+- zagora gives a small ergonomic layer
+- fluent and intuitive builder pattern
+- supports omitted trailing args via schema defaults
+- supports passing multiple arguments in form of schema tuples
+- handler gets fully populated args (defaults applied) at runtime
+- single place to validate inputs/outputs/errors
+- unified non-throwing result shape

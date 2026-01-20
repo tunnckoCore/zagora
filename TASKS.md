@@ -9,8 +9,7 @@ This document outlines the tasks required to set up Fumadocs documentation for t
 - [x] Create `apps/docs/` directory with proper structure
 - [x] Initialize Next.js project with TypeScript in `apps/docs/`
 - [x] Configure Fumadocs packages and dependencies
-- [x] Add `apps/docs` to bun workspaces in root `package.json`
-- [x] Set up Tailwind CSS and shadcn/ui components
+- [x] Add `apps/docs` to bun workspaces in root `package.json` 
 
 ### 1.2 Fumadocs Configuration
 - [ ] Create `apps/docs/fumadocs.config.ts` with basic configuration
@@ -18,18 +17,12 @@ This document outlines the tasks required to set up Fumadocs documentation for t
 - [ ] Configure content source and file structure
 - [ ] Set up navigation structure
 - [ ] Configure theme and layout components
-
-### 1.3 Development Environment
-- [ ] Add development scripts to `apps/docs/package.json`
-- [ ] Configure build scripts for production deployment
-- [ ] Set up linting and formatting (Biome)
-- [ ] Test local development server setup
-
+ 
 ## Phase 2: Content Conversion
 
 ### 2.1 Front Page Design
 - [ ] Create homepage with hero section
-- [ ] Design highlights section with card components (11 highlights from README)
+- [ ] Design highlights section with card components (11 highlights from README). Don't copy paste them exactly! Make them 2-3 sentences each since in cards there's more room
 - [ ] Add features overview section
 - [ ] Create comparison tables (3 separate tables):
   - Zagora vs oRPC/tRPC/neverthrow/effect.ts

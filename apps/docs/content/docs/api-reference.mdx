@@ -1,0 +1,339 @@
+---
+title: API Reference
+description: Complete API documentation for Zagora functions and types
+---
+
+# API Reference
+
+## Core Functions
+
+### `zagora(config?)`
+
+Creates a new Zagora instance.
+
+#### Parameters
+
+- `config?: ZagoraConfig` - Optional configuration object
+
+#### Config Options
+
+```ts
+interface ZagoraConfig {
+  disableOptions?: boolean;  // Omit options from handler, default false
+  autoCallable?: boolean;    // Return callable directly from .handler(), default false
+}
+```
+
+#### Example
+
+```ts
+import { zagora } from 'zagora';
+
+const za = zagora();
+const zaAuto = zagora({ autoCallable: true, disableOptions: true });
+```
+
+## Instance Methods
+
+### `.input(schema)`
+
+Set input validation schema using any StandardSchema-compliant validator (Zod, Valibot, Arktype).
+
+#### Parameters
+
+- `schema: StandardSchema` - Input validation schema
+
+#### Example
+
+```ts
+// Object input
+za.input(z.object({ name: z.string(), age: z.number().default(18) }))
+
+// Tuple input (multiple arguments)
+za.input(z.tuple([z.string(), z.number().default(18)]))
+
+// Primitive input
+za.input(z.string())
+```
+
+### `.output(schema)`
+
+Set output validation schema.
+
+#### Parameters
+
+- `schema: StandardSchema` - Output validation schema
+
+#### Example
+
+```ts
+za.output(z.object({ id: z.string(), verified: z.boolean() }))
+```
+
+### `.errors(errorMap)`
+
+Define typed errors with schemas.
+
+#### Parameters
+
+- `errorMap: Record<string, StandardSchema>` - Map of error kinds to schemas
+
+#### Important Notes
+
+- All error keys must be **uppercased** (e.g., `NOT_FOUND`, not `not_found`)
+- TypeScript will report type errors if keys are not uppercased
+
+#### Example
+
+```ts
+za.errors({
+  NOT_FOUND: z.object({ resource: z.string() }),
+  UNAUTHORIZED: z.object({ userId: z.string() })
+})
+```
+
+### `.context<TInitialContext>(initialContext)`
+
+Type the context with generic and optionally set initial context.
+
+#### Parameters
+
+- `initialContext?: TInitialContext` - Initial context object
+
+#### Example
+
+```ts
+za.context<{ userId: string, db: Database }>({ userId: 'default' })
+```
+
+### `.cache(adapter)`
+
+Set cache adapter for memoization.
+
+#### Parameters
+
+- `adapter: CacheAdapter` - Cache implementation with `has`, `get`, `set` methods
+
+#### Cache Adapter Interface
+
+```ts
+interface CacheAdapter {
+  has(key: string): boolean | Promise<boolean>;
+  get(key: string): unknown | Promise<unknown>;
+  set(key: string, value: unknown): void | Promise<void>;
+}
+```
+
+#### Example
+
+```ts
+const cache = new Map();
+za.cache({
+  has: (key) => cache.has(key),
+  get: (key) => cache.get(key),
+  set: (key, value) => cache.set(key, value)
+});
+```
+
+### `.env(schema, runtimeEnv?)`
+
+Set environment variables schema and optionally provide runtime envs.
+
+#### Parameters
+
+- `schema: StandardSchema` - Environment variables schema
+- `runtimeEnv?: Record<string, unknown>` - Runtime environment variables
+
+#### Important Notes
+
+- Async schema validation is not supported
+- Provide runtime envs through `.callable({ env })` or second parameter
+
+#### Example
+
+```ts
+za.env(z.object({
+  DATABASE_URL: z.string().min(1).default('file://db.sqlite'),
+  JWT_SECRET: z.string().min(10)
+}), process.env)
+```
+
+### `.handler(fn)`
+
+Set the procedure handler function.
+
+#### Parameters
+
+- `fn: HandlerFunction` - Handler function that receives options and input arguments
+
+#### Handler Signature
+
+```ts
+type HandlerFunction<TOptions, TInput, TOutput> = (
+  options: TOptions,
+  ...input: TInput
+) => TOutput | Promise<TOutput>;
+```
+
+#### Options Object
+
+```ts
+interface HandlerOptions {
+  context?: unknown;        // Merged context
+  errors?: ErrorHelpers;    // Typed error helpers
+  env?: unknown;           // Parsed environment variables
+}
+```
+
+#### Example
+
+```ts
+za.handler(({ context, errors, env }, name, age) => {
+  if (!name) throw errors.NOT_FOUND({ resource: 'user' });
+  return { name, age, dbUrl: env.DATABASE_URL };
+});
+```
+
+### `.callable(opts?)`
+
+Create the final callable procedure function.
+
+#### Parameters
+
+- `opts?: CallableOptions` - Runtime options
+
+#### Callable Options
+
+```ts
+interface CallableOptions {
+  context?: unknown;  // Runtime context (merged with initial)
+  cache?: CacheAdapter; // Runtime cache adapter
+  env?: Record<string, unknown>; // Runtime environment variables
+}
+```
+
+#### Example
+
+```ts
+const procedure = za.callable({
+  context: { userId: 'runtime-user' },
+  cache: myCache,
+  env: process.env
+});
+
+// Usage
+const result = procedure('input');
+// result: ZagoraResult<TOutput, TErrors>
+```
+
+## Types
+
+### `ZagoraResult<TData, TError>`
+
+The return type of all Zagora procedures.
+
+```ts
+type ZagoraResult<TData, TError> =
+  | { ok: true; data: TData; error: undefined }
+  | { ok: false; error: TError; isTypedError?: boolean };
+```
+
+### Error Kinds
+
+- `VALIDATION_ERROR` - Schema validation failures
+- `UNKNOWN_ERROR` - Unexpected errors with `cause` property
+- User-defined kinds - Custom typed errors
+
+### Error Type Guards
+
+```ts
+import {
+  isValidationError,
+  isInternalError,
+  isDefinedError,
+  isZagoraError,
+} from 'zagora/errors';
+```
+
+## Creating Procedures
+
+### Basic Procedure
+
+```ts
+const procedure = zagora()
+  .input(z.string())
+  .output(z.string())
+  .handler((_, input) => input.toUpperCase())
+  .callable();
+```
+
+### Procedure with Errors
+
+```ts
+const procedure = zagora()
+  .input(z.string())
+  .output(z.object({ result: z.string() }))
+  .errors({
+    NOT_FOUND: z.object({ id: z.string() })
+  })
+  .handler(({ errors }, id) => {
+    if (id === 'invalid') {
+      throw errors.NOT_FOUND({ id });
+    }
+    return { result: `Processed ${id}` };
+  })
+  .callable();
+```
+
+### Procedure with Context
+
+```ts
+const procedure = zagora()
+  .context({ db: myDatabase })
+  .input(z.string())
+  .handler(({ context }, query) => {
+    return context.db.query(query);
+  })
+  .callable({ context: { db: testDb } });
+```
+
+### Auto-Callable Mode
+
+```ts
+const procedure = zagora({ autoCallable: true, disableOptions: true })
+  .input(z.tuple([z.string(), z.number().default(10)]))
+  .handler((name, age) => `${name} is ${age}`)
+  // No .callable() needed!
+```
+
+## Advanced Usage
+
+### Middleware Pattern
+
+While Zagora doesn't have built-in middlewares, you can implement them externally:
+
+```ts
+function withAuth<T extends any[]>(procedure: (...args: T) => any) {
+  return (...args: T) => {
+    // Auth logic here
+    return procedure(...args);
+  };
+}
+
+const authedProcedure = withAuth(myProcedure);
+```
+
+### Router Pattern
+
+Create type-safe routers:
+
+```ts
+const userRouter = {
+  get: getUserProcedure,
+  create: createUserProcedure,
+  update: updateUserProcedure
+};
+
+// All procedures remain fully type-safe
+const user = await userRouter.get('user-id');
+```

@@ -1,0 +1,276 @@
+---
+title: Error Types & ZagoraResult
+description: Learn about Zagora's error system and ZagoraResult type
+---
+
+# Error Types & ZagoraResult
+
+Zagora provides a comprehensive error system with strongly-typed errors and predictable result handling.
+
+## ZagoraResult Type
+
+All Zagora procedures return a `ZagoraResult<TData, TError>` type:
+
+```ts
+type ZagoraResult<TData, TError> =
+  | { ok: true; data: TData; error: undefined }
+  | { ok: false; error: TError; isTypedError?: boolean };
+```
+
+### Success Result
+
+```ts
+{
+  ok: true,
+  data: TData,        // Your validated output data
+  error: undefined
+}
+```
+
+### Error Result
+
+```ts
+{
+  ok: false,
+  error: TError,      // The error object
+  isTypedError?: boolean // Present for user-defined errors
+}
+```
+
+## Error Kinds
+
+Zagora categorizes errors into three distinct kinds:
+
+### 1. VALIDATION_ERROR
+
+Schema validation failures for inputs, outputs, or error objects.
+
+```ts
+{
+  kind: 'VALIDATION_ERROR',
+  message: string,
+  issues: Schema.Issue[]  // Detailed validation issues
+}
+```
+
+### 2. UNKNOWN_ERROR
+
+Unexpected errors from handler execution, with the original error as `cause`.
+
+```ts
+{
+  kind: 'UNKNOWN_ERROR',
+  message: string,
+  cause: Error         // The original thrown error
+}
+```
+
+### 3. User-Defined Errors
+
+Custom typed errors defined through the `.errors()` method.
+
+```ts
+{
+  kind: 'NOT_FOUND',        // Your custom error kind
+  resource: 'user',         // Custom error data
+  isTypedError: true        // Always true for user-defined errors
+}
+```
+
+## Error Type Guards
+
+Use built-in type guards to safely narrow error types:
+
+```ts
+import {
+  isValidationError,
+  isInternalError,
+  isDefinedError,
+  isZagoraError,
+} from 'zagora/errors';
+```
+
+### Examples
+
+```ts
+const result = await myProcedure(input);
+
+if (!result.ok) {
+  if (isValidationError(result.error)) {
+    // result.error is VALIDATION_ERROR
+    console.log('Validation failed:', result.error.issues);
+  } else if (isDefinedError(result.error)) {
+    // result.error is a user-defined error
+    switch (result.error.kind) {
+      case 'NOT_FOUND':
+        console.log('Resource not found:', result.error.resource);
+        break;
+      case 'UNAUTHORIZED':
+        console.log('Unauthorized:', result.error.userId);
+        break;
+    }
+  } else if (isInternalError(result.error)) {
+    // result.error is UNKNOWN_ERROR
+    console.log('Internal error:', result.error.cause.message);
+  }
+}
+```
+
+## Creating User-Defined Errors
+
+Define custom errors with schemas:
+
+```ts
+const procedure = zagora()
+  .errors({
+    NOT_FOUND: z.object({
+      resource: z.string(),
+      id: z.string()
+    }),
+    UNAUTHORIZED: z.object({
+      userId: z.string(),
+      requiredRole: z.string()
+    }),
+    RATE_LIMIT: z.object({
+      retryAfter: z.number(),
+      limit: z.number()
+    })
+  })
+  .handler(({ errors }, input) => {
+    if (!input) {
+      throw errors.NOT_FOUND({
+        resource: 'user',
+        id: input
+      });
+    }
+    // ... other logic
+  })
+  .callable();
+```
+
+## Error Validation
+
+Zagora validates error objects you pass to error helpers:
+
+```ts
+// ✅ Valid - all required fields provided
+throw errors.NOT_FOUND({ resource: 'user', id: '123' });
+
+// ❌ TypeScript error - missing required 'id'
+throw errors.NOT_FOUND({ resource: 'user' });
+
+// ❌ Runtime VALIDATION_ERROR - invalid data type
+throw errors.RATE_LIMIT({ retryAfter: 'invalid' });
+```
+
+Use `.strict()` on error schemas for extra validation:
+
+```ts
+.errors({
+  NOT_FOUND: z.object({
+    resource: z.string(),
+    id: z.string()
+  }).strict()  // No extra properties allowed
+})
+```
+
+## Never-Throwing Guarantee
+
+Zagora procedures **never throw exceptions**. All errors are wrapped in the result:
+
+```ts
+// ✅ Always safe - no try/catch needed
+const result = procedure(input);
+
+if (result.ok) {
+  // Success path
+  useData(result.data);
+} else {
+  // Error path - guaranteed to be safe
+  handleError(result.error);
+}
+```
+
+Even syntax errors in handlers return proper error results:
+
+```ts
+const buggyProcedure = zagora()
+  .handler(() => {
+    throw new Error('Something went wrong');
+  })
+  .callable();
+
+const result = buggyProcedure();
+// result.ok === false
+// result.error.kind === 'UNKNOWN_ERROR'
+// result.error.cause.message === 'Something went wrong'
+```
+
+## Error Propagation
+
+Errors propagate through the entire pipeline:
+
+- **Input validation errors** → `VALIDATION_ERROR`
+- **Handler errors** → `UNKNOWN_ERROR` (with cause)
+- **Typed errors** → User-defined error kinds
+- **Cache errors** → `UNKNOWN_ERROR` (with cause)
+- **Output validation errors** → `VALIDATION_ERROR`
+
+## Best Practices
+
+### 1. Always Check Result Status
+
+```ts
+const result = await procedure(input);
+
+if (result.ok) {
+  // Handle success
+  return result.data;
+} else {
+  // Handle error
+  return handleError(result.error);
+}
+```
+
+### 2. Use Specific Error Guards
+
+```ts
+if (!result.ok && isDefinedError(result.error)) {
+  // Handle user-defined errors specifically
+} else if (!result.ok && isValidationError(result.error)) {
+  // Handle validation errors
+} else if (!result.ok) {
+  // Handle unknown errors
+}
+```
+
+### 3. Define Meaningful Error Schemas
+
+```ts
+.errors({
+  NOT_FOUND: z.object({
+    resource: z.string(),
+    id: z.string(),
+    message: z.string().optional()
+  }),
+  VALIDATION_FAILED: z.object({
+    field: z.string(),
+    value: z.unknown(),
+    reason: z.string()
+  })
+})
+```
+
+### 4. Use Error Constants
+
+```ts
+const ErrorKinds = {
+  NOT_FOUND: 'NOT_FOUND',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  VALIDATION_ERROR: 'VALIDATION_ERROR'
+} as const;
+
+if (!result.ok && result.error.kind === ErrorKinds.NOT_FOUND) {
+  // Handle not found
+}
+```

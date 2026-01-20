@@ -1,0 +1,94 @@
+---
+title: Getting Started
+description: Learn how to install and use Zagora in your project
+---
+
+## Install
+
+This is an ESM-only package with built-in types.
+
+```bash
+bun install zagora@next
+```
+
+## Usage
+
+```ts
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+const za = zagora();
+
+const getUser = za
+  .input(z.tuple([
+    z.string(),
+    z.number().default(18),
+  ]))
+  .output(z.object({ name: z.string(), age: z.number(), email: z.string() }))
+  .handler(async (_, name, age) => {
+    // name: string;
+    // age: number; -- even if not passed!
+    return { name, age, email: `${name.toLowerCase()}@example.com` };
+  })
+  .callable();
+
+const result = await getUser('Charlie');
+if (result.ok) {
+  console.log(result.data);
+  // ^ { name: 'Charlie', age: 18, email: 'charlie@example.com' }
+} else {
+  console.error(result.error);
+  // ^ { kind: 'UNKNOWN_ERROR', message, cause }
+  // or
+  // ^ { kind: 'VALIDATION_ERROR', message, issues: Schema.Issue[] }
+}
+```
+
+### Primitive Input
+
+```ts
+// primitive input
+const helloUppercased = za
+  .input(z.string())
+  .handler((_, str) => str.toUpperCase())
+  .callable();
+
+const res = helloUppercased('Hello world');
+
+if (res.ok) {
+  console.log(res);
+  // ^ { ok: true, data: 'HELLO WORLD', error: undefined }
+}
+```
+
+### Array Input
+
+```ts
+// array input
+const uppercase = zagora({ autoCallable: true, disableOptions: true })
+  .input(z.array(z.string()))
+  .handler((arrayOfStrings) => {
+    // NOTE: `x` is typed as string too!
+    return arrayOfStrings.map((x) => x.toUpperCase());
+  })
+
+const upRes = uppercase(['foo', 'bar', 'qux']);
+if (upRes.ok) {
+  console.log(upRes);
+  // ^ { ok: true, data: ['FOO', 'BAR', 'QUX' ] }
+}
+```
+
+You'll also have access to all the types, utils, and error-related stuff through package exports.
+
+```ts
+import {
+  isValidationError,
+  isInternalError,
+  isDefinedError,
+  isZagoraError,
+} from 'zagora/errors';
+
+import * as ZagoraTypes from 'zagora/types';
+import * as zagoraUtils from 'zagora/utils';
+```
