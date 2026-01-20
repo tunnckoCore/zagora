@@ -22,7 +22,8 @@ This document outlines the tasks required to set up Fumadocs documentation for t
 
 ### 2.1 Front Page Design
 - [ ] Create homepage with hero section
-- [ ] Design highlights section with card components (11 highlights from README). Don't copy paste them exactly! Make them 2-3 sentences each since in cards there's more room
+- [ ] Design highlights section with card components (11 highlights from README). DO NOT copy paste them exactly! Make each card/highlight 2-3 sentences each since in cards there's more room!!
+- [ ] make sure the syntax highlighting works on the homepage and all other codeblock snippets 
 - [ ] Add features overview section
 - [ ] Create comparison tables (3 separate tables):
   - Zagora vs oRPC/tRPC/neverthrow/effect.ts
