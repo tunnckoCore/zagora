@@ -9,7 +9,7 @@ export const Route = createFileRoute('/')({
 function Home() {
   return (
     <HomeLayout {...baseOptions()}>
-      <div className="flex flex-col items-center justify-center text-center flex-1">
+      <div className="flex flex-col flex-1 justify-center px-4 py-8 text-center">
         <h1 className="font-medium text-xl mb-4">Fumadocs on Tanstack Start.</h1>
         <Link
           to="/docs/$"

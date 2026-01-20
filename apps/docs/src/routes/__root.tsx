@@ -2,7 +2,6 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-r
 import * as React from 'react';
 import appCss from '@/styles/app.css?url';
 import { RootProvider } from 'fumadocs-ui/provider/tanstack';
-import SearchDialog from '@/components/search';
 
 export const Route = createRootRoute({
   head: () => ({
@@ -38,7 +37,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="flex flex-col min-h-screen">
-        <RootProvider search={{ SearchDialog }}>{children}</RootProvider>
+        <RootProvider>{children}</RootProvider>
         <Scripts />
       </body>
     </html>
