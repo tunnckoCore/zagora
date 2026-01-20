@@ -11,12 +11,15 @@ export default defineConfig({
   },
 
   socials: [
-    { icon: "github", link: "https://github.com/tunnckoCore/zagora" },
+    {
+      icon: "github",
+      link: "https://github.com/tunnckoCore/zagora/tree/feat/docs",
+    },
     { icon: "x", link: "https://twitter.com/wgw_eth" },
   ],
   editLink: {
     pattern:
-      "https://github.com/tunnckoCore/zagora/edit/main/apps/docs/src/pages/:path",
+      "https://github.com/tunnckoCore/zagora/edit/feat/docs/apps/web/pages/:path",
     text: "Edit on GitHub",
   },
   llms: {
