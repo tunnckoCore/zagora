@@ -9,7 +9,8 @@
   },
   "workspaces": {
     "packages": [
-      "."
+      ".",
+      "apps/*"
     ]
   },
   "publishConfig": {
