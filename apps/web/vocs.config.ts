@@ -4,7 +4,7 @@ export default defineConfig({
   title: "Zagora",
   titleTemplate: "%s - Zagora",
   description:
-    "Build type-safe, error-safe functions that never throw. Full TypeScript inference with tuple arguments, sync/async awareness, and typed error handling.",
+    "Type-safe functions with full inference, typed errors, and zero async overhead -- just pure TypeScript. Skip the complexity of RPC frameworks or Effect.ts and build libraries and APIs, the Robust Way",
   rootDir: ".",
   theme: {
     accentColor: "#f97316", // Orange-500
@@ -33,6 +33,10 @@ export default defineConfig({
   // Twoslash enabled - use `js` code blocks to avoid type-checking
   // twoslash: true, // default
   topNav: [
+    // {
+    //   text: "Chat with Codebase",
+    //   link: "https://open-github.com/tunnckoCore/zagora/tree/feat/docs",
+    // },
     { text: "Docs", link: "/docs/getting-started", match: "/docs" },
     { text: "API", link: "/api/zagora", match: "/api" },
     {
@@ -40,7 +44,15 @@ export default defineConfig({
       link: "/comparisons/rpc-frameworks",
       match: "/comparisons",
     },
-    { text: "Advanced", link: "/advanced/type-safety", match: "/advanced" },
+    { text: "Guides", link: "/advanced/type-safety", match: "/advanced" },
+    {
+      text: "LLMs.txt",
+      link: "https://zagora.wgw.lol/llms.txt",
+    },
+    {
+      text: "GitHub",
+      link: "https://github.com/tunnckoCore/zagora/tree/feat/docs",
+    },
   ],
   sidebar: {
     "/docs": [
