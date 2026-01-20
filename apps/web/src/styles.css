@@ -1,0 +1,144 @@
+/**
+ * Zagora Documentation - Custom Styles
+ * Orange/Amber theme to match the Zagora brand
+ */
+
+:root {
+  /* Orange palette - matching accentColor #f97316 */
+  --zagora-orange-50: #fff7ed;
+  --zagora-orange-100: #ffedd5;
+  --zagora-orange-200: #fed7aa;
+  --zagora-orange-300: #fdba74;
+  --zagora-orange-400: #fb923c;
+  --zagora-orange-500: #f97316;
+  --zagora-orange-600: #ea580c;
+  --zagora-orange-700: #c2410c;
+  --zagora-orange-800: #9a3412;
+  --zagora-orange-900: #7c2d12;
+
+  /* Amber accent for highlights */
+  --zagora-amber-400: #fbbf24;
+  --zagora-amber-500: #f59e0b;
+}
+
+/* Code block styling */
+.vocs_Code {
+  --shiki-color-background: #1a1a1a;
+}
+
+/* Custom scrollbar for code blocks */
+.vocs_Code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.vocs_Code::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.vocs_Code::-webkit-scrollbar-thumb {
+  background: var(--zagora-orange-600);
+  border-radius: 3px;
+}
+
+.vocs_Code::-webkit-scrollbar-thumb:hover {
+  background: var(--zagora-orange-500);
+}
+
+/* Callout/Admonition styling */
+.vocs_Callout[data-type="tip"] {
+  border-left-color: var(--zagora-orange-500);
+}
+
+.vocs_Callout[data-type="warning"] {
+  border-left-color: var(--zagora-amber-500);
+}
+
+/* Table styling improvements */
+.vocs_Table th {
+  background: var(--zagora-orange-50);
+}
+
+:root.dark .vocs_Table th {
+  background: rgba(249, 115, 22, 0.1);
+}
+
+/* Link hover effects */
+.vocs_Content a:hover {
+  text-decoration-color: var(--zagora-orange-400);
+}
+
+/* Homepage feature cards */
+.vocs_HomePage_features > div {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vocs_HomePage_features > div:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.15);
+}
+
+/* Sidebar active link enhancement */
+.vocs_Sidebar a[data-active="true"] {
+  font-weight: 600;
+}
+
+/* Code inline styling */
+.vocs_Content :not(pre) > code {
+  background: var(--zagora-orange-50);
+  color: var(--zagora-orange-700);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+:root.dark .vocs_Content :not(pre) > code {
+  background: rgba(249, 115, 22, 0.15);
+  color: var(--zagora-orange-300);
+}
+
+/* Button primary styling */
+.vocs_Button[data-variant="primary"] {
+  background: linear-gradient(135deg, var(--zagora-orange-500), var(--zagora-orange-600));
+  transition: all 0.2s ease;
+}
+
+.vocs_Button[data-variant="primary"]:hover {
+  background: linear-gradient(135deg, var(--zagora-orange-400), var(--zagora-orange-500));
+  transform: translateY(-1px);
+}
+
+/* Hero section enhancements */
+.vocs_HomePage_tagline {
+  max-width: 800px;
+}
+
+/* Footer styling */
+.zagora-footer {
+  border-top: 1px solid var(--zagora-orange-100);
+  padding: 2rem 0;
+  margin-top: 4rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+:root.dark .zagora-footer {
+  border-top-color: rgba(249, 115, 22, 0.2);
+  color: #999;
+}
+
+.zagora-footer a {
+  color: var(--zagora-orange-500);
+  text-decoration: none;
+}
+
+.zagora-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .vocs_HomePage_features > div {
+    padding: 1rem;
+  }
+}

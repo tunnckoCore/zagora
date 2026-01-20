@@ -1,0 +1,133 @@
+# Procedures [The building blocks of Zagora]
+
+A procedure is a type-safe, error-safe function built with the fluent builder API. Procedures validate inputs, execute handlers, and return predictable results.
+
+## Anatomy of a Procedure
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+const myProcedure = zagora()     // 1. Create instance
+  .input(z.string())              // 2. Define input schema
+  .output(z.number())             // 3. Define output schema (optional)
+  .errors({ /* ... */ })          // 4. Define error schemas (optional)
+  .handler((options, input) => {  // 5. Implement logic
+    return input.length;
+  })
+  .callable();                    // 6. Create callable function
+```
+
+## The Builder Chain
+
+Each method returns a new builder instance, allowing fluent chaining:
+
+| Method | Purpose | Required |
+|--------|---------|----------|
+| `.input(schema)` | Validate inputs | No (but recommended) |
+| `.output(schema)` | Validate outputs | No |
+| `.errors(map)` | Define typed errors | No |
+| `.context(initial)` | Set initial context | No |
+| `.env(schema)` | Validate environment variables | No |
+| `.cache(adapter)` | Enable memoization | No |
+| `.handler(fn)` | Implement business logic | **Yes** |
+| `.callable(options)` | Create the function | **Yes** (unless `autoCallable`) |
+
+## Handler Signature
+
+The handler receives an options object and the validated input(s):
+
+```js
+// With object/primitive input
+.handler((options, input) => {
+  const { context, errors } = options;
+  return processInput(input);
+})
+
+// With tuple input (spread arguments)
+.handler((options, arg1, arg2, arg3) => {
+  return arg1 + arg2 + arg3;
+})
+```
+
+## Calling a Procedure
+
+Procedures are called like regular functions:
+
+```js
+const greet = zagora()
+  .input(z.string())
+  .handler((_, name) => `Hello, ${name}!`)
+  .callable();
+
+// Direct call
+const result = greet('World');
+
+// Check result
+if (result.ok) {
+  console.log(result.data); // "Hello, World!"
+}
+```
+
+## Procedure Types
+
+### Sync Procedures
+
+When the handler is synchronous, the procedure returns `ZagoraResult<T>`:
+
+```js
+const add = zagora()
+  .input(z.tuple([z.number(), z.number()]))
+  .handler((_, a, b) => a + b)
+  .callable();
+
+const result = add(1, 2); // ZagoraResult<number>
+```
+
+### Async Procedures
+
+When the handler is async or returns a Promise, the procedure returns `Promise<ZagoraResult<T>>`:
+
+```js
+const fetchData = zagora()
+  .input(z.string())
+  .handler(async (_, url) => {
+    const res = await fetch(url);
+    return res.json();
+  })
+  .callable();
+
+const result = await fetchData('/api'); // Promise<ZagoraResult<any>>
+```
+
+## Without Input
+
+Procedures can have no input:
+
+```js
+const getTimestamp = zagora()
+  .handler(() => Date.now())
+  .callable();
+
+const result = getTimestamp(); // No arguments needed
+```
+
+## With Runtime Options
+
+Pass context, cache, or env at call time:
+
+```js
+const query = zagora()
+  .input(z.string())
+  .handler(({ context }, sql) => context.db.query(sql))
+  .callable({ context: { db: productionDb } });
+
+// Or override at call site by creating a new callable
+const testQuery = query.callable({ context: { db: testDb } });
+```
+
+## Next Steps
+
+- [Input Validation](/docs/input-validation) - Define and validate inputs
+- [Output Validation](/docs/output-validation) - Ensure return values match schemas
+- [Typed Errors](/docs/typed-errors) - Create structured error responses

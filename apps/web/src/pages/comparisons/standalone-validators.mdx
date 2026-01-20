@@ -1,0 +1,276 @@
+# vs Standalone Validators [Why use Zagora over Zod/Valibot alone]
+
+Zod, Valibot, and other validators are excellent for data validation. Zagora adds an ergonomic layer for building functions.
+
+## Feature Comparison
+
+| Aspect | Zagora | Zod/Valibot alone |
+|--------|--------|-------------------|
+| Fluent builder pattern | Yes (`.input().output().handler()`) | Manual composition |
+| Unified result shape | Yes (`{ ok, data, error }`) | `.parse()` throws, `.safeParse()` returns |
+| Typed error helpers | Yes (from schema definitions) | No |
+| Handler definition | Integrated | Separate from validation |
+| Multiple arguments | Yes (tuple schemas spread) | Manual handling |
+| Context injection | Built-in | Not applicable |
+| Caching integration | Built-in | Manual |
+| Env vars validation | Built-in | Manual setup |
+
+## Key Differences
+
+### 1. Building Functions
+
+**Zod alone:** Validation separate from logic
+
+```js
+import { z } from 'zod';
+
+const inputSchema = z.object({ name: z.string(), age: z.number() });
+const outputSchema = z.object({ greeting: string });
+
+function createGreeting(input: z.infer<typeof inputSchema>) {
+  const validated = inputSchema.parse(input);  // Throws on error!
+  return { greeting: `Hello ${validated.name}, age ${validated.age}` };
+}
+
+// Or with safeParse
+function createGreetingSafe(input: unknown) {
+  const result = inputSchema.safeParse(input);
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+  return { success: true, data: { greeting: `Hello ${result.data.name}` } };
+}
+```
+
+**Zagora:** All-in-one builder
+
+```js
+const createGreeting = zagora()
+  .input(z.object({ name: z.string(), age: z.number() }))
+  .output(z.object({ greeting: z.string() }))
+  .handler((_, { name, age }) => ({
+    greeting: `Hello ${name}, age ${age}`
+  }))
+  .callable();
+
+// Unified API, always safe
+const result = createGreeting({ name: 'Alice', age: 25 });
+```
+
+### 2. Error Handling
+
+**Zod alone:** Different patterns for safe vs unsafe
+
+```js
+// Option 1: throws
+try {
+  const data = schema.parse(input);
+} catch (e) {
+  if (e instanceof z.ZodError) {
+    // handle validation error
+  }
+}
+
+// Option 2: safeParse
+const result = schema.safeParse(input);
+if (result.success) {
+  // use result.data
+} else {
+  // use result.error
+}
+```
+
+**Zagora:** Consistent result shape
+
+```js
+const result = proc(input);
+
+if (result.ok) {
+  result.data;   // Your data
+} else {
+  result.error;  // Always { kind, message, ... }
+}
+```
+
+### 3. Typed Errors
+
+**Zod alone:** No typed error helpers
+
+```js
+// Must define and throw errors manually
+class NotFoundError extends Error {
+  constructor(public id: string) {
+    super('Not found');
+  }
+}
+
+function getUser(id: string) {
+  const user = db.find(id);
+  if (!user) throw new NotFoundError(id);
+  return user;
+}
+```
+
+**Zagora:** Schema-validated error helpers
+
+```js
+const getUser = zagora()
+  .input(z.string())
+  .errors({
+    NOT_FOUND: z.object({ id: z.string(), message: z.string() })
+  })
+  .handler(({ errors }, id) => {
+    const user = db.find(id);
+    if (!user) {
+      throw errors.NOT_FOUND({ id, message: 'User not found' });
+    }
+    return user;
+  })
+  .callable();
+
+// Error payload is validated at runtime!
+```
+
+### 4. Multiple Arguments
+
+**Zod alone:** Manual handling
+
+```js
+const argsSchema = z.tuple([z.string(), z.number(), z.boolean()]);
+
+function myFunc(...args: z.infer<typeof argsSchema>) {
+  const [name, age, active] = argsSchema.parse(args);
+  // ...
+}
+```
+
+**Zagora:** Automatic spreading
+
+```js
+const myFunc = zagora()
+  .input(z.tuple([z.string(), z.number(), z.boolean()]))
+  .handler((_, name, age, active) => {
+    // Arguments are automatically spread and typed
+  })
+  .callable();
+
+myFunc('Alice', 25, true);  // Natural call signature
+```
+
+### 5. Context and Dependencies
+
+**Zod alone:** Manual prop drilling
+
+```js
+function createUser(
+  input: CreateUserInput,
+  db: Database,
+  logger: Logger
+) {
+  logger.log('Creating user');
+  return db.create(input);
+}
+```
+
+**Zagora:** Built-in context
+
+```js
+const createUser = zagora()
+  .context({ db: myDb, logger: myLogger })
+  .input(createUserSchema)
+  .handler(({ context }, input) => {
+    context.logger.log('Creating user');
+    return context.db.create(input);
+  })
+  .callable();
+```
+
+## Code Comparison
+
+### Complete Example
+
+**Zod alone:**
+
+```js
+import { z } from 'zod';
+
+const userInput = z.object({
+  name: z.string(),
+  email: z.string().email()
+});
+
+const userOutput = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string()
+});
+
+type CreateUserResult = 
+  | { success: true; data: z.infer<typeof userOutput> }
+  | { success: false; error: z.ZodError | Error };
+
+function createUser(input: unknown): CreateUserResult {
+  const parsed = userInput.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error };
+  }
+  
+  try {
+    const user = {
+      id: crypto.randomUUID(),
+      ...parsed.data
+    };
+    
+    const validated = userOutput.parse(user);
+    return { success: true, data: validated };
+  } catch (e) {
+    return { success: false, error: e as Error };
+  }
+}
+```
+
+**Zagora:**
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+const createUser = zagora()
+  .input(z.object({
+    name: z.string(),
+    email: z.string().email()
+  }))
+  .output(z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string()
+  }))
+  .handler((_, input) => ({
+    id: crypto.randomUUID(),
+    ...input
+  }))
+  .callable();
+```
+
+## When to Use Each
+
+### Use Zod/Valibot Alone When
+
+- You only need data validation (not function building)
+- You're validating API responses or form data
+- You have an existing error handling strategy
+- You want minimal dependencies
+
+### Use Zagora When
+
+- You're building functions or procedures
+- You want unified input/output/error handling
+- You need typed error helpers
+- You want natural function signatures with multiple arguments
+- You need context injection or caching
+
+## Philosophy
+
+Zod/Valibot are validation libraries—they validate data. Zagora is a procedure builder that uses validation libraries under the hood to create type-safe, error-safe functions.
+
+Zagora doesn't replace Zod—it's built on top of StandardSchema validators to provide an ergonomic function-building layer.

@@ -1,0 +1,152 @@
+# Input Validation [Validate arguments with schemas]
+
+Input validation ensures your procedures receive correctly typed and validated data at runtime.
+
+## Basic Input
+
+Define an input schema using any StandardSchema-compliant validator:
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+const greet = zagora()
+  .input(z.string())
+  .handler((_, name) => `Hello, ${name}!`)
+  .callable();
+
+greet('Alice');  // { ok: true, data: 'Hello, Alice!' }
+greet(123);      // { ok: false, error: { kind: 'VALIDATION_ERROR', ... } }
+```
+
+## Object Inputs
+
+For structured data, use object schemas:
+
+```js
+const createUser = zagora()
+  .input(z.object({
+    name: z.string().min(1),
+    email: z.string().email(),
+    age: z.number().optional()
+  }))
+  .handler((_, input) => {
+    // input: { name: string, email: string, age?: number }
+    return { id: '123', ...input };
+  })
+  .callable();
+
+createUser({ name: 'Alice', email: 'alice@example.com' });
+```
+
+## Tuple Inputs (Multiple Arguments)
+
+Use tuple schemas to define multiple arguments with per-argument validation:
+
+```js
+const add = zagora()
+  .input(z.tuple([z.number(), z.number()]))
+  .handler((_, a, b) => a + b)  // Arguments are spread
+  .callable();
+
+add(5, 10);  // { ok: true, data: 15 }
+```
+
+With defaults and optionals:
+
+```js
+const greet = zagora()
+  .input(z.tuple([
+    z.string(),                    // Required
+    z.number().default(18),        // Optional with default
+    z.string().optional()          // Optional (undefined allowed)
+  ]))
+  .handler((_, name, age, title) => {
+    // name: string
+    // age: number (never undefined due to default!)
+    // title: string | undefined
+    return `${title || 'User'} ${name}, age ${age}`;
+  })
+  .callable();
+
+greet('Alice');              // "User Alice, age 18"
+greet('Bob', 25);            // "User Bob, age 25"
+greet('Carol', 30, 'Dr.');   // "Dr. Carol, age 30"
+```
+
+## Array Inputs
+
+For variable-length inputs of the same type:
+
+```js
+const sum = zagora()
+  .input(z.array(z.number()))
+  .handler((_, numbers) => {
+    return numbers.reduce((a, b) => a + b, 0);
+  })
+  .callable();
+
+sum([1, 2, 3, 4, 5]);  // { ok: true, data: 15 }
+```
+
+## Validation Errors
+
+When input validation fails, you get a structured error:
+
+```js
+const result = createUser({ name: '', email: 'invalid' });
+
+if (!result.ok && result.error.kind === 'VALIDATION_ERROR') {
+  console.log(result.error.issues);
+  // [
+  //   { path: ['name'], message: 'String must contain at least 1 character(s)' },
+  //   { path: ['email'], message: 'Invalid email' }
+  // ]
+}
+```
+
+## Using Different Validators
+
+Zagora works with any StandardSchema validator:
+
+### Valibot
+
+```js
+import * as v from 'valibot';
+import { zagora } from 'zagora';
+
+const greet = zagora()
+  .input(v.string())
+  .handler((_, name) => `Hello, ${name}!`)
+  .callable();
+```
+
+### ArkType
+
+```js
+import { type } from 'arktype';
+import { zagora } from 'zagora';
+
+const greet = zagora()
+  .input(type('string'))
+  .handler((_, name) => `Hello, ${name}!`)
+  .callable();
+```
+
+## No Input
+
+Procedures can omit input entirely:
+
+```js
+const getTime = zagora()
+  .handler(() => new Date().toISOString())
+  .callable();
+
+getTime();  // { ok: true, data: '2024-01-15T10:30:00.000Z' }
+```
+
+## Next Steps
+
+- [Output Validation](/docs/output-validation) - Validate return values
+- [Tuple Arguments](/docs/tuple-arguments) - Deep dive into multiple arguments
+- [Default Values](/docs/default-values) - Auto-fill missing arguments
