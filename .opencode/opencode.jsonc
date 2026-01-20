@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-antigravity-auth", "opencode-type-inject"],
+  "plugin": ["opencode-antigravity-auth", "@nick-vi/opencode-type-inject"],
   "instructions": [
     "AGENTS.md"
   ],
