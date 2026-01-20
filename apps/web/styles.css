@@ -19,6 +19,10 @@
   /* Amber accent for highlights */
   --zagora-amber-400: #fbbf24;
   --zagora-amber-500: #f59e0b;
+
+  /* Vocs layout overrides - widen content */
+  --vocs-content_width: 850px;
+  --vocs-content_horizontalPadding: 48px;
 }
 
 /* Code block styling */
@@ -110,6 +114,26 @@
 /* Hero section enhancements */
 .vocs_HomePage_tagline {
   max-width: 800px;
+}
+
+/* Widen the homepage content */
+.vocs_HomePage_root {
+  max-width: var(--vocs-content_width);
+}
+
+/* Widen the main content area on docs pages */
+.vocs_Content {
+  max-width: var(--vocs-content_width);
+}
+
+/* Widen the landing page layout */
+/*[data-layout="landing"] .vocs_Content {
+  max-width: 900px;
+}*/
+
+/* Make code examples wider on homepage */
+.vocs_HomePage_root pre {
+  max-width: 100%;
 }
 
 /* Footer styling */

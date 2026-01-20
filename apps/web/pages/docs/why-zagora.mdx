@@ -19,16 +19,16 @@ function getUser(id: string): User {
 const user = getUser('123'); // May crash your app
 ```
 
-### RPC Frameworks Are Overkill
+### RPC Frameworks Are Overkill for Libraries
 
-oRPC and tRPC are excellent for APIs, but they come with baggage:
+oRPC and tRPC are excellent for APIs, but they come with baggage for library building:
 
 - Always async (even for sync operations)
-- Require network layer concepts (routers, middleware)
+- Require router infrastructure (even for server-side calls)
 - Single object inputs only (`{ name, age }` not `name, age`)
-- Designed for client-server, not library building
+- Designed for API documentation and HTTP semantics
 
-**Note:** Yet, you can [build groups/routers](/advanced/building-routers) with zagora, or use it in server handlers - expose the raw procedure (without calling `.callable()`), then loop over them an call `.callable({ context, cache })`.
+**However:** When you do need routers, middleware, or HTTP integration, Zagora makes it easy. See [Building Routers](/advanced/building-routers) for patterns including authenticated procedures and framework integration. You can also [generate OpenAPI specs](/advanced/openapi) using StandardSchema helpers.
 
 ### Functional Libraries Have Steep Learning Curves
 
@@ -115,14 +115,18 @@ const result = await fetch('/api'); // Promise<ZagoraResult>
 **Use Zagora when:**
 - Building libraries or SDKs with type-safe APIs
 - Creating internal tooling with validated inputs
-- You want error-safe functions without RPC complexity
+- You want error-safe functions without forced async everywhere
 - You need sync procedures (not everything is async)
 - You prefer natural function signatures (`fn(a, b)` not `fn({ a, b })`)
+- You want runtime validation of error payloads, not just compile-time
+
+**Need APIs too?** Zagora works great for HTTP APIs - see [Building Routers](/advanced/building-routers) for middleware patterns, context injection, and framework integration. You can also [generate OpenAPI specs](/advanced/openapi).
 
 **Use oRPC/tRPC when:**
-- Building client-server APIs
-- You need routers, middleware, and network features
-- Everything is already async anyway
+- You need built-in OpenAPI spec generation (oRPC)
+- You want tight Next.js integration (tRPC)
+- You need batching and request deduplication
+- Your entire team is already using these patterns
 
 **Use Effect.ts when:**
 - You want a complete effect system

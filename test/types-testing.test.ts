@@ -48,6 +48,7 @@ import type {
   ResolveProcedure,
   SpreadTuple,
   UppercaseKeys,
+  ZagoraDef,
   ZagoraResult,
 } from "../src/types";
 import {
@@ -687,3 +688,18 @@ test("type test zagora options", () => {
     foo: true,
   });
 });
+
+  test('callable procedure types > should have ~zagora property typed correctly', () => {
+    const procedure = zagora()
+      .input(z.string())
+      .handler((_, id) => id)
+      .callable();
+
+    // TypeScript should allow this without errors
+    const meta: Partial<ZagoraDef<any, any, any, any, any, any>> = procedure['~zagora'];
+
+    // Ensure metadata properties are accessible
+    const _inputSchema = meta.inputSchema;
+    const _outputSchema = meta.outputSchema;
+    const _errorsMap = meta.errorsMap;
+  });

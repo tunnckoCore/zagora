@@ -5,10 +5,11 @@ export default defineConfig({
   titleTemplate: "%s - Zagora",
   description:
     "Build type-safe, error-safe functions that never throw. Full TypeScript inference with tuple arguments, sync/async awareness, and typed error handling.",
-  rootDir: "src",
+  rootDir: ".",
   theme: {
     accentColor: "#f97316", // Orange-500
   },
+
   socials: [
     { icon: "github", link: "https://github.com/tunnckoCore/zagora" },
     { icon: "x", link: "https://twitter.com/wgw_eth" },
@@ -92,7 +93,7 @@ export default defineConfig({
           { text: "vs oRPC / tRPC", link: "/comparisons/rpc-frameworks" },
           {
             text: "vs neverthrow / Effect",
-            link: "/comparisons/error-libraries",
+            link: "/comparisons/functional-libraries",
           },
           {
             text: "vs Plain TypeScript",
@@ -111,6 +112,7 @@ export default defineConfig({
         items: [
           { text: "Type Safety Deep Dive", link: "/advanced/type-safety" },
           { text: "Building Routers", link: "/advanced/building-routers" },
+          { text: "Generating OpenAPI", link: "/advanced/openapi" },
           { text: "Testing Procedures", link: "/advanced/testing" },
           { text: "Best Practices", link: "/advanced/best-practices" },
         ],

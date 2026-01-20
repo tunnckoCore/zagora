@@ -459,11 +459,24 @@ export class Zagora<
             : TResult
       : TResult;
 
-    return forwardProcedure as TInputSchema extends AnySchema
+    const procedure = forwardProcedure as TInputSchema extends AnySchema
       ? InferSchemaInput<TInputSchema> extends readonly [any, ...any[]]
         ? SpreadTuple<InferSchemaInput<TInputSchema>, TFinalResult>
         : (arg: InferSchemaInput<TInputSchema>) => TFinalResult
       : () => TFinalResult;
+
+    const proc = procedure as (typeof procedure & { '~zagora': Partial<ZagoraDef<
+      TContext,
+      TInputSchema,
+      TOutputSchema,
+      TErrorsMap,
+      TEnvVarsMap,
+      TCacheAdapter
+    >> });
+
+    proc["~zagora"] = this["~zagora"];
+
+    return proc;
   }
 
   callable<
