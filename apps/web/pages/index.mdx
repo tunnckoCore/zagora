@@ -14,6 +14,8 @@ import { HomePage } from 'vocs/components';
   <HomePage.Buttons>
     <HomePage.Button href="/docs/getting-started" variant="accent">Get Started</HomePage.Button>
     <HomePage.Button href="https://github.com/tunnckoCore/zagora/tree/feat/docs">GitHub</HomePage.Button>
+    <HomePage.Button href="https://zagora.wgw.lol/llms-full.txt">Agents Ready</HomePage.Button>
+    <HomePage.Button href="https://zagora.wgw.lol/llms.txt">llms.txt</HomePage.Button>
   </HomePage.Buttons>
 </HomePage.Root>
 
@@ -63,15 +65,19 @@ if (result.ok) {
 
 ## Features
 
-### Minimal & Standards-Based
+### Unmatched Robustness
 
-Zagora is lightweight with zero bloat, built entirely on StandardSchema for universal validation. This means you can use Zod, Valibot, ArkType, or any compliant validator. No lock-in, just the tools you already know and love.
+Zagora achieves 100% test coverage, ensuring every aspect of the library is rigorously tested for reliability and correctness. Complementing this, it includes **dedicated type tests** that utilize `expectType` to verify TypeScript types at compile time. Together, these provide robust guarantees that both the compile-time and runtime systems match, delivering confidence of another level.
+
+### Minimal and Standards-Based
+
+Zagora is lightweight with zero dependencies and bloat, built entirely on [StandardSchema](https://standardschema.dev) for universal validation. This means you can use Zod, Valibot, ArkType, or any compliant validator. No lock-in, just the tools you already know and love.
 
 ### Never-Throwing Execution
 
-Every function returns a predictable `{ ok, data, error }` result—exceptions are eliminated completely. Your process never crashes from unhandled errors, similar to Effect.ts or neverthrow. This gives you total control and deterministic error handling across your entire codebase.
+Every function returns a predictable `{ ok, data, error }` result -- exceptions are eliminated completely. Your process never crashes from unhandled errors, similar to Effect.ts or neverthrow. This gives you total control and deterministic error handling across your entire codebase.
 
-### Typed Error System
+### Typed Errors System
 
 Define error schemas upfront and get strongly-typed error helpers inside your handlers. Each error kind is validated at runtime and fully typed at compile-time. You'll never see `try/catch` blocks or guess error shapes again.
 
@@ -79,13 +85,17 @@ Define error schemas upfront and get strongly-typed error helpers inside your ha
 
 Complete TypeScript inference across inputs, outputs, errors, context, defaults, and optionals. Even JavaScript consumers get full autocomplete and IntelliSense support. The type system has been battle-tested with dedicated type-level tests.
 
-### Tuple Arguments Support
+### Multiple Arguments Support
 
 Define multiple function arguments using schema tuples with per-argument validation and defaults. Call your functions naturally like `fn('Alice', 25)` instead of `fn({ name: 'Alice', age: 25 })`. This creates a familiar API that feels like native TypeScript functions.
 
-### Sync & Async Awareness
+### Granular Diagnostics
 
-Zagora dynamically infers whether procedures are sync or async based on handler and schema behavior. Sync handlers return `Result`, async handlers return `Promise<Result>`—no forced async everywhere. This is impossible with oRPC/tRPC where everything is always async.
+Zagora supports compile-time reporting for each argument through TypeScript in IDEs and CLIs, catching potential errors before runtime. This diagnostic capability operates at every level, from schema validation to handler invocationm, to context, to environment variables. Developers receive immediate, precise feedback on argument mismatches, improving code reliability and productivity.
+
+### Sync & Async Awareness at every level
+
+Zagora dynamically infers whether procedures are sync or async based on handler and schema behavior. Sync handlers return `Result`, async handlers return `Promise<Result>` -- no forced async everywhere. This is impossible with oRPC/tRPC where everything is always async.
 
 ### Built-in Caching
 
@@ -93,7 +103,7 @@ Add memoization to any procedure with a simple cache adapter. Cache keys include
 
 ### Just Pure Functions
 
-Zagora produces regular TypeScript functions—no special clients, routers, or network glue required. Export your procedures directly and call them like any other function. Perfect for building type-safe libraries, SDKs, and internal tooling.
+Zagora produces regular TypeScript functions -- no special clients, routers, or network glue required. Export your procedures directly and call them like any other function. Perfect for building type-safe libraries, SDKs, and internal tooling.
 
 ### Env Vars Validation
 
