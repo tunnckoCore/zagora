@@ -52,7 +52,7 @@ export type UppercaseKeys<T> = {
 export type ZagoraEnvVars =
   | Record<string, string>
   | NodeJS.ProcessEnv
-  | ImportMetaEnv;
+  | Record<string, string | undefined>;
 
 export type Prettify<T> = {
   [K in keyof T]: T[K];
