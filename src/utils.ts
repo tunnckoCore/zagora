@@ -44,7 +44,7 @@ export function validateError<TKindNames>(
   }
 
   const kind = error?.kind;
-  if (kind in errorsMap) {
+  if (kind != null && Object.prototype.hasOwnProperty.call(errorsMap, kind)) {
     const kindName = kind as TKindNames;
     const schema = errorsMap[kindName as any] as any;
     const { kind: _, ...cleanedError } = error;
