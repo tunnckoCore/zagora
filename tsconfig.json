@@ -23,7 +23,11 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true,
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "paths": {
+      "zagora": ["./src/index.ts"],
+      "zagora/*": ["./src/*"]
+    }
   },
   "include": ["src", "test"],
   "exclude": ["node_modules", "dist"]
