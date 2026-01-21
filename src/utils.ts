@@ -81,11 +81,22 @@ export function processHandler(
   cacheAdapter: any,
   incoming: any, // inputSchema, outputSchema, errorsMapSchema, envVarsMapSchema
 ) {
-  const key = cacheAdapter
-    ? getCacheHash(
+  let key = "";
+
+  if (cacheAdapter) {
+    try {
+      // TODO: we should have a better serializer a bit later
+      key = getCacheHash(
         JSON.stringify({ ...incoming, fnStr: handlerFn.toString(), args }),
-      )
-    : "";
+      );
+    } catch (error) {
+      return createResult(
+        null,
+        createInternalError("Failed to compute cache key", error),
+        false,
+      );
+    }
+  }
 
   if (cacheAdapter) {
     const ret = tryCatch(() => cacheAdapter.has?.(key), false, "has");
