@@ -163,9 +163,10 @@ const proc = zagora()
 ```js
 const proc = os
   .errors({
-    NOT_FOUND: z.object({ id: z.number() }),
+    NOT_FOUND: {
+      data: z.object({ id: z.number() })
+    },
     RATE_LIMIT: {
-      message: 'User exceeded quota'
       data: z.object({
         retryAfter: z.number(),
       }),
@@ -179,7 +180,10 @@ const proc = os
     
     // Invalid error payload = VALIDATION_ERROR,
     // it is also reported immediately by TypeScript
-    throw errors.RATE_LIMIT({ message: 'bruh', data: { wrongField: 'x' } });  
+    throw errors.RATE_LIMIT({ 
+      message: 'User exceeded quota', 
+      data: { wrongField: 'x' }
+    });  
     // Caught at compile-time and runtime!
   });
 ```

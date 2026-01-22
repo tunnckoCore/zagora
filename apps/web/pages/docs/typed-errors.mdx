@@ -121,7 +121,7 @@ Returned when input, output, or error payload validation fails:
 
 ### UNKNOWN_ERROR
 
-Returned when an untyped error is thrown:
+Returned when an untyped error is thrown (uncaught excception, TypeError, SyntaxError, anything inside the handler):
 
 ```js
 .handler(() => {
@@ -135,6 +135,8 @@ Returned when an untyped error is thrown:
   cause: Error('Something went wrong')
 }
 ```
+
+**NOTE:** Currently, when there is a failure fired in Cache Adapter methods it throws that error kind too, but soon it will throw it's own kind.
 
 ## Error Validation
 
