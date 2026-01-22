@@ -13,8 +13,8 @@ Zagora and RPC frameworks like oRPC and tRPC have different design goals. Here's
 | Network layer required | No | Optional (server-side callable) | Optional (server-side callable) |
 | Router concept | Optional (DIY) | Required | Required |
 | Middleware system | No (external/DIY) | Yes | Yes |
-| Typed errors | Yes (schema-validated) | Yes (compile-time) | Partial |
-| Error payload validation | Yes (runtime) | No | No |
+| Typed errors | Yes | Yes | Partial |
+| Error payload validation | Yes | Yes | No |
 | StandardSchema support | Yes | Yes | Partial |
 | OpenAPI generation | DIY (see guide) | Built-in | Plugin |
 | Bundle size | Minimal | Moderate | Moderate |
@@ -68,15 +68,19 @@ sendEmail({ to: 'to@example.com', subject: 'Subject', body: 'Body' });
 **Zagora:** Routers are optional - export procedures directly or [build your own patterns](/advanced/building-routers)
 
 ```js
+const db = { foo: 'bar' };
+
 // Export directly - it's just a function
 export const createUser = zagora()
-  .input(schema)
+  .input(z.tuple([z.string(), z.number()]))
   .handler(handler)
-  .callable();
+  .callable({ context: { db } });
 
 // Consumer imports and calls
 import { createUser } from 'your-library';
-createUser({ name: 'Alice' });
+
+// no need for await
+const result = createUser('Alice', 25);
 ```
 
 **oRPC/tRPC:** Routers are required, even for server-side usage
@@ -92,30 +96,92 @@ const appRouter = router({
 // Even server-side calls go through the router
 ```
 
+Yes, in oRPC you can technically use its `.callable()`, but it still has the general drawbacks
+
+```ts
+import { os } from '@orpc/server';
+
+const db = { foo: 'bar' };
+
+const greeting = os
+  .input(z.object({ name: z.string() }))
+  .output(z.object({ greet: z.string(), id: z.number() }))
+  .handler(({ input, context }) => { // sync handler
+    return { greet: `hello ${input.name} and ${context.db.foo}`, id: 1 }
+  })
+  .callable({ context: { db } });
+
+// required to await, eventho it is sync
+const result = await greeting({ name: 'Alice' });
+```
+
+or use its `call` helper util
+
+```ts
+import { call, os } from '@orpc/server'
+
+const db = { foo: 'bar' };
+
+const example = os
+  .input(z.object({ name: z.string() }))
+  .output(z.object({ greet: z.string(), id: z.number() }))
+  .handler(({ input, context }) => { // sync handler
+    return { greet: `hello ${input.name} and ${context.db.foo}`, id: 1 }
+  })
+
+// required to await, eventho it is sync
+const result = await call(example, { name: 'Alice' }, { context: { db } });
+```
+
 ### 4. Error Handling
 
-**Zagora:** Schema-validated typed errors with runtime validation
+**Zagora/oRPC:** Schema-validated typed errors with runtime error payload/data validation and compile-time type checking.
 
 ```js
 const proc = zagora()
   .errors({
-    NOT_FOUND: z.object({ id: z.string() }),  // Schema validated at runtime!
+    NOT_FOUND: z.object({ id: z.number() }),
     RATE_LIMIT: z.object({ retryAfter: z.number() }),
   })
-  .handler(({ errors }) => {
-    throw errors.NOT_FOUND({ id: '123' });
+  .input(z.string())
+  .handler(({ errors }, mode) => {
+    if (mode === 'err') {
+      // can be just returned too
+      throw errors.NOT_FOUND({ id: 123 });
+    }
+    
+    // Invalid error payload = VALIDATION_ERROR,
+    // it is also reported immediately by TypeScript
+    throw errors.RATE_LIMIT({ wrongField: 'x' });  
+    // Caught at compile-time and runtime!
   });
 
-// Invalid error payload = VALIDATION_ERROR
-throw errors.NOT_FOUND({ wrongField: 'x' });  // Caught at runtime!
 ```
 
-**oRPC:** Typed errors (compile-time), but HTTP-oriented with some quirks
+**oRPC:** Typed errors are built-in, but HTTP-oriented with some quirks because of that
 
 ```js
-// oRPC has typed errors, but they're HTTP-focused
-throw new ORPCError('NOT_FOUND', { message: 'User not found' });
-// Error shape is not schema-validated at runtime
+const proc = os
+  .errors({
+    NOT_FOUND: z.object({ id: z.number() }),
+    RATE_LIMIT: {
+      message: 'User exceeded quota'
+      data: z.object({
+        retryAfter: z.number(),
+      }),
+    }
+  })
+  .input(z.object({ mode: z.string() }))
+  .handler(({ input, context, errors }) => {
+    if (input.mode === 'err') {
+        throw errors.NOT_FOUND({ id: '123' });
+    }
+    
+    // Invalid error payload = VALIDATION_ERROR,
+    // it is also reported immediately by TypeScript
+    throw errors.RATE_LIMIT({ message: 'bruh', data: { wrongField: 'x' } });  
+    // Caught at compile-time and runtime!
+  });
 ```
 
 **tRPC:** Error classes without schema validation
@@ -130,7 +196,7 @@ throw new TRPCError({
 
 ### 5. Server-Side Usage
 
-Both oRPC and tRPC support "server-side clients" for calling procedures without network overhead. However, they still require the router infrastructure.
+Both oRPC and tRPC support "server-side clients" for calling procedures without network overhead.
 
 **Zagora:** No special setup needed - procedures are just functions
 
@@ -142,7 +208,7 @@ app.post('/users', async (c) => {
 });
 ```
 
-**oRPC/tRPC:** Server-side clients require router context
+**oRPC/tRPC:** Server-side clients require router context, or using the `call` helper utility.
 
 ```js
 // Still need router + context setup
