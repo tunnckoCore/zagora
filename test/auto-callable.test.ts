@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test, describe } from "vitest";
+import { describe, expect, test } from "vitest";
 import z from "zod";
 import { zagora } from "../src/index";
 
@@ -23,8 +23,8 @@ test("autoCallable: false (default) - requires .callable() call", () => {
   }
 });
 
-describe('callable procedure metadata', () => {
-  test('should expose ~zagora metadata on callable procedures', () => {
+describe("callable procedure metadata", () => {
+  test("should expose ~zagora metadata on callable procedures", async () => {
     const inputSchema = z.object({ id: z.string() });
     const outputSchema = z.object({ name: z.string() });
     const errorsMap = { NOT_FOUND: z.object({ id: z.string() }) };
@@ -32,32 +32,38 @@ describe('callable procedure metadata', () => {
       .input(inputSchema)
       .output(outputSchema)
       .errors(errorsMap)
-      .handler(async (_, input) => ({ name: 'test' }))
+      .handler(async (_, input) => ({ name: `test-${input.id}` }))
       .callable();
-    expect(procedure).toHaveProperty('~zagora');
-    expect(procedure['~zagora']).toHaveProperty('inputSchema', inputSchema);
-    expect(procedure['~zagora']).toHaveProperty('outputSchema', outputSchema);
-    expect(procedure['~zagora']).toHaveProperty('errorsMap', errorsMap);
+    expect(procedure).toHaveProperty("~zagora");
+    expect(procedure["~zagora"]).toHaveProperty("inputSchema", inputSchema);
+    expect(procedure["~zagora"]).toHaveProperty("outputSchema", outputSchema);
+    expect(procedure["~zagora"]).toHaveProperty("errorsMap", errorsMap);
+    const result = await procedure({ id: "foo" });
+    if (result.ok) {
+      expect(result.data).toEqual({ name: "test-foo" });
+    } else {
+      expect.fail("should not fail");
+    }
   });
-  test('should preserve metadata after calling the procedure', () => {
+  test("should preserve metadata after calling the procedure", () => {
     const procedure = zagora()
       .input(z.string())
       .handler((_, id) => id)
       .callable();
     // Call procedure multiple times
-    procedure('test1');
-    procedure('test2');
+    procedure("test1");
+    procedure("test2");
     // Metadata should still be available
-    expect(procedure['~zagora']).toBeDefined();
-    expect(procedure['~zagora'].inputSchema).toBeDefined();
+    expect(procedure["~zagora"]).toBeDefined();
+    expect(procedure["~zagora"].inputSchema).toBeDefined();
   });
-  test('should not affect procedure functionality', () => {
+  test("should not affect procedure functionality", () => {
     const procedure = zagora()
       .input(z.string())
       .handler((_, str) => str.toUpperCase())
       .callable();
-    expect(procedure('hello')).toEqual({ ok: true, data: 'HELLO' });
-    expect(procedure['~zagora']).toBeDefined();
+    expect(procedure("hello")).toEqual({ ok: true, data: "HELLO" });
+    expect(procedure["~zagora"]).toBeDefined();
   });
 });
 

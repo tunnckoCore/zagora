@@ -465,14 +465,18 @@ export class Zagora<
         : (arg: InferSchemaInput<TInputSchema>) => TFinalResult
       : () => TFinalResult;
 
-    const proc = procedure as (typeof procedure & { '~zagora': Partial<ZagoraDef<
-      TContext,
-      TInputSchema,
-      TOutputSchema,
-      TErrorsMap,
-      TEnvVarsMap,
-      TCacheAdapter
-    >> });
+    const proc = procedure as typeof procedure & {
+      "~zagora": Partial<
+        ZagoraDef<
+          TContext,
+          TInputSchema,
+          TOutputSchema,
+          TErrorsMap,
+          TEnvVarsMap,
+          TCacheAdapter
+        >
+      >;
+    };
 
     proc["~zagora"] = this["~zagora"];
 

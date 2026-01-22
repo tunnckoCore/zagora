@@ -255,7 +255,7 @@ export type SpreadTuple<T extends readonly any[], R> = T extends readonly [
                   | ((arg1: A, arg2: B) => R)
                   | ((arg1: A) => R)
               :
-                  | ((arg1: A, arg2: B, arg3: C, arg4?: D) => R)
+                  | ((arg1: A, arg2: B, arg3: C, arg4: D) => R)
                   | ((arg1: A, arg2: B, arg3: C) => R)
                   | ((arg1: A, arg2: B) => R)
                   | ((arg1: A) => R)

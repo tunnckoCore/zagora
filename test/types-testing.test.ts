@@ -27,7 +27,7 @@
  * Run with: `bun run typecheck`
  */
 
-import { expectTypeOf, test } from "vitest";
+import { expect, expectTypeOf, test } from "vitest";
 import { z } from "zod";
 import type {
   createInternalError,
@@ -36,7 +36,7 @@ import type {
   InternalError,
   ValidationError,
 } from "../src/errors";
-import { zagora } from "../src/index";
+import { Zagora, zagora } from "../src/index";
 import type {
   AnySchema,
   ConditionalAsync,
@@ -48,7 +48,6 @@ import type {
   ResolveProcedure,
   SpreadTuple,
   UppercaseKeys,
-  ZagoraDef,
   ZagoraResult,
 } from "../src/types";
 import {
@@ -689,17 +688,108 @@ test("type test zagora options", () => {
   });
 });
 
-  test('callable procedure types > should have ~zagora property typed correctly', () => {
-    const procedure = zagora()
-      .input(z.string())
-      .handler((_, id) => id)
-      .callable();
+test("should have ~zagora property typed correctly on buiulder and on callable", () => {
+  const procedure = zagora()
+    .input(z.string())
+    .handler((_, id) => id)
+    .callable();
 
-    // TypeScript should allow this without errors
-    const meta: Partial<ZagoraDef<any, any, any, any, any, any>> = procedure['~zagora'];
+  // TypeScript should allow this without errors
+  const meta = procedure["~zagora"];
 
-    // Ensure metadata properties are accessible
-    const _inputSchema = meta.inputSchema;
-    const _outputSchema = meta.outputSchema;
-    const _errorsMap = meta.errorsMap;
-  });
+  expect(typeof procedure).toEqual("function");
+
+  // Ensure metadata properties are accessible
+  const _inputSchema = meta.inputSchema;
+  const _outputSchema = meta.outputSchema;
+  const _errorsMap = meta.errorsMap;
+
+  const builder = zagora()
+    .input(z.string())
+    .handler((_, id) => id);
+
+  expect(builder).toBeInstanceOf(Zagora);
+
+  const metaFromBuilder = builder["~zagora"];
+  // Ensure metadata properties are accessible
+  const _in = metaFromBuilder.inputSchema;
+  const _out = metaFromBuilder.outputSchema;
+  const _err = metaFromBuilder.errorsMap;
+});
+
+test("SpreadTuple works for 4-argument tuple", () => {
+  // Four element tuple (all required)
+  type Spread8 = SpreadTuple<readonly [string, number, boolean, object], void>;
+  expectTypeOf<Spread8>().toEqualTypeOf<
+    | ((arg1: string, arg2: number, arg3: boolean, arg4: object) => void)
+    | ((arg1: string, arg2: number, arg3: boolean) => void)
+    | ((arg1: string, arg2: number) => void)
+    | ((arg1: string) => void)
+  >();
+});
+
+test("SpreadTuple works for 4-element tuple (last optional)", () => {
+  // Four element tuple (last optional)
+  type Spread9 = SpreadTuple<
+    readonly [string, number, boolean, object | undefined],
+    void
+  >;
+  expectTypeOf<Spread9>().toEqualTypeOf<
+    | ((
+        arg1: string,
+        arg2: number,
+        arg3: boolean,
+        arg4?: object | undefined,
+      ) => void)
+    | ((arg1: string, arg2: number, arg3: boolean) => void)
+    | ((arg1: string, arg2: number) => void)
+    | ((arg1: string) => void)
+  >();
+});
+
+test("SpreadTuple four element tuple (last two optional)", () => {
+  // Four element tuple (last two optional)
+  type Spread10 = SpreadTuple<
+    readonly [string, number, boolean | undefined, object | undefined],
+    string
+  >;
+  expectTypeOf<Spread10>().toEqualTypeOf<
+    | ((
+        arg1: string,
+        arg2: number,
+        arg3?: boolean | undefined,
+        arg4?: object | undefined,
+      ) => string)
+    | ((arg1: string, arg2: number, arg3?: boolean | undefined) => string)
+    | ((arg1: string, arg2: number) => string)
+    | ((arg1: string) => string)
+  >();
+});
+
+test("SpreadTuple four element tuple (last three optional)", () => {
+  // Four element tuple (last three optional)
+  type Spread11 = SpreadTuple<
+    readonly [
+      string,
+      number | undefined,
+      boolean | undefined,
+      object | undefined,
+    ],
+    number
+  >;
+  expectTypeOf<Spread11>().toEqualTypeOf<
+    | ((
+        arg1: string,
+        arg2?: number | undefined,
+        arg3?: boolean | undefined,
+        arg4?: object | undefined,
+      ) => number)
+    | ((
+        arg1: string,
+        arg2?: number | undefined,
+        arg3?: boolean | undefined,
+      ) => number)
+    | ((arg1: string, arg2?: number | undefined) => number)
+    | ((arg1: string) => number)
+  >();
+});

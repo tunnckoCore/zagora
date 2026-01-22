@@ -11,10 +11,12 @@ export default defineConfig({
     "Type-safe functions with full inference, typed errors, and zero async overhead -- just pure TypeScript. Skip the complexity of RPC frameworks or Effect.ts and build libraries and APIs, the Robust Way",
 
   markdown: {
-    codeTransformers: [transformerTwoslash({
-      onTwoslashError: () => { }
-    })],
-    languages: ['ts', 'tsx']
+    codeTransformers: [
+      transformerTwoslash({
+        onTwoslashError: () => {},
+      }),
+    ],
+    languages: ["ts", "tsx"],
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
