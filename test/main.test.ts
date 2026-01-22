@@ -864,3 +864,108 @@ test("passning and sync env schema", () => {
     expect(false, "sync env schema should be fine and test passing").toBe(true);
   }
 });
+
+test("4-argument tuple with all required", () => {
+  const fn = zagora()
+    .input(
+      z.tuple([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.object({ id: z.string() }),
+      ]),
+    )
+    .output(z.string())
+    .handler((_, str, num, bool, obj) => {
+      expectTypeOf(str).toEqualTypeOf<string>();
+      expectTypeOf(num).toEqualTypeOf<number>();
+      expectTypeOf(bool).toEqualTypeOf<boolean>();
+      expectTypeOf(obj).toEqualTypeOf<{ id: string }>();
+
+      return `${str}-${num}-${bool}-${obj.id}`;
+    })
+    .callable();
+
+  const res = fn("hello", 42, true, { id: "test" });
+  if (res.ok) {
+    expect(res.data).toBe("hello-42-true-test");
+  } else {
+    expect(false, "expect succcess on 4-arg all required").toBe(true);
+  }
+});
+
+test("4-argument tuple with last optional", () => {
+  const fn = zagora()
+    .input(
+      z.tuple([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.object({ id: z.string() }).optional(),
+      ]),
+    )
+    .output(z.string())
+    .handler((_, str, num, bool, obj) => {
+      expectTypeOf(str).toEqualTypeOf<string>();
+      expectTypeOf(num).toEqualTypeOf<number>();
+      expectTypeOf(bool).toEqualTypeOf<boolean>();
+      expectTypeOf(obj).toEqualTypeOf<{ id: string } | undefined>();
+
+      return `${str}-${num}-${bool}-${obj?.id ?? "none"}`;
+    })
+    .callable();
+
+  // With all 4 args
+  const res1 = fn("hello", 42, true, { id: "test" });
+  if (res1.ok) {
+    expect(res1.data).toBe("hello-42-true-test");
+  } else {
+    expect(false, "expect succcess on 4-arg all passed").toBe(true);
+  }
+
+  // With 3 args (4th optional omitted)
+  const res2 = fn("hello", 42, true);
+  if (res2.ok) {
+    expect(res2.data).toBe("hello-42-true-none");
+  } else {
+    expect(false, "expect succcess on 4-arg last optional").toBe(true);
+  }
+});
+
+test("4-argument tuple with defaults", () => {
+  const fn = zagora()
+    .input(
+      z.tuple([
+        z.string(),
+        z.number().default(100),
+        z.boolean().default(false),
+        z.object({ id: z.string() }).default({ id: "default" }),
+      ]),
+    )
+    .output(z.string())
+    .handler((_, str, num, bool, obj) => {
+      expectTypeOf(str).toEqualTypeOf<string>();
+      expectTypeOf(num).toEqualTypeOf<number>();
+      expectTypeOf(bool).toEqualTypeOf<boolean>();
+      expectTypeOf(obj).toEqualTypeOf<{ id: string }>();
+
+      return `${str}-${num}-${bool}-${obj.id}`;
+    })
+    .callable();
+
+  // With all 4 args
+  const res1 = fn("test", 10, true, { id: "custom" });
+  if (res1.ok) {
+    expect(res1.data).toBe("test-10-true-custom");
+  } else {
+    expect(false, "expect succcess on 4-arg with defaults").toBe(true);
+  }
+
+  // With only first arg (rest use defaults)
+  const res2 = fn("test");
+  if (res2.ok) {
+    expect(res2.data).toBe("test-100-false-default");
+  } else {
+    expect(false, "Expected success").toBe(true);
+  }
+});
