@@ -703,6 +703,7 @@ test("should have ~zagora property typed correctly on buiulder and on callable",
   const _inputSchema = meta.inputSchema;
   const _outputSchema = meta.outputSchema;
   const _errorsMap = meta.errorsMap;
+  const _envMap = meta.envVarsMapSchema;
 
   const builder = zagora()
     .input(z.string())
@@ -715,6 +716,7 @@ test("should have ~zagora property typed correctly on buiulder and on callable",
   const _in = metaFromBuilder.inputSchema;
   const _out = metaFromBuilder.outputSchema;
   const _err = metaFromBuilder.errorsMap;
+  const _env = metaFromBuilder.envVarsMapSchema;
 });
 
 test("SpreadTuple works for 4-argument tuple", () => {

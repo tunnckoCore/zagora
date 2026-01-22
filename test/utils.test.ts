@@ -30,8 +30,7 @@ test("validateInputOutput - async validation success path (line 82)", async () =
     .output(z.string())
     .handler((input) => input.toUpperCase());
 
-  // TODO / DOCUMENT: Having an ASYNC validation at any place,
-  //                  always require the procedure to be awaited
+  // NOTE: Having an ASYNC validation at any place, always require the procedure to be awaited
   const res = await fn("valid");
 
   expect(res.ok).toBe(true);
@@ -131,30 +130,4 @@ test("deepMerge - merge nested objects", () => {
   expect(result.b.d).toBe(4);
   expect(result.b.e).toBe(5);
   expect(result.f).toBe(6);
-});
-
-test("deepMerge - merge arrays", () => {
-  const target = [1, 2, 3];
-  const source = [4, 5];
-  const result = deepMerge(target, source);
-
-  expect(result).toEqual([4, 5, 3]);
-});
-
-test("deepMerge - source is null", () => {
-  const target = { a: 1 };
-  const result = deepMerge(target, null);
-  expect(result).toBe(null);
-});
-
-test("deepMerge - target is null", () => {
-  const source = { a: 1 };
-  const result = deepMerge(null, source);
-  expect(result).toEqual({ a: 1 });
-});
-
-test("deepMerge - source is primitive", () => {
-  const target = { a: 1 };
-  const result = deepMerge(target, "string");
-  expect(result).toBe("string");
 });

@@ -323,7 +323,7 @@ export class Zagora<
     const envVarsMapSchema = zagora.envVarsMapSchema;
     const baseEnvVars = zagora.envVars;
 
-    const mergedEnvVars = baseEnvVars ? deepMerge(baseEnvVars, env) : env;
+    const mergedEnvVars = deepMerge(baseEnvVars || {}, env || {});
 
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: -- ok
     const forwardProcedure = (...args: unknown[]) => {

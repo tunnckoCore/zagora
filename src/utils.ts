@@ -268,19 +268,30 @@ export function handleTupleDefaults(
 
   return rawArgs;
 }
+function isPlainObject(obj: any) {
+  return obj && typeof obj === "object";
+}
 
-export function deepMerge(target: any, source: any): any {
-  if (source == null || typeof source !== "object") return source;
-  if (target == null || typeof target !== "object") return source;
-  const result = Array.isArray(target) ? [...target] : { ...target };
-  for (const key in source) {
-    if (Object.hasOwn(source, key)) {
-      if (typeof source[key] === "object" && source[key] !== null) {
-        result[key] = deepMerge(target[key], source[key]);
+export function deepMerge(aaa: any, bbb: any) {
+  if (!isPlainObject(aaa)) {
+    throw new Error("Expects an object args");
+  }
+
+  const result = { ...aaa };
+
+  if (!isPlainObject(bbb)) {
+    return result;
+  }
+
+  for (const key in bbb) {
+    if (Object.hasOwn(bbb, key)) {
+      if (isPlainObject(result[key]) && isPlainObject(bbb[key])) {
+        result[key] = deepMerge(result[key], bbb[key]);
       } else {
-        result[key] = source[key];
+        result[key] = bbb[key];
       }
     }
   }
+
   return result;
 }
