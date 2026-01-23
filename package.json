@@ -1,6 +1,6 @@
 {
   "name": "zagora",
-  "version": "1.0.0-next.5",
+  "version": "1.0.0-next.7",
   "license": "Apache-2.0",
   "description": "A minimalist & robust way to create type-safe and error-safe never throwing functions & libraries in TypeScript - with input/output validation and typed errors. Based on StandardSchema-compliant validation libraries. No batteries, no routers, it's just functions that you can export and use. Simple but robust alternative to oRPC and tRPC, no network layer.",
   "repository": {
@@ -65,7 +65,7 @@
     "ci:test": "vitest run --changed",
     "ci:typecheck": "bun run check:types",
     "ci:lint": "bunx @biomejs/biome lint --max-diagnostics=none",
-    "release": "bun run ci:lint && bun run ci:test && bun run test:gen-cov && bun run build",
+    "release": "bun run ci:lint && bun run check:types && bun run ci:test && bun run test:gen-cov && bun run build",
     "prepublishOnly": "bun run release",
     "docs:dev": "bun run --cwd apps/web dev",
     "docs:build": "bun run --cwd apps/web build",
