@@ -1,0 +1,153 @@
+---
+description: "The case for type-safe, error-safe functions. Zagora fills a gap in the TypeScript ecosystem: type-safe functions that never throw, with matching compile-time and runtime behavior, without the complexity of full RPC frameworks or functional programming libraries."
+head:
+  - - meta
+    - property: og:description
+      content: "The case for type-safe, error-safe functions. Zagora fills a gap in the TypeScript ecosystem: type-safe functions that never throw, with matching compile-time and runtime behavior, without the complexity of full RPC frameworks or functional programming libraries."
+---
+
+# Why Zagora?
+
+Zagora fills a gap in the TypeScript ecosystem: type-safe functions that never throw, with matching compile-time and runtime behavior, without the complexity of full RPC frameworks or functional programming libraries.
+
+## The Problem
+
+### Plain TypeScript Falls Short
+
+TypeScript gives you compile-time types, but no runtime guarantees:
+
+```ts
+function getUser(id: string): User {
+  const user = db.find(id);
+  if (!user) throw new Error('Not found'); // Runtime bomb
+  return user;
+}
+
+// Caller has no idea this can throw
+const user = getUser('123'); // May crash your app
+```
+
+### RPC Frameworks Are Overkill for Libraries
+
+oRPC and tRPC are excellent for APIs, but they come with baggage for library building:
+
+- Always async (even for sync operations)
+- Require router infrastructure (even for server-side calls)
+- Single object inputs only (`{ name, age }` not `name, age`)
+- Designed for API documentation and HTTP semantics
+
+**However:** When you do need routers, middleware, or HTTP integration, Zagora makes it easy. See [Building Routers](/advanced/building-routers) for patterns including authenticated procedures and framework integration. You can also [generate OpenAPI specs](/advanced/openapi) using StandardSchema helpers.
+
+### Functional Libraries Have Steep Learning Curves
+
+neverthrow and Effect.ts solve the error problem, but demand buy-in:
+
+- neverthrow requires monadic operations (`.map()`, `.unwrap()`)
+- Effect.ts requires learning an entirely new paradigm
+- Neither includes validation—you still need Zod separately
+
+## Zagora's Approach
+
+Zagora gives you the best of all worlds:
+
+### 1. Never-Throwing Execution
+
+Absolute guarantee that the consumer's process/server will NEVER crash, great for long running processes and observability (OTel)
+
+```ts
+const result = getUser('123');
+
+// Always safe to access
+if (result.ok) {
+  console.log(result.data);
+} else {
+  console.log(result.error.kind);
+}
+```
+
+### 2. Full Type Inference
+
+Even if the user is goold ol' JavaScript, they will get complete intellisense, auto-completion, and validation.
+
+```ts
+const getUser = zagora()
+  .input(z.tuple([z.string(), z.number().default(18)]))
+  .output(z.object({ name: z.string(), age: z.number() }))
+  .handler((_, name, age) => ({ name, age }))
+  .callable();
+
+// TypeScript knows:
+// - First arg is string (required)
+// - Second arg is number (optional, defaults to 18)
+// - Returns { name: string, age: number }
+```
+
+### 3. Just Functions
+
+```ts
+// Export directly from your library
+export const createUser = zagora()
+  .input(z.object({ name: z.string() }))
+  .handler((_, input) => db.create(input))
+  .callable();
+
+// Consumers call it like any function
+import { createUser } from 'your-library';
+const result = createUser({ name: 'Alice' });
+```
+
+### 4. Sync If Needed
+
+Produced functions can be synchronous if needed. They look, feel, and act as regular functions - with compile-time type safety and runtime validation.
+
+```ts
+// Sync handler = sync result
+const add = zagora()
+  .input(z.tuple([z.number(), z.number()]))
+  .handler((_, a, b) => a + b)
+  .callable();
+
+const result = add(1, 2); // ZagoraResult (not Promise)
+
+// Async handler = async result
+const fetch = zagora()
+  .input(z.string())
+  .handler(async (_, url) => await fetchData(url))
+  .callable();
+
+const result = await fetch('/api'); // Promise<ZagoraResult>
+```
+
+## When to Use Zagora
+
+**Use Zagora when:**
+- Building libraries or SDKs with type-safe APIs
+- Creating internal tooling with validated inputs
+- You want error-safe functions without forced async everywhere
+- You need sync procedures (not everything is async)
+- You prefer natural function signatures (`fn(a, b)` not `fn({ a, b })`)
+- You want runtime validation of error payloads, not just compile-time
+
+**Need APIs too?** Zagora works great for HTTP APIs - see [Building Routers](/advanced/building-routers) for middleware patterns, context injection, and framework integration. You can also [generate OpenAPI specs](/advanced/openapi).
+
+**Use oRPC/tRPC when:**
+- You need built-in OpenAPI spec generation (oRPC)
+- You want tight Next.js integration (tRPC)
+- You need batching and request deduplication
+- Your entire team is already using these patterns
+
+**Use Effect.ts when:**
+- You want a complete effect system
+- You're building a large application with complex dependency injection
+- Your team is comfortable with functional programming
+
+## Summary
+
+| Need | Solution |
+|------|----------|
+| Type-safe library functions | **Zagora** |
+| Client-server APIs | oRPC/tRPC |
+| Full effect system | Effect.ts |
+| Simple error wrapping | neverthrow |
+
+Zagora is "just functions" with runtime validation, typed errors, and predictable results. No paradigm shift required.

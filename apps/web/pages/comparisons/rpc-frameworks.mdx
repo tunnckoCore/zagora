@@ -1,0 +1,297 @@
+# vs oRPC / tRPC [Comparison with RPC frameworks]
+
+Zagora and RPC frameworks like oRPC and tRPC have different design goals. Here's an honest comparison.
+
+**Philosophy**: Zagora focuses on building low-level, composable functions for libraries, and optionally backends or APIs. oRPC and tRPC are designed primarily for API endpoints with network communication. Choose Zagora when you need type-safe functions without the network overhead.
+
+## Feature Comparison
+
+| Feature | Zagora | oRPC | tRPC |
+|---------|--------|------|------|
+| Sync procedure support | Yes (dynamic inference) | No (always async) | No (always async) |
+| Tuple/multiple arguments | Yes (`z.tuple([...])`) | No (single object) | No (single object) |
+| Network layer required | No | Optional (server-side callable) | Optional (server-side callable) |
+| Router concept | Optional (DIY) | Required | Required |
+| Middleware system | No (external/DIY) | Yes | Yes |
+| Typed errors | Yes | Yes | Partial |
+| Error payload validation | Yes | Yes | No |
+| StandardSchema support | Yes | Yes | Partial |
+| OpenAPI generation | DIY (see guide) | Built-in | Plugin |
+| Bundle size | Minimal | Moderate | Moderate |
+| Primary use case | Libraries & functions | APIs & backends | APIs & backends |
+
+## Key Differences
+
+### 1. Sync vs Async
+
+**Zagora:** Infers sync/async from handler - useful for performance-critical paths
+
+```js
+// Sync procedure - no await needed
+const add = zagora()
+  .input(z.tuple([z.number(), z.number()]))
+  .handler((_, a, b) => a + b)
+  .callable();
+
+const result = add(1, 2);  // Immediate result, not a Promise
+```
+
+**oRPC/tRPC:** Always async, even for trivial operations
+
+```js
+// Must always await, even for sync logic
+const result = await add.mutate({ a: 1, b: 2 });
+```
+
+### 2. Function Signature
+
+**Zagora:** Natural function signatures with tuple arguments - ideal for SDKs and libraries
+
+```js
+// Call like a normal function
+getUser('alice', 25);
+sendEmail('to@example.com', 'Subject', 'Body');
+
+// Great for third-party consumers and SDK building
+```
+
+**oRPC/tRPC:** Single object input - works well for APIs, less natural for libraries
+
+```js
+// Always object input
+getUser({ name: 'alice', age: 25 });
+sendEmail({ to: 'to@example.com', subject: 'Subject', body: 'Body' });
+```
+
+### 3. Router Requirements
+
+**Zagora:** Routers are optional - export procedures directly or [build your own patterns](/advanced/building-routers)
+
+```js
+const db = { foo: 'bar' };
+
+// Export directly - it's just a function
+export const createUser = zagora()
+  .input(z.tuple([z.string(), z.number()]))
+  .handler(handler)
+  .callable({ context: { db } });
+
+// Consumer imports and calls
+import { createUser } from 'your-library';
+
+// no need for await
+const result = createUser('Alice', 25);
+```
+
+**oRPC/tRPC:** Routers are required, even for server-side usage
+
+```js
+// Router structure required
+const appRouter = router({
+  createUser: publicProcedure
+    .input(schema)
+    .mutation(handler)
+});
+
+// Even server-side calls go through the router
+```
+
+Yes, in oRPC you can technically use its `.callable()`, but it still has the general drawbacks
+
+```ts
+import { os } from '@orpc/server';
+
+const db = { foo: 'bar' };
+
+const greeting = os
+  .input(z.object({ name: z.string() }))
+  .output(z.object({ greet: z.string(), id: z.number() }))
+  .handler(({ input, context }) => { // sync handler
+    return { greet: `hello ${input.name} and ${context.db.foo}`, id: 1 }
+  })
+  .callable({ context: { db } });
+
+// required to await, eventho it is sync
+const result = await greeting({ name: 'Alice' });
+```
+
+or use its `call` helper util
+
+```ts
+import { call, os } from '@orpc/server'
+
+const db = { foo: 'bar' };
+
+const example = os
+  .input(z.object({ name: z.string() }))
+  .output(z.object({ greet: z.string(), id: z.number() }))
+  .handler(({ input, context }) => { // sync handler
+    return { greet: `hello ${input.name} and ${context.db.foo}`, id: 1 }
+  })
+
+// required to await, eventho it is sync
+const result = await call(example, { name: 'Alice' }, { context: { db } });
+```
+
+### 4. Error Handling
+
+**Zagora/oRPC:** Schema-validated typed errors with runtime error payload/data validation and compile-time type checking.
+
+```js
+const proc = zagora()
+  .errors({
+    NOT_FOUND: z.object({ id: z.number() }),
+    RATE_LIMIT: z.object({ retryAfter: z.number() }),
+  })
+  .input(z.string())
+  .handler(({ errors }, mode) => {
+    if (mode === 'err') {
+      // can be just returned too
+      throw errors.NOT_FOUND({ id: 123 });
+    }
+    
+    // Invalid error payload = VALIDATION_ERROR,
+    // it is also reported immediately by TypeScript
+    throw errors.RATE_LIMIT({ wrongField: 'x' });  
+    // Caught at compile-time and runtime!
+  });
+
+```
+
+**oRPC:** Typed errors are built-in, but HTTP-oriented with some quirks because of that
+
+```js
+const proc = os
+  .errors({
+    NOT_FOUND: {
+      data: z.object({ id: z.number() })
+    },
+    RATE_LIMIT: {
+      data: z.object({
+        retryAfter: z.number(),
+      }),
+    }
+  })
+  .input(z.object({ mode: z.string() }))
+  .handler(({ input, context, errors }) => {
+    if (input.mode === 'err') {
+        throw errors.NOT_FOUND({ id: '123' });
+    }
+    
+    // Invalid error payload = VALIDATION_ERROR,
+    // it is also reported immediately by TypeScript
+    throw errors.RATE_LIMIT({ 
+      message: 'User exceeded quota', 
+      data: { wrongField: 'x' }
+    });  
+    // Caught at compile-time and runtime!
+  });
+```
+
+**tRPC:** Error classes without schema validation
+
+```js
+throw new TRPCError({
+  code: 'NOT_FOUND',
+  message: 'User not found',
+  // No schema validation of error shape
+});
+```
+
+### 5. Server-Side Usage
+
+Both oRPC and tRPC support "server-side clients" for calling procedures without network overhead.
+
+**Zagora:** No special setup needed - procedures are just functions
+
+```js
+// Direct call in server handlers
+app.post('/users', async (c) => {
+  const result = await createUser(await c.req.json());
+  return result.ok ? c.json(result.data) : c.json(result.error, 400);
+});
+```
+
+**oRPC/tRPC:** Server-side clients require router context, or using the `call` helper utility.
+
+```js
+// Still need router + context setup
+const caller = appRouter.createCaller(context);
+const result = await caller.createUser(input);
+```
+
+### 6. OpenAPI / API Generation
+
+**oRPC:** Built-in OpenAPI spec generation - excellent for public APIs
+
+**tRPC:** OpenAPI available via plugin (trpc-openapi)
+
+**Zagora:** DIY approach using StandardSchema - see [Generating OpenAPI](/advanced/openapi) for patterns using `toJSONSchema` helpers
+
+## When to Use Each
+
+### Use Zagora When
+
+- Building libraries or SDKs with type-safe APIs
+- You want natural function signatures (`fn(a, b)` not `fn({ a, b })`)
+- You need sync procedures for performance-critical paths
+- You want error payloads validated at runtime, not just compile-time
+- You prefer minimal dependencies and DIY patterns
+- You're building internal tooling or utility functions
+
+See [Building Routers](/advanced/building-routers) for HTTP integration, middleware patterns, and authenticated procedures.
+
+### Use oRPC When
+
+- Building client-server APIs with HTTP/WebSocket
+- You need OpenAPI spec generation out of the box
+- You want built-in router and middleware system
+- You're building a public API that needs documentation
+- Everything is already async anyway
+
+### Use tRPC When
+
+- Building full-stack TypeScript apps (Next.js, etc.)
+- You want tight framework integration
+- You need batching and deduplication
+- Your team is already familiar with tRPC patterns
+
+## Migration Path
+
+### From tRPC to Zagora (for library code)
+
+**Before (tRPC-style):**
+
+```js
+export const userRouter = router({
+  getUser: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ input }) => {
+      return db.users.find(input.id);
+    }),
+});
+```
+
+**After (Zagora):**
+
+```js
+export const getUser = zagora()
+  .input(z.string())  // Simpler - just the ID
+  .handler(async (_, id) => {
+    return db.users.find(id);
+  })
+  .callable();
+
+// Usage - natural function call
+const result = await getUser('123');
+```
+
+## Philosophy
+
+**Zagora's philosophy:** Build low-level, composable functions for libraries. No assumptions about network, routing, or application architecture. Just type-safe functions with predictable results. When you need routers or HTTP integration, [build exactly what you need](/advanced/building-routers).
+
+**oRPC's philosophy:** Provide a complete, type-safe API solution with OpenAPI generation, middleware, and server-side calling. Best for teams building documented APIs.
+
+**tRPC's philosophy:** End-to-end type safety for full-stack TypeScript apps. Best for teams using Next.js or similar frameworks where client and server share types.
+
+Choose the tool that matches your use case. Zagora excels at library building and internal tooling; oRPC/tRPC excel at API development.

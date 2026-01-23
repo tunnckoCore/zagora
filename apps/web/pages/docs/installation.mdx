@@ -1,0 +1,76 @@
+# Installation [How to install Zagora]
+
+Zagora works with any StandardSchema-compliant validator like Zod, Valibot, or ArkType.
+
+## Install Zagora
+
+:::code-group
+```bash [bun]
+bun add zagora
+```
+
+```bash [npm]
+npm install zagora
+```
+
+```bash [pnpm]
+pnpm add zagora
+```
+
+```bash [yarn]
+yarn add zagora
+```
+:::
+
+## Install a Validator
+
+You'll need a StandardSchema-compliant validation library. Choose one:
+
+:::code-group
+```bash [Zod]
+bun add zod
+```
+
+```bash [Valibot]
+bun add valibot
+```
+
+```bash [ArkType]
+bun add arktype
+```
+:::
+
+## Verify Installation
+
+Create a simple procedure to verify everything works:
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+const greet = zagora()
+  .input(z.string())
+  .handler((_, name) => `Hello, ${name}!`)
+  .callable();
+
+const result = greet('World');
+console.log(result);
+// { ok: true, data: 'Hello, World!', error: undefined }
+```
+
+## TypeScript Configuration
+
+Zagora is written in TypeScript and provides full type inference out of the box. No additional configuration is required, but ensure your `tsconfig.json` has `strict` mode enabled for the best experience:
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "moduleResolution": "bundler"
+  }
+}
+```
+
+## Next Steps
+
+Now that you have Zagora installed, check out the [Quick Start](/docs/quick-start) guide to build your first procedure.

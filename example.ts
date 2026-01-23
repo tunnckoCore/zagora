@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from "zod";
-import { zagora } from "./src/index.ts";
+import { zagora } from "./src/index";
 
 // Define input/output schemas
 const SpeedSchema = z.enum(["slow", "normal", "fast"]);
@@ -24,19 +24,16 @@ const SuccessSchema = z.object({
 });
 
 const errorSchemas = {
-  network: z.object({
-    type: z.literal("NetworkError"),
+  NET_ERR: z.object({
     code: z.number(),
     message: z.string(),
     url: z.string().optional(),
   }),
-  auth: z.object({
-    type: z.literal("AuthError"),
+  AUTH_ERR: z.object({
     userId: z.string(),
     url: z.url().optional(),
   }),
-  rateLimit: z.object({
-    type: z.literal("RateLimitError"),
+  RATE_LIMIT: z.object({
     retryAfter: z.number(),
     limit: z.number(),
     message: z.string(),
@@ -44,7 +41,7 @@ const errorSchemas = {
 };
 
 // "contract" means just access to the Zagora instance
-const getPricesContract = zagora()
+const getPricesContract = zagora({ autoCallable: true })
   .errors(errorSchemas)
   .input(InputSchema)
   .output(SuccessSchema);
@@ -54,10 +51,10 @@ const getPricesContract = zagora()
 // getPricesContract["~zagora"].inputSchema;
 
 const getPrices = getPricesContract.handler(
-  async ({ speed, num, includeDetails }, err) => {
+  async ({ errors: err }, { speed, num, includeDetails }) => {
     // Simulate rate limiting
     if (num && num > 1000) {
-      return err.rateLimit({
+      throw err.RATE_LIMIT({
         retryAfter: 60,
         limit: 1000,
         message: "Rate limit exceeded, try again in 60 seconds",
@@ -66,7 +63,7 @@ const getPrices = getPricesContract.handler(
 
     // Simulate validation error
     if (speed === "slow" && includeDetails) {
-      return err.auth({
+      throw err.AUTH_ERR({
         userId: "user123",
         url: "https://www.ethgastracker.com/api/gas/latest",
       });
@@ -76,8 +73,7 @@ const getPrices = getPricesContract.handler(
       const resp = await fetch("https://www.ethgastracker.com/api/gas/latest");
 
       if (!resp.ok) {
-        // Return typed network error
-        return err.network({
+        throw err.NET_ERR({
           code: resp.status,
           message: `HTTP ${resp.status}: ${resp.statusText}`,
           url: resp.url,
@@ -100,7 +96,7 @@ const getPrices = getPricesContract.handler(
       // This will be automatically wrapped in ZagoraError since we didn't handle it with our typed errors
       throw new Error(`Failed to fetch gas prices: ${error}`);
     }
-  }
+  },
 );
 
 // here the `handlerFn` has properly-inferred input and output types
@@ -109,40 +105,40 @@ const getPrices = getPricesContract.handler(
 
 // Test 1: Success case
 console.log("1. Success case:");
-const [result1, error1, isDefined1] = await getPrices({
+const prices = await getPrices({
   speed: "normal",
   num: 50,
   includeDetails: false,
 });
-console.log("Result:", result1 ? "Got gas prices data" : null);
-console.log("Error:", error1);
+console.log("Result:", prices ? "Got gas prices data" : null);
+console.log("Error:", prices.error);
 console.log();
 
-if (error1 && isDefined1 && error1.type === "NetworkError") {
-  console.log("Network error occurred with code:", error1.code);
-  console.log("Error url:", error1.url);
+if (prices.error && prices.error.kind === "NET_ERR") {
+  console.log("Network error occurred with code:", prices.error.code);
+  console.log("Error url:", prices.error.url);
 }
 
 // Test 2: Rate limit error
 console.log("2. Rate limit error:");
-const [result2, error2] = await getPrices({
+const pricesLimited = await getPrices({
   speed: "fast",
   num: 1500,
 });
-console.log("Result:", result2);
-console.log("Error:", error2);
-console.log("Error type:", (error2 as any)?.type);
+console.log("Result:", pricesLimited.ok ? pricesLimited.data : null);
+console.log("Error:", pricesLimited.error);
+console.log("Error kind:", pricesLimited.error?.kind);
 console.log();
 
 // Test 3: Validation error
-console.log("3. Validation error:");
-const [result3, error3] = await getPrices({
+console.log("3. Auth error:");
+const pricesErroring = await getPrices({
   speed: "slow",
   includeDetails: true,
 });
-console.log("Result:", result3);
-console.log("Error:", error3);
-console.log("Error type:", (error3 as any)?.type);
+console.log("Result:", pricesErroring.ok ? pricesErroring.data : null);
+console.log("Error:", pricesErroring.error);
+console.log("Error kind:", pricesErroring.error?.kind);
 console.log();
 
 // == EXAMPLE FETCH WRAPPER
@@ -160,7 +156,7 @@ export const zagoraFetch = zagora()
         .default({
           method: "GET",
         }),
-    ])
+    ]),
   )
   .output(
     z
@@ -170,25 +166,20 @@ export const zagoraFetch = zagora()
         title: z.string().min(1),
         completed: z.boolean(),
       })
-      .strict()
+      .strict(),
   )
   .errors({
-    fetchError: z
-      .object({
-        message: z.string(),
-        code: z.number(),
-      })
-      .default({
-        message: "Unknown error",
-        code: 500,
-      }),
+    FETCH_ERROR: z.object({
+      msg: z.string().default("Unknown error"),
+      code: z.number().default(500),
+    }),
   })
-  .handler(async (url, reqInit, errors) => {
+  .handler(async ({ errors }, url, reqInit) => {
     const resp = await fetch(url, reqInit);
 
     if (!resp.ok) {
-      return errors.fetchError({
-        message: `HTTP error ${resp.status}: ${resp.statusText}`,
+      throw errors.FETCH_ERROR({
+        msg: `HTTP error ${resp.status}: ${resp.statusText}`,
         code: resp.status,
       });
     }
@@ -197,14 +188,13 @@ export const zagoraFetch = zagora()
 
     // return { ...data, foo: 123 }; // should fail output validation
     return data;
-  });
+  })
+  .callable();
 
-const [data2, err2, isDefined2] = await zagoraFetch(
-  "https://jsonplaceholder.typicode.com/todos/1"
+const zagoraFetched = await zagoraFetch(
+  "https://jsonplaceholder.typicode.com/todos/1",
 );
 
 console.log({
-  data2,
-  err2: (err2 as any)?.issues,
-  isDefined2,
+  zagoraFetched,
 });

@@ -1,0 +1,144 @@
+name: ci
+
+on: [push, pull_request, workflow_dispatch]
+
+# Remove default permissions of GITHUB_TOKEN for security
+# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
+
+      - name: Compute cache keys
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            HASH_CMD="shasum -a 256"
+          else
+            HASH_CMD="sha256sum"
+          fi
+          HASH_BUNLOCK=$($HASH_CMD bun.lock | awk '{print $1}')
+          echo "HASH_BUNLOCK=$HASH_BUNLOCK" >> $GITHUB_ENV
+
+      - name: Compute source hash
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            HASH_CMD="shasum -a 256"
+          else
+            HASH_CMD="sha256sum"
+          fi
+          SRC_FILES=$( { find src test -type f -name "*.ts"; ls package.json bun.lock tsconfig.json; } | sort )
+          SRC_HASHES=""
+          for file in $SRC_FILES; do
+            FILE_HASH=$($HASH_CMD "$file" | awk '{print $1}')
+            SRC_HASHES="${SRC_HASHES}${FILE_HASH}\n"
+          done
+          if [ -n "$SRC_HASHES" ]; then
+            SRC_HASH=$(echo -e "$SRC_HASHES" | $HASH_CMD | awk '{print $1}')
+          else
+            SRC_HASH=$($HASH_CMD "no-src")
+          fi
+          echo "FILES_HASH=$SRC_HASH" >> $GITHUB_ENV
+
+      - name: Cache ~/.bun/install
+        id: cache-bun
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install
+          key: ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-v1
+          restore-keys: |
+            ${{ runner.os }}-bun-${{ env.HASH_BUNLOCK }}-
+
+      - name: Cache lint logs
+        id: cache-lint-logs
+        uses: actions/cache@v4
+        with:
+          path: lint-logs
+          key: ${{ runner.os }}-lint-logs-${{ env.FILES_HASH }}-v1
+          restore-keys: |
+            ${{ runner.os }}-lint-logs-${{ env.FILES_HASH }}-
+            ${{ runner.os }}-lint-logs-
+
+      - name: Cache typecheck logs
+        id: cache-typecheck-logs
+        uses: actions/cache@v4
+        with:
+          path: typecheck-logs
+          key: ${{ runner.os }}-typecheck-logs-${{ env.FILES_HASH }}-v1
+          restore-keys: |
+            ${{ runner.os }}-typecheck-logs-${{ env.FILES_HASH }}-
+            ${{ runner.os }}-typecheck-logs-
+
+      - name: Run Install on ${{ matrix.os }}
+        shell: bash
+        id: install
+        run: bun install --frozen-lockfile
+        continue-on-error: false
+
+      - name: Run Lint on ${{ matrix.os }}
+        shell: bash
+        id: lint
+        run: |
+          scriptExists=$(bun pm pkg get scripts.ci:lint)
+          if [ "$scriptExists" != "{}" ]; then
+            mkdir -p logs
+            bun run ci:lint > logs/lint.log 2>&1
+          else
+            echo "Skipping linting"
+          fi
+        continue-on-error: true
+        if: steps.install.outcome == 'success' && steps.cache-lint-logs.outputs.cache-hit != 'true'
+
+      - name: Run Type Checking on ${{ matrix.os }}
+        shell: bash
+        id: typecheck
+        run: |
+          scriptExists=$(bun pm pkg get scripts.ci:typecheck)
+          if [ "$scriptExists" != "{}" ]; then
+            mkdir -p logs
+            bun run ci:typecheck > logs/typecheck.log 2>&1
+          else
+            echo "Skipping type checking"
+          fi
+        continue-on-error: true
+        if: steps.install.outcome == 'success' && steps.cache-typecheck-logs.outputs.cache-hit != 'true'
+
+      - name: Run Testing on ${{ matrix.os }}
+        shell: bash
+        id: test
+        run: |
+          scriptExists=$(bun pm pkg get scripts.ci:test)
+          if [ "$scriptExists" != "{}" ]; then
+            bun run ci:test
+          else
+            bun run test
+          fi
+        continue-on-error: true
+        if: steps.install.outcome == 'success'
+
+      - name: Report Run Status
+        shell: bash
+        run: |
+          echo "Install: ${{ steps.install.outcome }}"
+          echo "Lint: ${{ steps.lint.outcome }}"
+          echo "Typecheck: ${{ steps.typecheck.outcome }}"
+          echo "Test: ${{ steps.test.outcome }}"
+          if [ "${{ steps.install.outcome }}" = "failure" ] || [ "${{ steps.lint.outcome }}" = "failure" ] || [ "${{ steps.typecheck.outcome }}" = "failure" ] || [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "One of the steps failed!"
+            exit 1
+          fi

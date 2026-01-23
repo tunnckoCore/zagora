@@ -1,33 +1,53 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["ultracite"],
+  "extends": ["biome-config-xaxa"],
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**/*.{ts,tsx,js,jsx,mjs}",
+      "**/index.html",
+      "**/vite.config.{js,ts}",
+      "**/next.config.{mjs,js,ts}",
+      "**/src/**/*.ts",
+      "**/test/**/*.ts",
+      "!_*",
+      "!**/_*",
+      "!_*/**/_*",
+      "!node_modules",
+      "!convex/tsconfig.json",
+      "!convex/_generated/*",
+      "!convex/**/_generated/*",
+      "!.next",
+      "!dist",
+      "!build",
+      "!**/src/components/ui/*",
+      "!**/src/hooks/use-mobile.ts",
+      "!convex/betterAuth/schema.ts"
+    ]
+  },
   "linter": {
     "rules": {
-      "suspicious": {
-        "noImplicitAnyLet": "off",
-        "noExplicitAny": "off",
-        "useAwait": "off",
-        "noConsole": "off"
-      },
-      "correctness": {
-        "noUnusedVariables": "warn",
-        "noUnusedFunctionParameters": "off"
-      },
-      "performance": {
-        "useTopLevelRegex": "off",
-        "noNamespaceImport": "warn",
-        "noDelete": "warn"
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
       },
       "style": {
-        "noMagicNumbers": "off",
-        "noExportedImports": "off",
-        "noNestedTernary": "off",
-        "useReadonlyClassProperties": "off"
+        "useImportType": "error"
       },
-      "complexity": {
-        "noExcessiveCognitiveComplexity": "warn",
-        "useOptionalChain": "info"
+      "nursery": {
+        "useSortedClasses": "info"
+      },
+      // lint/performance/noDelete
+      "performance": {
+        "noDelete": "off",
+        "noNamespaceImport": "off"
+      },
+      "correctness": {
+        "noUnusedFunctionParameters": "off"
       }
+    },
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
     }
   }
 }

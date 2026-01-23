@@ -1,0 +1,157 @@
+# Output Validation [Ensure return values match schemas]
+
+Output validation verifies that your handler returns correctly shaped data, catching bugs before they reach consumers.
+
+## Basic Output
+
+Define an output schema to validate return values:
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+const getUser = zagora()
+  .input(z.string())
+  .output(z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().email()
+  }))
+  .handler((_, id) => {
+    return {
+      id,
+      name: 'Alice',
+      email: 'alice@example.com'
+    };
+  })
+  .callable();
+```
+
+## Why Validate Outputs?
+
+Output validation catches handler bugs at runtime:
+
+```js
+const buggyHandler = zagora()
+  .output(z.object({ count: z.number() }))
+  .handler(() => {
+    return { count: 'not a number' }; // Bug!
+  })
+  .callable();
+
+const result = buggyHandler();
+// { ok: false, error: { kind: 'VALIDATION_ERROR', ... } }
+```
+
+Without output validation, this bug would propagate to consumers.
+
+## Output Type Inference
+
+TypeScript infers the output type from the schema:
+
+```js
+const getUser = zagora()
+  .output(z.object({
+    id: z.string(),
+    name: z.string()
+  }))
+  .handler(() => ({ id: '1', name: 'Alice' }))
+  .callable();
+
+const result = getUser();
+if (result.ok) {
+  result.data.id;    // string
+  result.data.name;  // string
+}
+```
+
+## Optional Output
+
+Output validation is optional. Without it, the handler's return type is inferred:
+
+```js
+const greet = zagora()
+  .input(z.string())
+  .handler((_, name) => `Hello, ${name}!`)
+  .callable();
+
+// TypeScript infers: result.data is string
+```
+
+## Transforming Outputs
+
+Use schema transformations to modify output:
+
+```js
+const getUser = zagora()
+  .input(z.string())
+  .output(
+    z.object({
+      name: z.string(),
+      createdAt: z.date()
+    }).transform(user => ({
+      ...user,
+      displayName: user.name.toUpperCase()
+    }))
+  )
+  .handler((_, id) => ({
+    name: 'alice',
+    createdAt: new Date()
+  }))
+  .callable();
+
+const result = getUser('123');
+if (result.ok) {
+  console.log(result.data.displayName); // 'ALICE'
+}
+```
+
+## Async Output Validation
+
+Output schemas can be async (with caveats):
+
+```js
+const createUser = zagora()
+  .input(z.object({ email: z.string() }))
+  .output(
+    z.object({ email: z.string() }).refine(
+      async (data) => await isUniqueEmail(data.email),
+      'Email already exists'
+    )
+  )
+  .handler((_, input) => input)
+  .callable();
+
+// Must await even if handler is sync
+const result = await createUser({ email: 'test@example.com' });
+```
+
+:::warning
+When using async schemas, always `await` the result even if TypeScript suggests it's not needed. This is a StandardSchema limitation.
+:::
+
+## Output vs Handler Return Type
+
+The output schema takes precedence for type inference:
+
+```js
+const proc = zagora()
+  .output(z.object({ name: z.string() }))
+  .handler(() => {
+    // Handler could return anything, but output schema
+    // ensures consumers only see { name: string }
+    return { name: 'Alice', secret: 'hidden' };
+  })
+  .callable();
+
+const result = proc();
+if (result.ok) {
+  result.data.name;    // OK
+  result.data.secret;  // TypeScript error! Not in output schema
+}
+```
+
+## Next Steps
+
+- [Typed Errors](/docs/typed-errors) - Define structured error responses
+- [Procedures](/docs/procedures) - Overview of the builder API

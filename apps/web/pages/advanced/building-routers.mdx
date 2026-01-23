@@ -1,0 +1,346 @@
+# Building Routers [DIY routing patterns with Zagora]
+
+Zagora doesn't include routers by design—it focuses on individual procedures. But you can easily build your own routing layer when needed.
+
+## Why No Built-in Router?
+
+Zagora's philosophy is "just functions." Routers are application-level concerns that vary by use case:
+
+- HTTP APIs need path-based routing
+- CLI tools need command-based routing  
+- Libraries don't need routing at all
+
+By not bundling a router, Zagora stays minimal and lets you use patterns that fit your architecture.
+
+## Pattern: Simple Object Router
+
+Group procedures in an object:
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+// Define procedures
+const getUser = zagora()
+  .input(z.string())
+  .handler(async (_, id) => db.users.find(id))
+  .callable();
+
+const createUser = zagora()
+  .input(z.object({ name: z.string(), email: z.string() }))
+  .handler(async (_, input) => db.users.create(input))
+  .callable();
+
+const deleteUser = zagora()
+  .input(z.string())
+  .handler(async (_, id) => db.users.delete(id))
+  .callable();
+
+// Group as router
+export const userRouter = {
+  get: getUser,
+  create: createUser,
+  delete: deleteUser
+};
+
+// Usage
+const user = await userRouter.get('123');
+const newUser = await userRouter.create({ name: 'Alice', email: 'alice@test.com' });
+```
+
+## Pattern: Nested Routers
+
+Compose routers hierarchically:
+
+```js
+export const userRouter = {
+  get: getUser,
+  create: createUser,
+  profile: {
+    get: getUserProfile,
+    update: updateUserProfile
+  }
+};
+
+export const postRouter = {
+  list: listPosts,
+  get: getPost,
+  create: createPost
+};
+
+export const appRouter = {
+  users: userRouter,
+  posts: postRouter
+};
+
+// Usage
+await appRouter.users.get('123');
+await appRouter.users.profile.update({ bio: 'Hello' });
+await appRouter.posts.list();
+```
+
+## Pattern: Shared Context Factory
+
+Create procedures with shared context:
+
+```js
+function createRouter(context) {
+  const za = zagora().context(context);
+  
+  return {
+    getUser: za
+      .input(z.string())
+      .handler(({ context }, id) => context.db.users.find(id))
+      .callable(),
+      
+    createUser: za
+      .input(z.object({ name: z.string() }))
+      .handler(({ context }, input) => context.db.users.create(input))
+      .callable()
+  };
+}
+
+// Production
+const prodRouter = createRouter({ db: productionDb });
+
+// Testing
+const testRouter = createRouter({ db: mockDb });
+```
+
+## Pattern: HTTP Router Integration
+
+Integrate with Express, Hono, or any HTTP framework:
+
+```js
+import { Hono } from 'hono';
+
+const app = new Hono();
+
+// Wrap Zagora procedure for HTTP
+function wrapProcedure(proc) {
+  return async (c) => {
+    const input = await c.req.json();
+    const result = await proc(input);
+    
+    if (result.ok) {
+      return c.json(result.data);
+    }
+    
+    switch (result.error.kind) {
+      case 'VALIDATION_ERROR':
+        return c.json({ error: result.error.issues }, 400);
+      case 'NOT_FOUND':
+        return c.json({ error: 'Not found' }, 404);
+      default:
+        return c.json({ error: 'Internal error' }, 500);
+    }
+  };
+}
+
+app.post('/users', wrapProcedure(createUser));
+app.get('/users/:id', async (c) => {
+  const result = await getUser(c.req.param('id'));
+  // ... handle result
+});
+```
+
+## Pattern: Type-Safe Router Helper
+
+Create a typed router helper:
+
+```js
+type Router<T> = {
+  [K in keyof T]: T[K] extends (...args: any[]) => any ? T[K] : Router<T[K]>;
+};
+
+function createTypedRouter<T extends Record<string, any>>(routes: T): Router<T> {
+  return routes;
+}
+
+const router = createTypedRouter({
+  users: {
+    get: getUser,
+    create: createUser
+  },
+  posts: {
+    list: listPosts
+  }
+});
+
+// Fully typed
+router.users.get('123');
+```
+
+## Pattern: Middleware-like Composition
+
+Compose procedures with shared logic like authentication:
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+// Define a base with shared error types
+const authErrors = {
+  UNAUTHORIZED: z.object({ message: z.string() }),
+  FORBIDDEN: z.object({ message: z.string(), requiredRole: z.string() }),
+};
+
+// Auth wrapper - checks for authenticated user in context
+function withAuth(procedureBuilder) {
+  return procedureBuilder
+    .errors(authErrors)
+    .handler(async ({ context, errors }, ...args) => {
+      if (!context.user) {
+        throw errors.UNAUTHORIZED({ message: 'Authentication required' });
+      }
+      // Original handler logic here
+    });
+}
+
+// Role-based auth wrapper
+function withRole(role) {
+  return (procedureBuilder) => {
+    return procedureBuilder
+      .errors(authErrors)
+      .handler(async ({ context, errors }, ...args) => {
+        if (!context.user) {
+          throw errors.UNAUTHORIZED({ message: 'Authentication required' });
+        }
+        if (context.user.role !== role) {
+          throw errors.FORBIDDEN({ 
+            message: `Role '${role}' required`,
+            requiredRole: role 
+          });
+        }
+        // Original handler logic here
+      });
+  };
+}
+
+// Auth wrapper
+function authedProcedure(proc) {
+  return zagora()
+    .input(proc.inputSchema)
+    .handler(async ({ context }, ...args) => {
+      if (!context.user) {
+        throw new Error('Unauthorized');
+      }
+      return proc(...args);
+    })
+    .callable({ context: { user: getCurrentUser(), db } });
+}
+// Apply to procedures
+const protectedGetUser = authedProcedure(getUser);
+```
+
+### Using in HTTP Handlers
+
+```js
+import { Hono } from 'hono';
+
+const app = new Hono();
+
+// Inject user from request into context
+app.post('/api/users', async (c) => {
+  const user = await getUserFromToken(c.req.header('Authorization'));
+  
+  const result = await createUser.callable({ 
+    context: { user, db } 
+  })(await c.req.json());
+  
+  if (result.ok) {
+    return c.json(result.data, 201);
+  }
+  
+  // Map error kinds to HTTP status codes
+  const statusMap = {
+    VALIDATION_ERROR: 400,
+    UNAUTHORIZED: 401,
+    FORBIDDEN: 403,
+    NOT_FOUND: 404,
+  };
+  
+  return c.json(result.error, statusMap[result.error.kind] || 500);
+});
+```
+
+### Factory Pattern for Authenticated Procedures
+
+```js
+// Create a factory for authenticated procedures
+function createAuthenticatedProcedure(db) {
+  return zagora()
+    .errors({
+      UNAUTHORIZED: z.object({ message: z.string() }),
+    })
+    .context({ db });
+}
+
+const db = prodDatabase;
+
+// Use it consistently
+const getProfile = createAuthenticatedProcedure(db)
+  .input(z.object({}))
+  .handler(async ({ context, errors }) => {
+    if (!context.user) {
+      throw errors.UNAUTHORIZED({ message: 'Login required' });
+    }
+    return context.db.users.find(context.user.id);
+  })
+  .callable();
+
+const updateProfile = createAuthenticatedProcedure(db)
+  .input(z.object({ name: z.string(), bio: z.string().optional() }))
+  .handler(async ({ context, errors }, input) => {
+    if (!context.user) {
+      throw errors.UNAUTHORIZED({ message: 'Login required' });
+    }
+    return context.db.users.update(context.user.id, input);
+  })
+  .callable();
+```
+
+## When to Build Routers
+
+**Do build routers when:**
+- You have many related procedures
+- You need shared context across procedures
+- You're integrating with HTTP frameworks
+- You want hierarchical organization
+
+**Don't build routers when:**
+- You're building a library (just export procedures)
+- You have few procedures
+- Each procedure is independent
+
+## Comparison with oRPC/tRPC
+
+Unlike oRPC/tRPC where routers are required:
+
+```js
+// tRPC - router required
+const appRouter = router({
+  users: router({
+    get: publicProcedure.input(z.string()).query(...)
+  })
+});
+```
+
+Zagora routers are optional and simple:
+
+```js
+// Zagora - just objects
+const userRouter = {
+  get: getUser,
+  create: createUser
+};
+
+// Or no router at all
+export { getUser, createUser };
+```
+
+## Next Steps
+
+- **[Generating OpenAPI](/advanced/openapi)** - Create API documentation from your procedures
+- **[Testing Procedures](/advanced/testing)** - How to test Zagora procedures effectively
+- **[Best Practices](/advanced/best-practices)** - Guidelines for production usage

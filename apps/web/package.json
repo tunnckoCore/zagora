@@ -1,0 +1,17 @@
+{
+  "name": "@zagora/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vocs dev",
+    "build": "vocs build",
+    "preview": "vocs preview"
+  },
+  "dependencies": {
+    "vocs": "^1.0.0-alpha.62"
+  },
+  "devDependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  }
+}

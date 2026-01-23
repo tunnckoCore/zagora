@@ -1,44 +1,100 @@
 {
   "name": "zagora",
-  "version": "0.4.2",
+  "version": "1.0.0-next.7",
   "license": "Apache-2.0",
   "description": "A minimalist & robust way to create type-safe and error-safe never throwing functions & libraries in TypeScript - with input/output validation and typed errors. Based on StandardSchema-compliant validation libraries. No batteries, no routers, it's just functions that you can export and use. Simple but robust alternative to oRPC and tRPC, no network layer.",
   "repository": {
     "type": "git",
     "url": "https://github.com/tunnckoCore/zagora.git"
   },
+  "workspaces": {
+    "packages": [
+      ".",
+      "apps/*"
+    ]
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "next"
+  },
+  "files": [
+    "dist"
+  ],
+  "packageManager": "bun@1.3.2",
   "type": "module",
+  "types": "dist/index.d.ts",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "overrides": {
+    "remark-shiki-twoslash>shiki": "^0.14.1",
+    "shiki-twoslash>shiki": "^0.14.1"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./source": "./src/index.ts",
-    "./index.ts": "./src/index.ts"
+    "./errors": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./utils": {
+      "types": "./dist/utils.d.ts",
+      "import": "./dist/utils.js"
+    },
+    "./package.json": "./package.json"
   },
-  "module": "dist/index.ts",
-  "files": [
-    "src",
-    "dist"
-  ],
   "scripts": {
-    "build": "tsdown src/index.ts --dts",
-    "test": "bun test",
-    "test:coverage": "bun test --coverage",
-    "prepublishOnly": "bun run build"
+    "vitepress:dev": "vitepress dev",
+    "vitepress:build": "vitepress build",
+    "vitepress:preview": "vitepress preview",
+    "prebuild": "bun run check:types",
+    "build": "bunx tsdown",
+    "check": "bun run check:copy-rules && bun run check:format && bun run check:types && bun run check:repo",
+    "check:copy-rules": "cp AGENTS.md .rules/zagora.md",
+    "check:format": "bunx @biomejs/biome check --fix --unsafe",
+    "check:types": "bunx tsgo-dev -p ./tsconfig.json",
+    "check:repo": "bunx sherif -r root-package-dependencies -r root-package-private-field",
+    "test:cov-spa": "vite serve ./coverage",
+    "test:gen-cov": "bun scripts/coverage-badge.ts",
+    "test": "COV=1 vitest run",
+    "ci:test": "vitest run --changed",
+    "ci:typecheck": "bun run check:types",
+    "ci:lint": "bunx @biomejs/biome lint --max-diagnostics=none",
+    "release": "bun run ci:lint && bun run check:types && bun run ci:test && bun run test:gen-cov && bun run build",
+    "prepublishOnly": "bun run release",
+    "docs:dev": "bun run --cwd apps/web dev",
+    "docs:build": "bun run --cwd apps/web build",
+    "docs:preview": "bun run --cwd apps/web preview"
   },
   "dependencies": {
     "@standard-schema/spec": "^1.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.3",
-    "@types/bun": "latest",
-    "arktype": "2.1.22",
-    "tsdown": "0.14.1",
-    "typescript": "5.9.2",
-    "ultracite": "5.3.4",
-    "valibot": "1.1.0",
-    "zod": "4.1.5"
+    "@biomejs/biome": "^2.3.6",
+    "@shikijs/vitepress-twoslash": "^3.21.0",
+    "@types/bun": "^1.3.3",
+    "@vitest/coverage-v8": "4.0.13",
+    "arktype": "2.1.27",
+    "biome-config-xaxa": "^0.2.1",
+    "bun-types": "^1.3.3",
+    "is-ci": "^4.1.0",
+    "remark-shiki-twoslash": "^3.1.3",
+    "sherif": "^1.9.0",
+    "shiki": "^0.14.1",
+    "shiki-twoslash": "^3.1.2",
+    "tsdown": "^0.16.6",
+    "tsgo-dev": "^2025.11.23",
+    "typescript": "5.9.3",
+    "valibot": "^1.1.0",
+    "vite": "^7.2.4",
+    "vitepress": "^2.0.0-alpha.15",
+    "vitest": "^4.0.13",
+    "zod": "^4.1.12"
   },
   "keywords": [
     "minimal",

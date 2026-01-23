@@ -1,668 +1,511 @@
-// SPDX-License-Identifier: Apache-2.0
+import {
+  createErrorHelpers,
+  createInternalError,
+  type ResolveErrorKindNames,
+} from "./errors";
+import type { ConditionalAsync, IsPromise } from "./is-promise";
 
-import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type {
-  MaybeAsyncValidateError,
-  MaybeAsyncValidateOutput,
-  OverloadedByPrefixes,
-  ZagoraBaseResult,
-  ZagoraConfig,
-  ZagoraErrorHelpers,
-  ZagoraInferInput,
-  ZagoraMetadata,
-} from "./types.ts";
-import { createDualResult, ZagoraError } from "./utils.ts";
+  AnySchema,
+  CacheAdapter,
+  InferOutput,
+  InferSchemaInput,
+  InferSchemaInputSafe,
+  Prettify,
+  ResolveHandlerOptions,
+  ResolveProcedure,
+  SpreadTuple,
+  UppercaseKeys,
+  ZagoraDef,
+  ZagoraEnvVars,
+  ZagoraResult,
+} from "./types";
 
-export * from "./types.ts";
-export * from "./utils.ts";
+import {
+  createResult,
+  deepMerge,
+  handleTupleDefaults,
+  processHandler,
+  validateError,
+  validateInputOutputOrEnv,
+} from "./utils";
 
-export function zagora(): Zagora<null, null, null, undefined>;
-export function zagora<C extends ZagoraConfig>(
-  config: C
-): Zagora<null, null, null, C>;
-export function zagora<C extends ZagoraConfig>(
-  config?: C
-): Zagora<null, null, null, C | undefined> {
-  return new Zagora(config);
+export * as errors from "./errors";
+export * as types from "./types";
+export * as utils from "./utils";
+
+export interface ZagoraConfig {
+  disableOptions?: boolean;
+  autoCallable?: boolean;
+}
+
+export function zagora(): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  false
+>;
+export function zagora<
+  TDisableOptions extends boolean = false,
+  TAutoCallable extends boolean = false,
+>(config: {
+  disableOptions: TDisableOptions;
+  autoCallable?: TAutoCallable;
+}): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  TDisableOptions,
+  TAutoCallable
+>;
+export function zagora<TAutoCallable extends boolean = false>(config: {
+  autoCallable: TAutoCallable;
+  disableOptions?: boolean;
+}): Zagora<
+  any,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  undefined,
+  false,
+  TAutoCallable
+>;
+export function zagora(config?: ZagoraConfig) {
+  return new Zagora(config) as any;
 }
 
 export class Zagora<
-  InputSchema extends StandardSchemaV1 | null = null,
-  Output extends StandardSchemaV1 | null = null,
-  ErrSchema extends Record<string, StandardSchemaV1> | null = null,
-  Config extends ZagoraConfig | undefined = undefined,
+  THandlerFn extends (...args: any[]) => any,
+  TContext extends any | undefined = undefined,
+  TInputSchema extends AnySchema | undefined = undefined,
+  TOutputSchema extends AnySchema | undefined = undefined,
+  TErrorsMap extends Record<string, AnySchema> | undefined = undefined,
+  TEnvVarsMap extends AnySchema | undefined = undefined,
+  TCacheAdapter extends CacheAdapter | undefined = undefined,
+  TDisableOptions extends boolean = false,
+  TAutoCallable extends boolean = false,
 > {
-  private _inputSchema: InputSchema | null = null;
-  private _outputSchema: Output | null = null;
-  private _errorSchema: ErrSchema | null = null;
-  private _config: Config;
+  "~zagora": Partial<
+    ZagoraDef<
+      TContext,
+      TInputSchema,
+      TOutputSchema,
+      TErrorsMap,
+      TEnvVarsMap,
+      TCacheAdapter
+    >
+  >;
 
-  "~zagora": ZagoraMetadata;
+  constructor(
+    def: Partial<
+      ZagoraDef<
+        TContext,
+        TInputSchema,
+        TOutputSchema,
+        TErrorsMap,
+        TEnvVarsMap,
+        TCacheAdapter
+      >
+    > = {},
+  ) {
+    this["~zagora"] = def;
 
-  constructor(config?: Config) {
-    this._errorSchema = null;
-    this._config = (config || undefined) as Config;
+    // Ensure config flags are set from constructor if provided
+    if ("disableOptions" in def && def.disableOptions !== undefined) {
+      this["~zagora"].disableOptions = def.disableOptions;
+    }
+    if ("autoCallable" in def && def.autoCallable !== undefined) {
+      this["~zagora"].autoCallable = def.autoCallable;
+    }
   }
 
-  // Accept a single schema - object, tuple, primitive, etc.
-  input<T extends StandardSchemaV1>(
-    schema: T
-  ): Zagora<T, Output, ErrSchema, Config> {
-    const next = new Zagora<T, Output, ErrSchema, Config>(this._config);
-    (next as any)._inputSchema = schema;
-    (next as any)._outputSchema = this._outputSchema;
-    (next as any)._errorSchema = this._errorSchema;
-
-    this["~zagora"] = {
-      inputSchema: schema,
-      outputSchema: this._outputSchema,
-      errorSchema: this._errorSchema,
-      handlerFn: null,
-    };
-
-    return next;
+  input<TInput extends AnySchema>(
+    inputSchema: TInput,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInput,
+    TOutputSchema,
+    TErrorsMap,
+    TEnvVarsMap,
+    TCacheAdapter,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this["~zagora"],
+      inputSchema,
+    });
   }
 
-  output<NewOut extends StandardSchemaV1>(schema: NewOut) {
-    const next = new Zagora<InputSchema, NewOut, ErrSchema, Config>(
-      this._config
-    );
-    (next as any)._inputSchema = this._inputSchema;
-    (next as any)._outputSchema = schema;
-    (next as any)._errorSchema = this._errorSchema;
-
-    this["~zagora"] = {
-      inputSchema: this._inputSchema,
-      outputSchema: schema,
-      errorSchema: this._errorSchema,
-      handlerFn: null,
-    };
-
-    return next;
+  output<TOutput extends AnySchema>(
+    outputSchema: TOutput,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutput,
+    TErrorsMap,
+    TEnvVarsMap,
+    TCacheAdapter,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this["~zagora"],
+      outputSchema,
+    });
   }
 
-  errors<NewErr extends Record<string, StandardSchemaV1>>(
-    schema: NewErr
-  ): Zagora<InputSchema, Output, NewErr, Config> {
-    const next = new Zagora<InputSchema, Output, NewErr, Config>(this._config);
-    (next as any)._inputSchema = this._inputSchema;
-    (next as any)._outputSchema = this._outputSchema;
-    (next as any)._errorSchema = schema;
+  context<TNewContext>(
+    initialContext?: TNewContext,
+  ): Zagora<
+    THandlerFn,
+    TNewContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrorsMap,
+    TEnvVarsMap,
+    TCacheAdapter,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this["~zagora"],
+      initialContext,
+    }) as any;
+  }
 
-    this["~zagora"] = {
-      inputSchema: this._inputSchema,
-      outputSchema: this._outputSchema,
-      errorSchema: schema,
-      handlerFn: null,
-    };
+  errors<TErrors extends Record<string, AnySchema>>(
+    errorsMap: TErrors & UppercaseKeys<TErrors>,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrors,
+    TEnvVarsMap,
+    TCacheAdapter,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this["~zagora"],
+      errorsMap,
+    });
+  }
 
-    return next;
+  env<TNewEnvVarsMapSchema extends AnySchema, TEnvVars extends ZagoraEnvVars>(
+    envVarsMapSchema: TNewEnvVarsMapSchema,
+    envVars?: TEnvVars & UppercaseKeys<TEnvVars>,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrorsMap,
+    TNewEnvVarsMapSchema,
+    TCacheAdapter,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this["~zagora"],
+      envVarsMapSchema,
+      envVars,
+    });
+  }
+
+  cache<TNewCacheAdapter extends CacheAdapter>(
+    cacheAdapter: TNewCacheAdapter,
+  ): Zagora<
+    THandlerFn,
+    TContext,
+    TInputSchema,
+    TOutputSchema,
+    TErrorsMap,
+    TEnvVarsMap,
+    TNewCacheAdapter,
+    TDisableOptions,
+    TAutoCallable
+  > {
+    return new Zagora({
+      ...this["~zagora"],
+      cacheAdapter,
+    });
   }
 
   handler<
-    IS extends StandardSchemaV1 = InputSchema extends StandardSchemaV1
-      ? InputSchema
-      : never,
-    OutputArgs = ZagoraInferInput<IS>,
+    TFn extends ResolveProcedure<
+      TDisableOptions,
+      TContext,
+      TInputSchema,
+      TErrorsMap,
+      TEnvVarsMap
+    >,
   >(
-    impl: ErrSchema extends Record<string, StandardSchemaV1>
-      ? Config extends { errorsFirst: true }
-        ? OutputArgs extends readonly any[]
-          ? (...args: [ZagoraErrorHelpers<ErrSchema>, ...OutputArgs]) => any
-          : (errors: ZagoraErrorHelpers<ErrSchema>, arg: OutputArgs) => any
-        : OutputArgs extends readonly any[]
-          ? (...args: [...OutputArgs, ZagoraErrorHelpers<ErrSchema>]) => any
-          : (arg: OutputArgs, errors: ZagoraErrorHelpers<ErrSchema>) => any
-      : OutputArgs extends readonly any[]
-        ? (...args: OutputArgs) => any
-        : (arg: OutputArgs) => any
-  ) {
-    const handlerFn = this.createHandlerAsync(impl);
+    fn: TFn,
+  ): TAutoCallable extends true
+    ? ReturnType<
+        Zagora<
+          TFn,
+          TContext,
+          TInputSchema,
+          TOutputSchema,
+          TErrorsMap,
+          TEnvVarsMap,
+          TCacheAdapter,
+          TDisableOptions,
+          TAutoCallable
+        >["_createProcedure"]
+      >
+    : Zagora<
+        TFn,
+        TContext,
+        TInputSchema,
+        TOutputSchema,
+        TErrorsMap,
+        TEnvVarsMap,
+        TCacheAdapter,
+        TDisableOptions,
+        TAutoCallable
+      > {
+    const newInstance = new Zagora<
+      TFn,
+      TContext,
+      TInputSchema,
+      TOutputSchema,
+      TErrorsMap,
+      TEnvVarsMap,
+      TCacheAdapter,
+      TDisableOptions,
+      TAutoCallable
+    >({
+      ...this["~zagora"],
+      handler: fn as any,
+    });
 
-    this["~zagora"] = {
-      inputSchema: this._inputSchema,
-      outputSchema: this._outputSchema,
-      errorSchema: this._errorSchema,
-      handlerFn,
-    };
+    // If autoCallable is true, create the procedure immediately
+    if (this["~zagora"].autoCallable) {
+      return newInstance._createProcedure(
+        this["~zagora"].initialContext,
+        this["~zagora"].envVars,
+      ) as any;
+    }
 
-    return Object.assign(handlerFn, this) as typeof handlerFn &
-      Zagora<IS, Output, ErrSchema, Config> & {
-        "~zagora": ZagoraMetadata<typeof handlerFn>;
-      };
+    return newInstance as any;
   }
 
-  handlerSync<
-    IS extends StandardSchemaV1 = InputSchema extends StandardSchemaV1
-      ? InputSchema
-      : never,
-    OutputArgs = ZagoraInferInput<IS>,
+  private _createProcedure<
+    TCache,
+    TEnv,
+    TNewContext extends TContext = TContext,
+    TKindNames extends
+      ResolveErrorKindNames<TErrorsMap> = ResolveErrorKindNames<TErrorsMap>,
+  >(context?: TNewContext, env?: TEnv) {
+    const zagora = this["~zagora"];
+    const disableOptions = zagora.disableOptions ?? false;
+    const handlerFn = zagora.handler;
+    const errorsMap = zagora.errorsMap;
+    const inputSchema = zagora.inputSchema as TInputSchema;
+    const outputSchema = zagora.outputSchema as TOutputSchema;
+    const cacheAdapter = zagora.cacheAdapter;
+    const envVarsMapSchema = zagora.envVarsMapSchema;
+    const baseEnvVars = zagora.envVars;
+
+    const mergedEnvVars = deepMerge(baseEnvVars || {}, env || {});
+
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: -- ok
+    const forwardProcedure = (...args: unknown[]) => {
+      const envVars = envVarsMapSchema
+        ? validateInputOutputOrEnv("env", envVarsMapSchema, mergedEnvVars)
+        : ({ ok: true, data: mergedEnvVars } as const);
+
+      if (envVars instanceof Promise) {
+        return createResult(
+          null,
+          createInternalError(
+            "Environment Variables cannot have async schema validation",
+          ),
+          false,
+        );
+      }
+      if (!envVars.ok) {
+        return envVars;
+      }
+
+      const mergedContext = context
+        ? deepMerge(zagora.initialContext, context)
+        : zagora.initialContext;
+
+      const errors = zagora.errorsMap
+        ? createErrorHelpers(zagora.errorsMap as any)
+        : undefined;
+      const options = {
+        errors: errors,
+        context: mergedContext,
+        env: envVars.data,
+      } as Prettify<
+        ResolveHandlerOptions<
+          Prettify<TNewContext & TContext>,
+          TErrorsMap,
+          TEnvVarsMap
+        >
+      >;
+
+      const schemaAny = inputSchema as any;
+      const isTupleSchema =
+        (schemaAny?._def && schemaAny?._def?.type === "tuple") ||
+        schemaAny?.type === "tuple";
+
+      const isArraySchema =
+        (schemaAny?._def && schemaAny?._def?.type === "array") ||
+        schemaAny?.type === "array";
+
+      const isPrimitiveSchema = !isTupleSchema;
+
+      const processor = (mode: "input" | "output", schema: any, data: any) => {
+        if (schema) {
+          return validateInputOutputOrEnv(mode, schema, data);
+        }
+        return createResult(data, null, false);
+      };
+
+      const processInput = (inputData: any) => {
+        // NOTE: isTuple is safe/enough here cuz it's based on the inputSchema,
+        // thus if inputSchema is not defined, then it would be isTuple=false too.
+        const handlerArgs =
+          !isArraySchema && !isPrimitiveSchema
+            ? handleTupleDefaults(inputSchema as any, inputData as any)
+            : [inputData];
+
+        const executionArgs = disableOptions
+          ? handlerArgs
+          : [options, ...handlerArgs];
+
+        const state = processHandler(handlerFn, executionArgs, cacheAdapter, {
+          inputSchema,
+          outputSchema,
+          envVarsMapSchema,
+          errorsMap,
+        });
+
+        const handleState = (st: any) => {
+          if (st.ok) {
+            return processor("output", outputSchema, st.data);
+          }
+
+          const { isAsync, handlerFailed, ...rest } = st;
+
+          // if handler failed, then we need to validate the error if errorSchema,
+          // otherwise we can passthrough the Result object whatever it is.
+          return handlerFailed
+            ? validateError<TKindNames>(errorsMap as any, st.error, isAsync)
+            : rest;
+        };
+
+        if (state instanceof Promise) {
+          return state.then((st) => handleState(st));
+        }
+
+        return handleState(state);
+      };
+
+      const inputArgs = !isArraySchema && !isPrimitiveSchema ? args : args[0];
+
+      const inputResult = inputSchema
+        ? validateInputOutputOrEnv("input", inputSchema, inputArgs)
+        : ({ ok: true, data: inputArgs } as const);
+
+      if (inputResult instanceof Promise) {
+        return inputResult.then((resultObj) =>
+          resultObj.error ? resultObj : processInput(resultObj.data),
+        );
+      }
+
+      return inputResult.error ? inputResult : processInput(inputResult.data);
+    };
+
+    type TResolvedResult = Awaited<ReturnType<typeof forwardProcedure>>;
+    type Result = ZagoraResult<
+      InferOutput<TOutputSchema, THandlerFn>,
+      TErrorsMap,
+      TResolvedResult
+    >;
+
+    type TResult = ConditionalAsync<ReturnType<THandlerFn>, Result>;
+
+    type TFinalResult = TCache extends {
+      has(key: string): infer A;
+      get(key: string): infer B;
+      set(key: string, value: unknown): infer C;
+    }
+      ? IsPromise<A> extends true
+        ? Promise<Result>
+        : IsPromise<B> extends true
+          ? Promise<Result>
+          : IsPromise<C> extends true
+            ? Promise<Result>
+            : TResult
+      : TResult;
+
+    const procedure = forwardProcedure as TInputSchema extends AnySchema
+      ? InferSchemaInput<TInputSchema> extends readonly [any, ...any[]]
+        ? SpreadTuple<InferSchemaInput<TInputSchema>, TFinalResult>
+        : (arg: InferSchemaInput<TInputSchema>) => TFinalResult
+      : () => TFinalResult;
+
+    const proc = procedure as typeof procedure & {
+      "~zagora": Partial<
+        ZagoraDef<
+          TContext,
+          TInputSchema,
+          TOutputSchema,
+          TErrorsMap,
+          TEnvVarsMap,
+          TCacheAdapter
+        >
+      >;
+    };
+
+    proc["~zagora"] = this["~zagora"];
+
+    return proc;
+  }
+
+  callable<
+    TNewContext extends TContext,
+    TIncomingEnv extends ZagoraEnvVars,
+    TKindNames extends ResolveErrorKindNames<TErrorsMap>,
+    TCacheDefinitely extends CacheAdapter,
+    TNewCacheAdapter extends TCacheDefinitely | undefined = undefined,
   >(
-    impl: ErrSchema extends Record<string, StandardSchemaV1>
-      ? Config extends { errorsFirst: true }
-        ? OutputArgs extends readonly any[]
-          ? (...args: [ZagoraErrorHelpers<ErrSchema>, ...OutputArgs]) => any
-          : (errors: ZagoraErrorHelpers<ErrSchema>, arg: OutputArgs) => any
-        : OutputArgs extends readonly any[]
-          ? (...args: [...OutputArgs, ZagoraErrorHelpers<ErrSchema>]) => any
-          : (arg: OutputArgs, errors: ZagoraErrorHelpers<ErrSchema>) => any
-      : OutputArgs extends readonly any[]
-        ? (...args: OutputArgs) => any
-        : (arg: OutputArgs) => any
+    options: {
+      context?: TNewContext;
+      cache?: TCacheDefinitely;
+      env?: InferSchemaInputSafe<TEnvVarsMap>;
+    } = {},
   ) {
-    const handlerFn = this.createHandlerSync(impl);
-
-    this["~zagora"] = {
-      inputSchema: this._inputSchema,
-      outputSchema: this._outputSchema,
-      errorSchema: this._errorSchema,
-      handlerFn,
-    };
-
-    return Object.assign(handlerFn, this) as typeof handlerFn &
-      Zagora<IS, Output, ErrSchema, Config> & {
-        "~zagora": ZagoraMetadata<typeof handlerFn>;
-      };
-  }
-
-  private createHandlerSync<
-    IS extends StandardSchemaV1 = InputSchema extends StandardSchemaV1
-      ? InputSchema
-      : never,
-  >(impl: any) {
-    if (!this._inputSchema) {
-      throw new Error(".input(...) must be called first");
-    }
-    if (!this._outputSchema) {
-      throw new Error(".output(...) must be called first");
+    let za = this;
+    if (options.cache) {
+      za = this.cache<TCacheDefinitely>(options.cache) as any;
     }
 
-    const inputSchema = this._inputSchema as StandardSchemaV1;
-    const outputSchema = this._outputSchema as StandardSchemaV1;
-    const errSchema = this._errorSchema;
-
-    // Create synchronous wrapper function
-    const wrapper = (...rawArgs: unknown[]) => {
-      // Validate input synchronously
-      const inputResult = this.validateInputSync(inputSchema, rawArgs);
-      if (inputResult.error) {
-        return createDualResult(null, inputResult.error, false);
-      }
-
-      // Call implementation
-      try {
-        // Add error helpers if error schema is defined
-        const finalArgs = errSchema
-          ? (this._config as ZagoraConfig)?.errorsFirst
-            ? [this.createErrorHelpers(errSchema), ...inputResult.args]
-            : [...inputResult.args, this.createErrorHelpers(errSchema)]
-          : inputResult.args;
-
-        const rawResult = (impl as any)(...finalArgs);
-        const isPromise = rawResult instanceof Promise;
-
-        if (isPromise) {
-          return createDualResult(
-            null,
-            new ZagoraError(
-              "Using `.handlerSync` only accepts synchronous functions"
-            ),
-            false
-          );
-        }
-
-        // Check if result is a [data, error] tuple
-        if (Array.isArray(rawResult) && rawResult.length === 2) {
-          const [maybeOut, maybeErr] = rawResult as [unknown, unknown];
-
-          if (maybeErr != null) {
-            // Validate error against schemas if defined
-            if (errSchema) {
-              const { error: validatedError, isTyped } = this.validateError(
-                errSchema,
-                maybeErr,
-                true
-              );
-              if (isTyped) {
-                return createDualResult(null, validatedError, true);
-              }
-              return createDualResult(
-                null,
-                validatedError as ZagoraError,
-                true
-              );
-            }
-            // No error schemas defined, return error as ZagoraError if it's not already one
-            const zagoraError =
-              maybeErr instanceof ZagoraError
-                ? maybeErr
-                : ZagoraError.fromCaughtError(
-                    maybeErr,
-                    "Untyped error returned"
-                  );
-            return createDualResult(null, zagoraError, false);
-          }
-
-          // Validate successful output
-          const [res, err] = this.validateOutput(outputSchema, maybeOut, true);
-          if (err === null) {
-            return createDualResult(res, null, false);
-          }
-          return createDualResult(null, err, false);
-        }
-
-        // Direct result, validate as output
-        const [data, error] = this.validateOutput(
-          outputSchema,
-          rawResult,
-          true
-        );
-        if (error === null) {
-          return createDualResult(data, null, false);
-        }
-        return createDualResult(null, error, false);
-      } catch (err: unknown) {
-        // Handler threw an error - wrap in ZagoraError
-        const zagoraError = ZagoraError.fromCaughtError(
-          err,
-          "Handler threw unknown error"
-        );
-        return createDualResult(null, zagoraError, false);
-      }
-    };
-
-    type HandlerResult = ZagoraBaseResult<Output, ErrSchema>;
-
-    // Forward (call-site) signatures
-    type InputArgs = StandardSchemaV1.InferInput<IS>;
-    type SingleArg = InputArgs extends readonly any[] ? never : InputArgs;
-    type TupleArgs = InputArgs extends readonly any[] ? InputArgs : never;
-
-    type ForwardType = InputArgs extends readonly any[]
-      ? OverloadedByPrefixes<
-          TupleArgs extends readonly any[] ? [...TupleArgs] : never,
-          HandlerResult
-        > &
-          ((...args: TupleArgs) => HandlerResult)
-      : SingleArg extends Record<string, any>
-        ? ((arg: SingleArg) => HandlerResult) &
-            OverloadedByPrefixes<[SingleArg], HandlerResult>
-        : ((arg: SingleArg) => HandlerResult) &
-            OverloadedByPrefixes<[SingleArg], HandlerResult>;
-
-    const forwardImpl = (...args: any[]) => wrapper(...(args as unknown[]));
-    const forward = forwardImpl as unknown as ForwardType;
-
-    return forward;
-  }
-
-  private createHandlerAsync<
-    IS extends StandardSchemaV1 = InputSchema extends StandardSchemaV1
-      ? InputSchema
-      : never,
-  >(impl: any) {
-    if (!this._inputSchema) {
-      throw new Error(".input(...) must be called first");
-    }
-    if (!this._outputSchema) {
-      throw new Error(".output(...) must be called first");
-    }
-
-    const inputSchema = this._inputSchema as StandardSchemaV1;
-    const outputSchema = this._outputSchema as StandardSchemaV1;
-    const errSchema = this._errorSchema;
-
-    // Create asynchronous wrapper function
-    const wrapper = async (...rawArgs: unknown[]) => {
-      // Validate input
-      const inputResult = await this.validateInput(inputSchema, rawArgs);
-      if (inputResult.error) {
-        return createDualResult(null, inputResult.error, false);
-      }
-
-      // Call implementation
-      try {
-        // Add error helpers if error schema is defined
-        const finalArgs = errSchema
-          ? (this._config as ZagoraConfig)?.errorsFirst
-            ? [this.createErrorHelpers(errSchema), ...inputResult.args]
-            : [...inputResult.args, this.createErrorHelpers(errSchema)]
-          : inputResult.args;
-
-        let rawResult = (impl as any)(...finalArgs);
-        const isNotPromise = !(rawResult instanceof Promise);
-
-        if (isNotPromise) {
-          return createDualResult(
-            null,
-            new ZagoraError("Using `.handler` only accepts async functions"),
-            false
-          );
-        }
-
-        rawResult = await rawResult;
-
-        // Check if result is a [data, error] tuple
-        if (Array.isArray(rawResult) && rawResult.length === 2) {
-          const [maybeOut, maybeErr] = rawResult as [unknown, unknown];
-
-          if (maybeErr != null) {
-            // Validate error against schemas if defined
-            if (errSchema) {
-              const { error: validatedError, isTyped } =
-                await this.validateError(errSchema, maybeErr, false);
-              if (isTyped) {
-                return createDualResult(null, validatedError, true);
-              }
-              return createDualResult(
-                null,
-                validatedError as ZagoraError,
-                false
-              );
-            }
-            // No error schemas defined, return error as ZagoraError if it's not already one
-            const zagoraError =
-              maybeErr instanceof ZagoraError
-                ? maybeErr
-                : ZagoraError.fromCaughtError(
-                    maybeErr,
-                    "Untyped error returned"
-                  );
-            return createDualResult(null, zagoraError, false);
-          }
-
-          // Validate successful output
-          const [res, err] = await this.validateOutput(
-            outputSchema,
-            maybeOut,
-            false
-          );
-          if (err === null) {
-            return createDualResult(res, null, false);
-          }
-          return createDualResult(null, err, false);
-        }
-
-        // Direct result, validate as output
-        const [data, error] = await this.validateOutput(
-          outputSchema,
-          rawResult,
-          false
-        );
-        if (error === null) {
-          return createDualResult(data, null, false);
-        }
-        return createDualResult(null, error, false);
-      } catch (err: unknown) {
-        // Handler threw an error - wrap in ZagoraError
-        const zagoraError = ZagoraError.fromCaughtError(
-          err,
-          "Handler threw unknown error"
-        );
-        return createDualResult(null, zagoraError, false);
-      }
-    };
-
-    type HandlerResult = Promise<ZagoraBaseResult<Output, ErrSchema>>;
-
-    // Forward (call-site) signatures
-    type InputArgs = StandardSchemaV1.InferInput<IS>;
-    type SingleArg = InputArgs extends readonly any[] ? never : InputArgs;
-    type TupleArgs = InputArgs extends readonly any[] ? InputArgs : never;
-
-    type ForwardType = InputArgs extends readonly any[]
-      ? OverloadedByPrefixes<
-          TupleArgs extends readonly any[] ? [...TupleArgs] : never,
-          HandlerResult
-        > &
-          ((...args: TupleArgs) => HandlerResult)
-      : SingleArg extends Record<string, any>
-        ? ((arg: SingleArg) => HandlerResult) &
-            OverloadedByPrefixes<[SingleArg], HandlerResult>
-        : ((arg: SingleArg) => HandlerResult) &
-            OverloadedByPrefixes<[SingleArg], HandlerResult>;
-
-    const forwardImpl = (...args: any[]) => wrapper(...(args as unknown[]));
-    const forward = forwardImpl as unknown as ForwardType;
-
-    return forward;
-  }
-
-  private validateInputSync(
-    inputSchema: StandardSchemaV1,
-    rawArgs: unknown[]
-  ): { args: unknown[]; error?: ZagoraError } {
-    // Handle tuple defaults if needed
-    const processedArgs = this.handleTupleDefaults(inputSchema, rawArgs);
-
-    // Try tuple validation first
-    let result = inputSchema["~standard"].validate(processedArgs);
-    if (result instanceof Promise) {
-      throw new ZagoraError(
-        "Cannot use async input schema validation in handlerSync"
-      );
-    }
-    if (!result.issues) {
-      return { args: (result as any).value as unknown[] };
-    }
-
-    // Try single argument validation if tuple validation failed
-    const singleValue = processedArgs[0];
-    result = inputSchema["~standard"].validate(singleValue);
-    if (result instanceof Promise) {
-      throw new ZagoraError(
-        "Cannot use async input schema validation in handlerSync"
-      );
-    }
-
-    if (result.issues) {
-      return {
-        args: [],
-        error: ZagoraError.fromIssues(result.issues),
-      };
-    }
-
-    const validatedValue = (result as any).value;
-    const args = Array.isArray(validatedValue)
-      ? validatedValue
-      : [validatedValue];
-    return { args };
-  }
-
-  private async validateInput(
-    inputSchema: StandardSchemaV1,
-    rawArgs: unknown[]
-  ): Promise<{ args: unknown[]; error?: ZagoraError }> {
-    // Handle tuple defaults if needed
-    const processedArgs = this.handleTupleDefaults(inputSchema, rawArgs);
-
-    // Try tuple validation first
-    let result = inputSchema["~standard"].validate(processedArgs);
-    if (result instanceof Promise) {
-      result = await result;
-    }
-    if (!result.issues) {
-      return { args: (result as any).value as unknown[] };
-    }
-
-    // Try single argument validation if tuple validation failed
-    const singleValue = processedArgs[0];
-    result = inputSchema["~standard"].validate(singleValue);
-    if (result instanceof Promise) {
-      result = await result;
-    }
-
-    if (result.issues) {
-      return {
-        args: [],
-        error: ZagoraError.fromIssues(result.issues),
-      };
-    }
-
-    const validatedValue = (result as any).value;
-    const args = Array.isArray(validatedValue)
-      ? validatedValue
-      : [validatedValue];
-    return { args };
-  }
-
-  private handleTupleDefaults(
-    schema: StandardSchemaV1,
-    rawArgs: unknown[]
-  ): unknown[] {
-    // Check if this might be a tuple schema by examining the schema structure
-    const schemaAny = schema as any;
-
-    // Try to detect if this is a Zod tuple schema
-    if (schemaAny._def && schemaAny._def.type === "tuple") {
-      const tupleItems = schemaAny._def.items;
-      if (tupleItems && Array.isArray(tupleItems)) {
-        const result = [...rawArgs];
-
-        // Fill in defaults for missing elements
-        for (let i = rawArgs.length; i < tupleItems.length; i++) {
-          const itemSchema = tupleItems[i];
-          if (itemSchema && itemSchema.type === "default" && itemSchema._def) {
-            const defaultValue =
-              typeof itemSchema._def.defaultValue === "function"
-                ? itemSchema._def.defaultValue()
-                : itemSchema._def.defaultValue;
-            result[i] = defaultValue;
-          }
-        }
-
-        return result;
-      }
-    }
-    return rawArgs;
-  }
-
-  // Define the validation result type once
-
-  private validateOutput<TIsSync extends boolean>(
-    outputSchema: StandardSchemaV1,
-    output: unknown,
-    isSync: TIsSync
-  ): MaybeAsyncValidateOutput<TIsSync> {
-    const result = outputSchema["~standard"].validate(output);
-    if (result instanceof Promise) {
-      if (isSync) {
-        throw new ZagoraError(
-          "Cannot use async output schema validation in handlerSync"
-        );
-      }
-
-      return result.then((res) => {
-        if (res.issues) {
-          return [null, ZagoraError.fromIssues(res.issues)] as const;
-        }
-        return [(res as { value: any }).value, null];
-      }) as MaybeAsyncValidateOutput<TIsSync>;
-    }
-    if (result.issues) {
-      return [
-        null,
-        ZagoraError.fromIssues(result.issues),
-      ] as MaybeAsyncValidateOutput<TIsSync>;
-    }
-    return [
-      (result as { value: any }).value,
-      null,
-    ] as MaybeAsyncValidateOutput<TIsSync>;
-  }
-
-  private validateError<TIsSync extends boolean>(
-    errSchema: Record<string, StandardSchemaV1>,
-    maybeErr: unknown,
-    isSync: TIsSync
-  ): MaybeAsyncValidateError<TIsSync> {
-    // Try to validate against each error schema
-    for (const [_key, errorSchema] of Object.entries(errSchema)) {
-      const result = errorSchema["~standard"].validate(maybeErr);
-      if (result instanceof Promise) {
-        if (isSync) {
-          throw new ZagoraError(
-            "Cannot use async error schema validation in handlerSync"
-          );
-        }
-
-        return result.then((res) => {
-          if (!res.issues) {
-            return { error: (res as any).value, isTyped: true };
-          }
-          return { error: maybeErr, isTyped: false };
-        }) as MaybeAsyncValidateError<TIsSync>;
-      }
-      if (!result.issues) {
-        return {
-          error: (result as any).value,
-          isTyped: true,
-        } as MaybeAsyncValidateError<TIsSync>;
-      }
-    }
-    // If no schema matched, return error as-is (will be marked as untyped)
-    return {
-      error: maybeErr,
-      isTyped: false,
-    } as MaybeAsyncValidateError<TIsSync>;
-  }
-
-  private createErrorHelpers(schema: Record<string, StandardSchemaV1>) {
-    // Helper to convert snake_case to PascalCase
-    const toPascalCase = (str: string) => {
-      return str
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join("");
-    };
-
-    const helpers: any = {};
-    for (const [key, errorSchema] of Object.entries(schema)) {
-      helpers[key] = (error: any) => {
-        // Try different type values to auto-inject
-        const typeVariants = [
-          key, // e.g., "network" or "rate_limit"
-          `${toPascalCase(key)}Error`, // e.g., "NetworkError" or "RateLimitError"
-          `${key.toUpperCase()}_ERROR`, // e.g., "NETWORK_ERROR" or "RATE_LIMIT_ERROR"
-        ];
-
-        let result: any;
-        let errorWithType: any;
-
-        // First try without injecting type (user might have provided it)
-        result = errorSchema["~standard"].validate(error);
-        if (result instanceof Promise) {
-          throw new ZagoraError(
-            "Synchronous error helpers don't support async schemas"
-          );
-        }
-
-        // If validation succeeded, use it
-        if (!result.issues) {
-          return [null, (result as any).value] as const;
-        }
-
-        // Try with auto-injected type variants
-        for (const typeValue of typeVariants) {
-          errorWithType = { ...error, type: typeValue };
-          result = errorSchema["~standard"].validate(errorWithType);
-          if (result instanceof Promise) {
-            throw new ZagoraError(
-              "Synchronous error helpers don't support async schemas"
-            );
-          }
-
-          if (!result.issues) {
-            return [null, (result as any).value] as const;
-          }
-        }
-
-        // If all attempts failed, throw error
-        throw new ZagoraError(
-          `Invalid error data for "errors.${key}": ${result.issues.map((i: any) => i.message).join(", ")}`
-        );
-      };
-    }
-    return helpers;
+    return za._createProcedure<
+      TNewCacheAdapter,
+      TIncomingEnv,
+      TNewContext,
+      TKindNames
+    >(options.context, options.env as any);
   }
 }

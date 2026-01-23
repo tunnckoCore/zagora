@@ -1,0 +1,209 @@
+# Caching & Memoization [Avoid redundant computations]
+
+Zagora supports caching via a simple adapter interface, allowing you to memoize expensive operations.
+
+## Basic Caching
+
+Pass a Map or compatible cache to `.cache()`:
+
+```js
+import { z } from 'zod';
+import { zagora } from 'zagora';
+
+const cache = new Map();
+
+const expensiveCalc = zagora()
+  .cache(cache)
+  .input(z.number())
+  .handler((_, n) => {
+    console.log('Computing...');
+    return fibonacci(n);
+  })
+  .callable();
+
+expensiveCalc(40);  // "Computing..." - cache miss
+expensiveCalc(40);  // No log - cache hit!
+```
+
+## Cache Key Composition
+
+Cache keys are computed from:
+- Input values
+- Input/output/error schemas
+- Handler function body
+
+This means:
+
+```js
+// Same input, same handler = cache hit
+expensiveCalc(40);
+expensiveCalc(40);  // Hit!
+
+// Different input = cache miss
+expensiveCalc(41);  // Miss
+
+// Changed handler = all cache invalidated
+```
+
+## Runtime Cache Override
+
+Provide cache at call time via `.callable()`:
+
+```js
+const calc = zagora()
+  .input(z.number())
+  .handler((_, n) => fibonacci(n))
+  .callable({ cache: requestCache });
+
+// Or create multiple callables with different caches
+const prodCalc = calc.callable({ cache: redisCache });
+const testCalc = calc.callable({ cache: new Map() });
+```
+
+## Cache Adapter Interface
+
+Any object with `has`, `get`, and `set` methods works:
+
+```js
+interface CacheAdapter<K, V> {
+  has(key: K): boolean | Promise<boolean>;
+  get(key: K): V | undefined | Promise<V | undefined>;
+  set(key: K, value: V): void | Promise<void>;
+}
+```
+
+### Sync Cache (Map)
+
+```js
+const cache = new Map();
+```
+
+### Async Cache (Redis-like)
+
+```js
+const redisCache = {
+  async has(key) {
+    return await redis.exists(key);
+  },
+  async get(key) {
+    const value = await redis.get(key);
+    return value ? JSON.parse(value) : undefined;
+  },
+  async set(key, value) {
+    await redis.set(key, JSON.stringify(value));
+  }
+};
+```
+
+:::warning
+Async cache methods make the procedure async. Always `await` the result.
+:::
+
+## Cache with Errors
+
+Failed executions are not cached:
+
+```js
+const fetchUser = zagora()
+  .cache(cache)
+  .input(z.string())
+  .errors({ NOT_FOUND: z.object({ id: z.string() }) })
+  .handler(async ({ errors }, id) => {
+    const user = await db.find(id);
+    if (!user) throw errors.NOT_FOUND({ id });
+    return user;
+  })
+  .callable();
+
+fetchUser('missing');  // NOT_FOUND error - not cached
+fetchUser('missing');  // Will try again (not cached)
+
+fetchUser('exists');   // Success - cached
+fetchUser('exists');   // Cache hit!
+```
+
+## Cache Error Handling
+
+If the cache adapter throws, you get an `UNKNOWN_ERROR`:
+
+```js
+const brokenCache = {
+  has() { throw new Error('Cache failed'); },
+  get() { throw new Error('Cache failed'); },
+  set() { throw new Error('Cache failed'); }
+};
+
+const proc = zagora()
+  .cache(brokenCache)
+  .handler(() => 'result')
+  .callable();
+
+const result = proc();
+// result.error.kind === 'UNKNOWN_ERROR'
+// result.error.cause === Error('Cache failed')
+```
+
+## Pattern: Request-Scoped Cache
+
+Use per-request caches to avoid leaking between requests:
+
+```js
+const getUser = zagora()
+  .input(z.string())
+  .handler(async (_, id) => db.findUser(id));
+
+// In request handler
+app.get('/user/:id', (req, res) => {
+  const requestCache = new Map();
+  const proc = getUser.callable({ cache: requestCache });
+  
+  // Multiple calls in same request share cache
+  const user1 = await proc(req.params.id);
+  const user2 = await proc(req.params.id);  // Cache hit
+  
+  // Cache is garbage collected after request
+});
+```
+
+## Pattern: TTL Cache
+
+Implement time-based expiration:
+
+```js
+function createTTLCache(ttlMs) {
+  const cache = new Map();
+  
+  return {
+    has(key) {
+      const entry = cache.get(key);
+      if (!entry) return false;
+      if (Date.now() > entry.expiresAt) {
+        cache.delete(key);
+        return false;
+      }
+      return true;
+    },
+    get(key) {
+      const entry = cache.get(key);
+      if (!entry || Date.now() > entry.expiresAt) return undefined;
+      return entry.value;
+    },
+    set(key, value) {
+      cache.set(key, {
+        value,
+        expiresAt: Date.now() + ttlMs
+      });
+    }
+  };
+}
+
+const proc = zagora()
+  .cache(createTTLCache(60000))  // 1 minute TTL
+  .handler(() => expensiveOperation())
+  .callable();
+```
+
+## Next Steps
+
+- [Async Support](/docs/async-support) - Sync vs async procedures
+- [Context Management](/docs/context) - Dependency injection
