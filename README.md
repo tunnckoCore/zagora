@@ -409,7 +409,7 @@ const hello = zagora()
     if (input === 'invalid-keys') {
       const userId = crypto.randomUUID();
       throw errors.RATE_LIMIT({ 
-        message: `User with id "${userId}" is limited temporarily`
+        message: `User with id "${userId}" is limited temporarily`,
         userId,
         retryAfter: 'invalid', // NOTE: expects number, TypeScript will report type-error
       });
