@@ -39,7 +39,7 @@ export default defineConfig({
       },
       {
         text: "GitHub",
-        link: "https://github.com/tunnckoCore/zagora/tree/feat/docs",
+        link: "https://github.com/tunnckoCore/zagora",
       },
     ],
 
@@ -127,15 +127,14 @@ export default defineConfig({
     socialLinks: [
       {
         icon: "github",
-        link: "https://github.com/tunnckoCore/zagora/tree/feat/docs",
+        link: "https://github.com/tunnckoCore/zagora",
       },
       { icon: "x", link: "https://twitter.com/wgw_eth" },
       { icon: "npm", link: "https://npmjs.com/package/zagora" },
     ],
 
     editLink: {
-      pattern:
-        "https://github.com/tunnckoCore/zagora/edit/feat/docs/docs/:path",
+      pattern: "https://github.com/tunnckoCore/zagora/edit/master/docs/:path",
       text: "Edit on GitHub",
     },
   },

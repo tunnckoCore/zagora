@@ -13,13 +13,13 @@ export default defineConfig({
   socials: [
     {
       icon: "github",
-      link: "https://github.com/tunnckoCore/zagora/tree/feat/docs",
+      link: "https://github.com/tunnckoCore/zagora",
     },
     { icon: "x", link: "https://twitter.com/wgw_eth" },
   ],
   editLink: {
     pattern:
-      "https://github.com/tunnckoCore/zagora/edit/feat/docs/apps/web/pages/:path",
+      "https://github.com/tunnckoCore/zagora/edit/master/apps/web/pages/:path",
     text: "Edit on GitHub",
   },
   llms: {
@@ -35,7 +35,7 @@ export default defineConfig({
   topNav: [
     // {
     //   text: "Chat with Codebase",
-    //   link: "https://open-github.com/tunnckoCore/zagora/tree/feat/docs",
+    //   link: "https://open-github.com/tunnckoCore/zagora/tree/master",
     // },
     { text: "Docs", link: "/docs/getting-started", match: "/docs" },
     { text: "API", link: "/api/zagora", match: "/api" },
@@ -51,7 +51,7 @@ export default defineConfig({
     },
     {
       text: "GitHub",
-      link: "https://github.com/tunnckoCore/zagora/tree/feat/docs",
+      link: "https://github.com/tunnckoCore/zagora/tree/master",
     },
   ],
   sidebar: {
