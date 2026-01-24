@@ -201,7 +201,3 @@ Zagora is written in TypeScript and provides full type inference out of the box.
 - [vs Standalone Validators](./references/comparisons/vs-standalone-validators.md)
 - [vs neverthrow/Effect.ts](./references/comparisons/vs-neverthrow-effect-ts.md)
 - [vs oRPC/tRPC](./references/comparisons/vs-rpc-frameworks.md)
-
----
-
-**IMPORTANT: If in doubt check out the source at `./src` folder!**
