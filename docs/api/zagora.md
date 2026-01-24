@@ -28,6 +28,9 @@ function zagora(config?: ZagoraConfig): ZagoraBuilder
 
 Skip the `.callable()` step and return a callable function directly from `.handler()`.
 
+**Type:** `boolean`  
+**Default:** `false`
+
 ```ts
 const proc = zagora({ autoCallable: true })
   .input(z.string())
@@ -37,12 +40,12 @@ const proc = zagora({ autoCallable: true })
 proc('World');
 ```
 
-**Type:** `boolean`  
-**Default:** `false`
-
 ### disableOptions
 
 Omit the options object from the handler signature.
+
+**Type:** `boolean`  
+**Default:** `false`
 
 ```ts
 const proc = zagora({ disableOptions: true })
@@ -50,9 +53,6 @@ const proc = zagora({ disableOptions: true })
   .handler((a, b) => a + b)  // No options object
   .callable();
 ```
-
-**Type:** `boolean`  
-**Default:** `false`
 
 :::warning
 When `disableOptions` is `true`, the handler cannot access `context`, `errors`, or `env`.
@@ -78,9 +78,9 @@ Returns a `ZagoraBuilder` instance with the following methods:
 |--------|-------------|
 | `.input(schema)` | Define input validation schema |
 | `.output(schema)` | Define output validation schema |
-| `.errors(map)` | Define typed error schemas |
+| `.errors(Record<string, schema>)` | Define typed error schemas |
 | `.context(initial)` | Set initial context |
-| `.env(schema, runtime?)` | Define env var schema |
+| `.env(schema, processEnv?)` | Define env var schema |
 | `.cache(adapter)` | Set cache adapter |
 | `.handler(fn)` | Define the handler function |
 | `.callable(options?)` | Create the callable function |
@@ -96,12 +96,15 @@ const greet = zagora()
   .callable();
 ```
 
-### With All Options
+### With All Aethods
 
 ```ts
 const createUser = zagora()
   .context({ db: myDatabase })
-  .env(z.object({ API_KEY: z.string() }))
+  .env(z.object({ 
+    API_KEY: z.string().min(), 
+    DATABSE_URL: z.string().url()
+  }))
   .input(z.object({ name: z.string(), email: z.string() }))
   .output(z.object({ id: z.string(), name: z.string() }))
   .errors({

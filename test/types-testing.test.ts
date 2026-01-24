@@ -27,6 +27,7 @@
  * Run with: `bun run typecheck`
  */
 
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { expect, expectTypeOf, test } from "vitest";
 import { z } from "zod";
 import type {
@@ -44,6 +45,7 @@ import type {
   IsAny,
   IsOptional,
   IsPromise,
+  ResolvedProcedure,
   ResolveHandlerOptions,
   ResolveProcedure,
   SpreadTuple,
@@ -794,4 +796,29 @@ test("SpreadTuple four element tuple (last three optional)", () => {
     | ((arg1: string, arg2?: number | undefined) => number)
     | ((arg1: string) => number)
   >();
+});
+
+test("ResolvedProcedure<TInputSchema, TFinalResult> - resolves procedure type based on input schema", () => {
+  // Mock schema types for testing
+  type MockTupleSchema = StandardSchemaV1<readonly [string, number], any>;
+  type MockStringSchema = StandardSchemaV1<string, any>;
+  type MockObjectSchema = StandardSchemaV1<{ name: string }, any>;
+
+  // With tuple schema (multiple arguments)
+  type TupleProc = ResolvedProcedure<MockTupleSchema, string>;
+  expectTypeOf<TupleProc>().toEqualTypeOf<
+    ((arg1: string, arg2: number) => string) | ((arg1: string) => string)
+  >();
+
+  // With single schema (one argument)
+  type SingleProc = ResolvedProcedure<MockStringSchema, number>;
+  expectTypeOf<SingleProc>().toEqualTypeOf<(arg: string) => number>();
+
+  // With no schema (no arguments)
+  type NoSchemaProc = ResolvedProcedure<undefined, boolean>;
+  expectTypeOf<NoSchemaProc>().toEqualTypeOf<() => boolean>();
+
+  // With object schema (single argument)
+  type ObjectProc = ResolvedProcedure<MockObjectSchema, object>;
+  expectTypeOf<ObjectProc>().toEqualTypeOf<(arg: { name: string }) => object>();
 });

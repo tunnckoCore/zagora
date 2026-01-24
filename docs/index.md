@@ -53,7 +53,7 @@ const getUser = zagora()
   .input(z.tuple([z.string(), z.number().default(18), z.string().optional()]))
   .handler((_, name, age, state) => {
     // name: string
-    // age: number NOT `number | undefined`
+    // age: number, important -> NOT `number | undefined`
     // state: string | undefined
     return `${name} is ${age}, from ${state || "unknown"}`;
   })

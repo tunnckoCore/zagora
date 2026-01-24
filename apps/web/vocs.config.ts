@@ -51,7 +51,7 @@ export default defineConfig({
     },
     {
       text: "GitHub",
-      link: "https://github.com/tunnckoCore/zagora/tree/master",
+      link: "https://github.com/tunnckoCore/zagora",
     },
   ],
   sidebar: {

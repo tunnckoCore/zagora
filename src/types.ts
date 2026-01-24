@@ -260,3 +260,13 @@ export type SpreadTuple<T extends readonly any[], R> = T extends readonly [
                   | ((arg1: A, arg2: B) => R)
                   | ((arg1: A) => R)
         : (...args: T) => R;
+
+// TEST: with expect-type
+export type ResolvedProcedure<
+  TInputSchema extends AnySchema | undefined,
+  TFinalResult,
+> = TInputSchema extends AnySchema
+  ? InferSchemaInput<TInputSchema> extends readonly [any, ...any[]]
+    ? SpreadTuple<InferSchemaInput<TInputSchema>, TFinalResult>
+    : (arg: InferSchemaInput<TInputSchema>) => TFinalResult
+  : () => TFinalResult;

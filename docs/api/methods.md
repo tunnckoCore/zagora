@@ -39,6 +39,9 @@ Tuple inputs are spread as handler arguments:
 Define the output validation schema.
 
 ```ts
+.output(z.string())
+.output(z.number())
+.output(z.array(z.string()))
 .output(z.object({ id: z.string(), name: z.string() }))
 ```
 
@@ -47,7 +50,7 @@ Define the output validation schema.
 
 Output is validated after the handler returns.
 
-## .errors(map)
+## .errors(Record<string, schema>)
 
 Define typed error schemas.
 
@@ -82,20 +85,31 @@ Set initial context values.
 
 Context is merged with runtime context from `.callable()`.
 
-## .env(schema, runtime?)
+```ts
+.context({ db: myDatabase, logger: console })
+.handler(({ context }) => {
+  // ^ context => { db, logger, foo }
+  context.logger.info(context.db) // => db
+  context.logger.info(context.foo) // => bar
+})
+.callable({ context: { foo: 'bar' } })
+```
+
+## .env(schema, processEnv?)
 
 Define environment variable schema.
 
 ```ts
-.env(z.object({
-  API_KEY: z.string(),
-  TIMEOUT: z.coerce.number().default(5000)
-}))
+zagora()
+  .env(z.object({
+    API_KEY: z.string(),
+    TIMEOUT: z.coerce.number().default(5000)
+  }))
 ```
 
 **Parameters:**
 - `schema` - StandardSchema for env vars
-- `runtime` (optional) - Runtime env vars (for `autoCallable` mode)
+- `processEnv` (optional) - Runtime env vars (useful when `autoCallable` mode enabled)
 
 **Returns:** `ZagoraBuilder` (chainable)
 
@@ -128,9 +142,13 @@ interface CacheAdapter<K, V> {
 }
 ```
 
+:::warning
+**NOTE:** if any of the methods is async, then the procedure must be `await`-ed!
+:::
+
 ## .handler(fn)
 
-Define the handler function.
+Define the procedure/handler function. It could be synchronous or async.
 
 ```ts
 // With options
@@ -179,13 +197,17 @@ Create the callable function.
 
 **Returns:** Callable procedure function
 
+:::wargning
+**NOTE:** Make sure to use `process.env as any`, otherwise TypeScript will report because the passed `process.env` object is expected to not match your env schema!
+:::
+
 ### Return Type
 
 The returned function has signature:
 
 ```ts
 (...inputs) => ZagoraResult<TOutput, TErrors>
-// or
+// or if handler is async
 (...inputs) => Promise<ZagoraResult<TOutput, TErrors>>
 ```
 
@@ -199,7 +221,7 @@ const proc = zagora()
   .env(envSchema)
   .input(inputSchema)
   .output(outputSchema)
-  .errors(errorMap)
+  .errors(errorsMap) // Record<string, schema>
   .cache(cache)
   .handler(handlerFn)
   .callable(runtimeOptions);

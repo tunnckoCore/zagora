@@ -1,52 +1,54 @@
 # Zagora Library
 
-Zagora enables building type-safe and error-safe procedures that encapsulate business logic with robust validation, error handling, and context management. Agents are callable functions that ensure input/output safety and provide structured error responses.
+Zagora produces regular type-safe and error-safe TypeScript functions that encapsulate business logic with robust validation, error handling, and context management -- no special clients or routers, no async overhead or network complexity. Perfect for building type-safe libraries, SDKs, APIs, and internal tooling.
 
-## Highlights
-
-- 🪶 **Minimal:** Lightweight and focused, built on [StandardSchema](https://standardschema.dev) for seamless validation.
-- 🛡️ **Error-Safe:** Eliminates exceptions - always `{ ok, data, error }` for predictable, crash-free execution.
-- 🦢 **Graceful:** Functions never throw or disrupt your process, akin to `effect.ts` and `neverthrow`.
-- 📝 **Typed Errors:** Define error schemas for strongly-typed error helpers, enhancing handler reliability.
-- 🧹 **Clean Error Model:** Three distinct error types - unknown, validation, and user-defined—for clarity.
-- 🔒 **Type-Safe:** Full type inference across inputs, outputs, errors, context, optionals, and defaults.
-- ✋ **Ergonomic:** Pure functions with auto-filled defaults, optional args, and detailed diagnostics.
-- 🏠 **Familiar:** Echoes remote-RPC patterns from oRPC and tRPC, but focused on libraries, not apps.
-- ⚖️ **Unopinionated:** Zero assumptions - no routers, middlewares, or network dependencies.
-- 🎁 **No Unwrapping:** Direct access to results, unlike `neverthrow` - no extra steps required.
-
-## Usage
+## Quick Example
 
 ```ts
 import { z } from 'zod';
 import { zagora } from 'zagora';
 
-const za = zagora();
-
-const getUser = za
-  .input(z.tuple([
-    z.string(),
-    z.number().default(18),
-  ]))
-  .output(z.object({ name: z.string(), age: z.number(), email: z.string() }))
-  .handler(async (_, name, age) => {
-    // name: string;
-    // age: number; -- even if not passed!
-    return { name, age, email: `${name.toLowerCase()}@example.com` };
+const getUser = zagora()
+  .input(z.tuple([z.string(), z.number().default(18), z.string().optional()]))
+  .handler((_, name, age, country) => {
+    // name: string
+    // age: number <-- because there is a default value in schema!
+    // country: string | undefined <-- because it's marked as optional in schema!
+    return `${name} is ${age}, from ${country || 'unknown'}`
   })
   .callable();
 
-const result = await getUser('Charlie');
+getUser('John', 30);
+// => John is 30
+
+// @ts-expect-error -- reported at compile-time AND runtime, invalid second argument
+getUser('John', 'foo');
+
+// @ts-expect-error -- reported at compile-time AND runtime, missing required argument
+getUser();
+
+// NOTE: fine, because second and third arguments are optional (default or optional)
+getUser('Barry') // => Barry is 18, from unknown
+
+getUser('Barry', 25) // => Barry is 25, from unknown
+getUser('Barry', 33, 'USA') // => Barry is 33, from USA
+
+const result = getUser('Alice');
 if (result.ok) {
-  console.log(result.data);
-  // ^ { name: 'Charlie', age: 18, email: 'charlie@example.com' }
+  console.log(result.data); // "Alice is 18, from unknown"
 } else {
+  console.error(result.error.kind);
+
   console.error(result.error);
   // ^ { kind: 'UNKNOWN_ERROR', message, cause }
   // or
   // ^ { kind: 'VALIDATION_ERROR', message, issues: Schema.Issue[] }
 }
+```
 
+### With primitive inputs
+
+```ts
 // primitive input
 const helloUppercased = za
   .input(z.string())
@@ -75,7 +77,7 @@ if (upRes.ok) {
 }
 ```
 
-You'll also have access to all the types, utils, and error-related stuff through package exports.
+You'll also have access to all the types, utils, and error helpers for type-narrowing through package exports.
 
 ```ts
 import { 
@@ -89,11 +91,54 @@ import * as ZagoraTypes from 'zagora/types';
 import * as zagoraUtils from 'zagora/utils';
 ```
 
+
+## Features
+
+### Unmatched Robustness
+
+Zagora achieves 100% test coverage, ensuring every aspect of the library is rigorously tested for reliability and correctness. Complementing this, it includes **dedicated type tests** that utilize `expectType` to verify TypeScript types at compile time. Together, these provide robust guarantees that both the compile-time and runtime systems match, delivering confidence of another level.
+
+### Minimal and Standards-Based
+
+Zagora is lightweight with zero dependencies and bloat, built entirely on [StandardSchema](https://standardschema.dev) for universal validation. This means you can use Zod, Valibot, ArkType, or any compliant validator. No lock-in, just the tools you already know and love.
+
+### Never-Throwing Execution
+
+Every function returns a predictable `{ ok, data, error }` result -- exceptions are eliminated completely. Your process never crashes from unhandled errors, similar to Effect.ts or neverthrow. This gives you total control and deterministic error handling across your entire codebase.
+
+### Typed Errors System
+
+Define error schemas upfront and get strongly-typed error helpers inside your handlers. Each error kind is validated at runtime and fully typed at compile-time. You'll never see `try/catch` blocks or guess error shapes again.
+
+### Full Type Inference
+
+Complete TypeScript inference across inputs, outputs, errors, context, defaults, and optionals. Even JavaScript consumers get full autocomplete and IntelliSense support. The type system has been battle-tested with dedicated type-level tests.
+
+### Multiple Arguments Support
+
+Define multiple function arguments using schema tuples with per-argument validation and defaults. Call your functions naturally like `procedure('Alice', 25)` instead of `procedure({ name: 'Alice', age: 25 })`. This creates a familiar API that feels like native TypeScript functions.
+
+### Granular Diagnostics
+
+Zagora supports compile-time reporting for each argument through TypeScript in IDEs and CLIs, catching potential errors before runtime. This diagnostic capability operates at every level, from schema validation to handler invocationm, to context, to environment variables. Developers receive immediate, precise feedback on argument mismatches, improving code reliability and productivity.
+
+### Sync & Async Awareness at every level
+
+Zagora dynamically infers whether procedures are sync or async based on handler and schema behavior. Sync handlers return `Result`, async handlers return `Promise<Result>` -- no forced async everywhere. This is impossible with oRPC/tRPC where everything is always async.
+
+### Built-in Caching
+
+Add memoization to any procedure with a simple cache adapter. Cache keys include input, schemas, and handler body for intelligent invalidation. Works with both sync and async cache implementations seamlessly.
+
+### Just Pure Functions
+
+Zagora produces regular TypeScript functions -- no special clients, routers, or network glue required. Export your procedures directly and call them like any other function. Perfect for building type-safe libraries, SDKs, and internal tooling.
+
 ## Creating procedures
 
 Fluent builder API for chaining methods on a Zagora instance:
 
-```typescript
+```ts
 import { zagora } from 'zagora';
 import z from 'zod';
 
@@ -114,7 +159,7 @@ const result = agent({ name: 'Alice' });
 - zagora with primitive input (string, object, array) - `.handler(({ context }, input) => {})` 
 - zagora with tuple schemas (spreaded args) - `.handler(({ context }, name, age) => {})` 
 - zagora with errors map - `.errors({ NOT_FOUND: z.object({ id: z.string() })}).handler(({ context, errors }, name, age) => {})`
-- zagora without options object - `zagora({ disableOptions: true }).input(z.string()).handler((input) => input)`
+- zagora without options object - `zagora({ disableOptions: true }).input(z.string()).handler((str) => str.toUppercase())`
 
 ## Input and Output Validation
 
@@ -123,7 +168,7 @@ Define schemas for type-safe inputs and outputs using Zod, Valibot, or any Stand
 - **Input Schema**: Validates arguments before execution.
 - **Output Schema**: Ensures return values match expectations.
 
-```typescript
+```ts
 const mathAgent = zagora()
   .input(z.tuple([z.number(), z.number()]))
   .output(z.number())
@@ -135,11 +180,11 @@ const sum = mathAgent(5, 10); // { ok: true, data: 15 }
 
 ## Env Vars validation
 
-Define schemas for type-safe environment variables with Zod, Valibot, or any Standard Schema V1 compliant library. Env vars are passed to the handler's `options` object as `options.env`, not in `options.context` or somewhere else. All default filling, optionals, coercing works as in any other place. Though, in theory you can provide whatever you want in `options.context` including env vars, if you want to match the behavior of oRPC or something else.
+Validate environment variables with the same schema system used for inputs and outputs. Get type-safe access to `process.env` or `import.meta.env` inside handlers. Coercion, defaults, and optionals work exactly as expected. Env vars are passed to the handler's `options` object as `options.env`, not in `options.context` or somewhere else. All default filling, optionals, coercing works as in any other place. Though, in theory you can provide whatever you want in `options.context` including env vars, if you want to match the behavior of oRPC or something else.
 
-**Important: Providing async schema for env variables is not supported, at least for now.**
+**Important: Providing async schema for env variables is not supported, at least for now!!**
 
-```typescript
+```ts
 const safeApi = zagora()
   .env(z.object({
     DATABASE_URL: z.string().min(1).default('file://db.sqlite'),
@@ -153,7 +198,7 @@ const safeApi = zagora()
     return a + b + env.PORT;
   })
   // NOTE: you may need to cast with `as any` beause process.env differs from the schema!
-  .callable({ env: process.env });
+  .callable({ env: process.env as any });
 
 // PORT is coming from env vars
 const sum = safeApi(5, 10); // { ok: true, data: 15 + PORT }
@@ -163,14 +208,14 @@ const sum = safeApi(5, 10); // { ok: true, data: 15 + PORT }
 - When `disableOptions` is enabled (eg. `true`) then handler WILL NOT have access to type-safe env vars.
 - When `autoCallable` is enabled (eg. `true`) make sure to provide the runtime env vars as second argument to the `.env(schema, processEnvOrImportMetaEnv)` method.
 - Async schema validation is not supported, for now
-- the passed runtime env vars must match the provided schema (on type-level), thus you may need to cast to `as any` when you are providing `process.env` or `import.meta.env`. That is intentional because we want to be able to warn you (typescript report you) if you manually providing them.
+- The passed runtime env vars must match the provided schema (on type-level), thus you may need to cast to `as any` when you are providing `process.env` or `import.meta.env`. That is intentional because we want to be able to warn you (typescript report you) if you manually providing them.
 - in case `env: process.env` is wanted, then just make the schema like `z.union([z.object(), z.record(z.string(), z.string())])` and you will not need to case with `as any` at `.callable`.
 
 ## Error Handling
 
 Define custom errors with schemas for structured error responses:
 
-```typescript
+```ts
 const apiAgent = zagora()
   .input(z.object({ id: z.string() }))
   .output(z.object({ data: z.any() }))
@@ -189,11 +234,11 @@ const apiAgent = zagora()
 
 Procedures return `ZagoraResult<TOutput, TErrors>` with `ok: true` for success or `ok: false` with typed errors.
 
-## Context Management
+## Context Management / Depenency Injection
 
-Pass shared data like databases or user info via context:
+Pass shared data like databases or user info via context, useful for middlewares or testing.
 
-```typescript
+```ts
 const dbAgent = zagora()
   .context({ db: myDatabase })
   .input(z.string())
@@ -212,7 +257,7 @@ Override context per call: `agent.callable({ context: { db: testDb } })`
 
 Add caching to avoid redundant computations:
 
-```typescript
+```ts
 const cache = new Map();
 const cachedCall = zagora()
   .cache(cache)
@@ -231,9 +276,9 @@ Cache can also be passed at execution-site (server handlers) through `.callable(
 
 ## Cleaner API - auto callable and disable options
 
-For simpler procedures and API look, enable auto-callable mode to skip `.callable()` and  disable passing options to handler:
+For simpler procedures and API look, enable auto-callable mode to skip `.callable()` and disable passing options to handler:
 
-```typescript
+```ts
 const simpleProcedure = zagora({ autoCallable: true, disableOptions: true })
   .input(z.tuple([z.string(), z.number().default(10)]))
   .output(z.string())
@@ -242,11 +287,13 @@ const simpleProcedure = zagora({ autoCallable: true, disableOptions: true })
 const result = simpleProcedure('hello'); // Direct call
 ```
 
+See more about the whole API docs at `./references/api-docs.md` file.
+
 ## Async procedures
 
 Async handlers for I/O operations:
 
-```typescript
+```ts
 const asyncAgent = zagora()
   .input(z.string())
   .output(z.object({ result: z.string() }))
@@ -255,6 +302,8 @@ const asyncAgent = zagora()
     return { result: await response.text() };
   })
   .callable();
+
+const result = await asyncAgent("https://example.com");
 ```
 
 ## Best Practices
@@ -262,12 +311,10 @@ const asyncAgent = zagora()
 - Use descriptive schemas for clarity.
 - Define errors for all failure cases.
 - Leverage context for dependencies.
-- Enable caching for performance-critical agents.
-- Test agents with various inputs and error scenarios.
+- Enable caching for performance-critical functions.
+- Test functions with various inputs and error scenarios.
 
-Agents built with Zagora are composable, testable, and maintain type safety throughout the application lifecycle.
-
----
+Can find more details at `./references/best-practices.md`
 
 ## Rules and Special Notes for Zagora usage
 
@@ -279,14 +326,14 @@ The following rules outlines critical points, edge cases, and things to be caref
 - **Caution**: All keys in the error map must be uppercased (e.g., `NOT_FOUND`, not `not_found`). TypeScript will report a type error if not.
 - **Why**: These keys represent error "kinds" and are used in `result.error.kind`.
 
-#### Error Helper Validation
+#### Error Payloads Validation
 - **Caution**: If you pass invalid or missing keys to error helpers (e.g., `errors.NOT_FOUND({ invalidKey: 'value' })`), you get a `VALIDATION_ERROR` with a `key` property indicating which error validation failed.
-- **Example**: `throw errors.RATE_LIMIT({ retryAfter: 'invalid' })` → `VALIDATION_ERROR` because `retryAfter` expects a number.
+- **Example**: `throw errors.RATE_LIMIT({ retryAfter: 'invalid' })` → `VALIDATION_ERROR` because `retryAfter` expects a number, but it will also be reported at compile-time (eg. in IDEs and etc)
 - **Tip**: Use `.strict()` on error schemas to throw on unknown keys: `z.object({...}).strict()`.
 
 #### Error Type Guards
 - **Caution**: Use `isValidationError`, `isInternalError`, `isDefinedError`, `isZagoraError` to narrow error types safely.
-- **Note**: Even syntax errors in handlers return `ZagoraResult` with error, never crashing the process.
+- **Note**: Even syntax or reference errors in handlers return `ZagoraResult` with error, never crashing the process!
 
 ### Context Merging and Management
 - **Caution**: Initial context (from `.context()`) is deep-merged with runtime context (from `.callable({ context })`).
@@ -296,7 +343,7 @@ The following rules outlines critical points, edge cases, and things to be caref
 ## Input/Output Validation
 
 ### Tuple Inputs (Multiple Arguments)
-- **Caution**: Complex feature; schemas like `z.tuple([z.string(), z.number().default(18)])` spread to handler args with defaults/optionals applied.
+- **Caution**: Tuple schemas like `z.tuple([z.string(), z.number().default(18)])` spread to handler args with defaults/optionals applied.
 - **Example**: Handler receives `(name, age)` where `age` is `number` (not `number | undefined`) due to default.
 - **Tip**: Supports per-argument validation and diagnostics; missing required args cause `VALIDATION_ERROR`.
 
@@ -307,18 +354,18 @@ The following rules outlines critical points, edge cases, and things to be caref
 ## Async Support
 
 ### Async Schemas
-- **Caution**: If input/output/error schemas are async (e.g., `z.string().refine(async (val) => ...)`, procedure signature remains sync (`ZagoraResult`), but you **must await** at callsite. TypeScript may warn "may not need await" – ignore and await.
-- **Why**: StandardSchema limitation; cannot infer async on type-level.
+- **Caution**: If input/output/error schemas are async (e.g., `z.string().refine(async (val) => ...)`, procedure signature remains sync (`ZagoraResult`), but you **must await** at callsite. TypeScript may warn "may not need await" – **ignore that and await**, or don't use asycnhronous schemas.
+- **Why**: StandardSchema limitation; We cannot infer async state on the type system level.
 - **Tip**: ArkType doesn't support async schemas, avoiding this issue. 
 
 ### Handler Async Behavior
 - **Caution**: Sync handler → sync procedure; async handler or Promise-returning → async procedure (`Promise<ZagoraResult>`).
-- **Note**: Cache async methods force procedure async.
+- **Note**: If ANY of the CacheAdapter methods is async, then the procedure is forced async and you MUST await it.
 
 ## Caching/Memoization
 
 ### Cache Key Composition
-- **Caution**: Cache key includes input, input/output/error schemas, and handler function body. Changes to any invalidate cache.
+- **Caution**: Cache key includes input, input/output/error schemas, and handler function body. Changes to any of them invalidates the cache.
 - **Tip**: Useful for custom strategies; memoization out-of-the-box.
 
 ### Cache Failures
@@ -327,7 +374,7 @@ The following rules outlines critical points, edge cases, and things to be caref
 - **Tip**: If cache has async methods (e.g., `has` is async), procedure becomes async – **await** despite TypeScript warnings.
 
 ### Cache Provision
-- **Caution**: Provide cache via `.cache()` (definition) or `.callable({ cache })` (execution). Execution-site useful for routers/server handlers.
+- **Caution**: Provide cache via `.cache()` (definition) or `.callable({ cache })` (execution/callsite). Execution/callsite useful for routers/server handlers.
 
 ## Options and Configuration
 
@@ -337,7 +384,7 @@ The following rules outlines critical points, edge cases, and things to be caref
 
 ### Disable Options
 - **Caution**: `zagora({ disableOptions: true })` omits options; handler starts directly with inputs.
-- **Example**: `handler((input) => ...)` instead of `handler((options, input) => ...)`.
+- **Example**: `handler((str, num) => ...)` instead of `handler((options, str, num) => ...)`.
 
 ### Auto-Callable Mode
 - **Caution**: `zagora({ autoCallable: true })` returns procedure directly from `.handler()`; skip `.callable()`.
@@ -361,4 +408,4 @@ The following rules outlines critical points, edge cases, and things to be caref
 - **Testing**: Inspect `test/types-testing.test.ts` for type guarantees.
 - **Edge Cases**: Always test with invalid inputs, async paths, and error scenarios.
 
-By heeding these cautions, you can avoid common pitfalls and leverage Zagora's full potential for type-safe, error-safe procedures.
+By having these cautions in mind, you can avoid common pitfalls and leverage Zagora's full potential for type-safe, error-safe procedures.

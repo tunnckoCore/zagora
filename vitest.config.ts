@@ -7,6 +7,7 @@ export default defineConfig({
       clean: true,
       cleanOnRerun: true,
       reporter: ["text", "lcovonly", "html-spa"],
+      exclude: ["dist/**"],
     },
     // NOTE: seems to not work..
     // typecheck: {

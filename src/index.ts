@@ -12,6 +12,7 @@ import type {
   InferSchemaInput,
   InferSchemaInputSafe,
   Prettify,
+  ResolvedProcedure,
   ResolveHandlerOptions,
   ResolveProcedure,
   SpreadTuple,
@@ -256,18 +257,12 @@ export class Zagora<
   >(
     fn: TFn,
   ): TAutoCallable extends true
-    ? ReturnType<
-        Zagora<
-          TFn,
-          TContext,
-          TInputSchema,
-          TOutputSchema,
-          TErrorsMap,
-          TEnvVarsMap,
-          TCacheAdapter,
-          TDisableOptions,
-          TAutoCallable
-        >["_createProcedure"]
+    ? ResolvedProcedure<
+        TInputSchema,
+        ConditionalAsync<
+          ReturnType<TFn>,
+          ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
+        >
       >
     : Zagora<
         TFn,

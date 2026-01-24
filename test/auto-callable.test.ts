@@ -50,6 +50,11 @@ describe("callable procedure metadata", () => {
       .input(z.string())
       .handler((_, id) => id)
       .callable();
+
+    // Metadata should be available
+    expect(procedure["~zagora"]).toBeDefined();
+    expect(procedure["~zagora"].inputSchema).toBeDefined();
+
     // Call procedure multiple times
     procedure("test1");
     procedure("test2");
