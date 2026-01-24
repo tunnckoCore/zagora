@@ -87,8 +87,9 @@ const greeting = zagora()
   })
   .callable();
 
-greeting('John', 30);
 // NOTE: examples below omit the { ok, data, error } wrapper for brevity.
+
+greeting('John', 30);
 // => John is 30
 
 // @ts-expect-error -- reported at compile-time AND runtime, invalid second argument
