@@ -202,6 +202,10 @@ test("Valibot async schemas always return promises", async () => {
   expect(invalidInputResult).toBeInstanceOf(Promise);
   expect((await invalidInputResult).ok).toBe(false);
 
+  const invalidOutputResult = outputProcedure("bad");
+  expect(invalidOutputResult).toBeInstanceOf(Promise);
+  expect((await invalidOutputResult).ok).toBe(false);
+
   const asyncError = v.pipeAsync(
     v.object({ message: v.string() }),
     v.checkAsync(async () => true),
@@ -220,6 +224,10 @@ test("Valibot async schemas always return promises", async () => {
   const successResult = errorProcedure("success");
   expect(successResult).toBeInstanceOf(Promise);
   expect((await successResult).ok).toBe(true);
+
+  const failedErrorResult = errorProcedure("fail");
+  expect(failedErrorResult).toBeInstanceOf(Promise);
+  expect((await failedErrorResult).ok).toBe(false);
 });
 
 test("handleError with async schema validation", async () => {
