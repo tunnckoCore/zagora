@@ -28,6 +28,7 @@
  */
 
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import * as v from "valibot";
 import { expect, expectTypeOf, test } from "vitest";
 import { z } from "zod";
 import type {
@@ -41,8 +42,10 @@ import { Zagora, zagora } from "../src/index";
 import type {
   AnySchema,
   ConditionalAsync,
+  HasAsyncSchema,
   InferSchemaOutputSafe,
   IsAny,
+  IsAsyncSchema,
   IsOptional,
   IsPromise,
   ResolvedProcedure,
@@ -156,6 +159,69 @@ test("ConditionalAsync<T, Result> - conditionally wraps result in Promise", () =
   expectTypeOf<ConditionalAsync<Promise<any>, string>>().toEqualTypeOf<
     Promise<string>
   >();
+});
+
+test("Valibot async schemas produce async procedure types", () => {
+  const syncSchema = v.string();
+  const asyncSchema = v.pipeAsync(
+    v.string(),
+    v.checkAsync(async (value) => value.length > 0),
+  );
+
+  expectTypeOf<IsAsyncSchema<typeof syncSchema>>().toEqualTypeOf<false>();
+  expectTypeOf<IsAsyncSchema<typeof asyncSchema>>().toEqualTypeOf<true>();
+  expectTypeOf<
+    HasAsyncSchema<typeof asyncSchema, undefined, undefined>
+  >().toEqualTypeOf<true>();
+
+  const syncProcedure = zagora()
+    .input(syncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof syncProcedure>>
+  >().toEqualTypeOf<false>();
+
+  const asyncInputProcedure = zagora()
+    .input(asyncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncInputProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const asyncOutputProcedure = zagora()
+    .input(syncSchema)
+    .output(asyncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncOutputProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const asyncErrorProcedure = zagora()
+    .input(syncSchema)
+    .errors({ ASYNC_ERROR: asyncSchema })
+    .handler(({ errors }, input) => {
+      if (!input) {
+        throw errors.ASYNC_ERROR(input);
+      }
+      return input;
+    })
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncErrorProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const autoCallableProcedure = zagora({
+    autoCallable: true,
+    disableOptions: true,
+  })
+    .input(asyncSchema)
+    .handler((input) => input);
+  expectTypeOf<
+    IsPromise<ReturnType<typeof autoCallableProcedure>>
+  >().toEqualTypeOf<true>();
 });
 
 // =============================================================================
