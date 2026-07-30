@@ -8,6 +8,7 @@ import type { ConditionalAsync, IsPromise } from "./is-promise";
 import type {
   AnySchema,
   CacheAdapter,
+  HasAsyncSchema,
   InferOutput,
   InferSchemaInput,
   InferSchemaInputSafe,
@@ -203,7 +204,7 @@ export class Zagora<
     return new Zagora({
       ...this["~zagora"],
       errorsMap,
-    });
+    }) as any;
   }
 
   env<TNewEnvVarsMapSchema extends AnySchema, TEnvVars extends ZagoraEnvVars>(
@@ -259,10 +260,14 @@ export class Zagora<
   ): TAutoCallable extends true
     ? ResolvedProcedure<
         TInputSchema,
-        ConditionalAsync<
-          ReturnType<TFn>,
-          ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
-        >
+        HasAsyncSchema<TInputSchema, TOutputSchema, TErrorsMap> extends true
+          ? Promise<
+              ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
+            >
+          : ConditionalAsync<
+              ReturnType<TFn>,
+              ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
+            >
       >
     : Zagora<
         TFn,
@@ -317,6 +322,13 @@ export class Zagora<
     const cacheAdapter = zagora.cacheAdapter;
     const envVarsMapSchema = zagora.envVarsMapSchema;
     const baseEnvVars = zagora.envVars;
+
+    const isAsyncSchema = (schema: unknown) =>
+      (schema as { async?: boolean } | undefined)?.async === true;
+    const hasAsyncSchema =
+      isAsyncSchema(inputSchema) ||
+      isAsyncSchema(outputSchema) ||
+      Object.values(errorsMap || {}).some(isAsyncSchema);
 
     const mergedEnvVars = deepMerge(baseEnvVars || {}, env || {});
 
@@ -438,7 +450,13 @@ export class Zagora<
       TResolvedResult
     >;
 
-    type TResult = ConditionalAsync<ReturnType<THandlerFn>, Result>;
+    type TResult = HasAsyncSchema<
+      TInputSchema,
+      TOutputSchema,
+      TErrorsMap
+    > extends true
+      ? Promise<Result>
+      : ConditionalAsync<ReturnType<THandlerFn>, Result>;
 
     type TFinalResult = TCache extends {
       has(key: string): infer A;
@@ -454,7 +472,11 @@ export class Zagora<
             : TResult
       : TResult;
 
-    const procedure = forwardProcedure as TInputSchema extends AnySchema
+    const procedure = (
+      hasAsyncSchema
+        ? (...args: unknown[]) => Promise.resolve(forwardProcedure(...args))
+        : forwardProcedure
+    ) as TInputSchema extends AnySchema
       ? InferSchemaInput<TInputSchema> extends readonly [any, ...any[]]
         ? SpreadTuple<InferSchemaInput<TInputSchema>, TFinalResult>
         : (arg: InferSchemaInput<TInputSchema>) => TFinalResult

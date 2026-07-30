@@ -12,6 +12,22 @@ export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
 export type AnySchema = Schema<any, any>;
 
+// TEST: with expect-type
+export type IsAsyncSchema<T> = T extends { readonly async: true }
+  ? true
+  : false;
+
+type ErrorSchemas<T> = T extends Record<string, AnySchema> ? T[keyof T] : never;
+
+// TEST: with expect-type
+export type HasAsyncSchema<TInputSchema, TOutputSchema, TErrorsMap> =
+  true extends
+    | IsAsyncSchema<TInputSchema>
+    | IsAsyncSchema<TOutputSchema>
+    | IsAsyncSchema<ErrorSchemas<TErrorsMap>>
+    ? true
+    : false;
+
 export type SchemaIssue = StandardSchemaV1.Issue;
 
 export type InferSchemaOutput<T extends AnySchema> = T extends StandardSchemaV1<
