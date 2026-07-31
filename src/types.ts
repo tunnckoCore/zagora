@@ -13,20 +13,51 @@ export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 export type AnySchema = Schema<any, any>;
 
 // TEST: with expect-type
-export type IsAsyncSchema<T> = T extends { readonly async: true }
-  ? true
+export type IsAsyncSchema<T> = [T] extends [never]
+  ? false
+  : T extends { readonly async: infer TAsync }
+    ? [TAsync] extends [true]
+      ? true
+      : true extends TAsync
+        ? boolean
+        : false
+    : false;
+
+type SchemaMapAsyncState<T> = T extends Record<string, AnySchema>
+  ? true extends {
+      [K in keyof T]: [IsAsyncSchema<T[K]>] extends [true] ? true : false;
+    }[keyof T]
+    ? true
+    : true extends {
+          [K in keyof T]: true extends IsAsyncSchema<T[K]> ? true : false;
+        }[keyof T]
+      ? boolean
+      : false
   : false;
 
-type ErrorSchemas<T> = T extends Record<string, AnySchema> ? T[keyof T] : never;
+type IsDefinitelyAsync<T extends boolean> = [T] extends [true] ? true : false;
+type IsPossiblyAsync<T extends boolean> = true extends T ? true : false;
 
 // TEST: with expect-type
 export type HasAsyncSchema<TInputSchema, TOutputSchema, TErrorsMap> =
   true extends
-    | IsAsyncSchema<TInputSchema>
-    | IsAsyncSchema<TOutputSchema>
-    | IsAsyncSchema<ErrorSchemas<TErrorsMap>>
+    | IsDefinitelyAsync<IsAsyncSchema<TInputSchema>>
+    | IsDefinitelyAsync<IsAsyncSchema<TOutputSchema>>
+    | IsDefinitelyAsync<SchemaMapAsyncState<TErrorsMap>>
     ? true
-    : false;
+    : true extends
+          | IsPossiblyAsync<IsAsyncSchema<TInputSchema>>
+          | IsPossiblyAsync<IsAsyncSchema<TOutputSchema>>
+          | IsPossiblyAsync<SchemaMapAsyncState<TErrorsMap>>
+      ? boolean
+      : false;
+
+// TEST: with expect-type
+export type ConditionalSchemaAsync<
+  TAsync extends boolean,
+  TSync,
+  TAsyncResult,
+> = TAsync extends true ? TAsyncResult : TSync;
 
 export type SchemaIssue = StandardSchemaV1.Issue;
 
