@@ -540,14 +540,11 @@ Zagora is fully async-aware at every level of the system:
 
 - **Sync Handler**: Procedure is sync -> returns `ZagoraResult`
 - **Promise-returning handler**: handler returns a promise -> procedure is async -> `Promise<ZagoraResult>`
-- **Maybe-async handler**: handler conditionally returns a promise -> `ZagoraResult | Promise<ZagoraResult>`
 - **Async Handler**: Procedure is async -> returns `Promise<ZagoraResult>`
 - **Sync/async Schemas**: Input/output/error validation can be async -> procedure becomes async
-- **Sync/async Cache**: Async cache methods only run on the paths that need them -> `ZagoraResult | Promise<ZagoraResult>`
+- **Sync/async Cache**: If any cache method is async -> procedure becomes async (returns `Promise<ZagoraResult>`)
 
-Always `await` a procedure when its handler or cache can return a promise. Cache methods only run after validation and only on the paths that need them, so cache-backed procedures accurately keep both possible return shapes.
-
-**Important:** Standard Schema does not currently identify async schemas in its type contract. Zagora detects validators whose schema type exposes `async: true` (including Valibot), so those procedures correctly return `Promise<ZagoraResult>` at type level. For validators that do not expose such a marker (including Zod), always `await` when you know any part of the schema is async. Follow [Standard Schema issue #22](https://github.com/standard-schema/standard-schema/issues/22) for the upstream contract.
+**Important:** Standard Schema does not currently identify async schemas in its type contract. Zagora detects validators whose schema type exposes `async: true` (including Valibot), so those procedures correctly return `Promise<ZagoraResult>` at type level. For validators that do not expose such a marker (like Zod), **always `await` when you know any part of the schema or the cache is async**. Follow [Standard Schema issue #22](https://github.com/standard-schema/standard-schema/issues/22) for the upstream discussion.
 
 Funnily, ArkType does not support async schemas and it's incredibly fast, so using it you won't have that problem to begin with.
 
