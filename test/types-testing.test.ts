@@ -235,8 +235,11 @@ test("Valibot async schemas produce async procedure types", () => {
 
   const asyncErrorProcedure = zagora()
     .input(syncSchema)
-    .errors({ ASYNC_ERROR: asyncSchema })
+    .errors({ SYNC_ERROR: syncSchema, ASYNC_ERROR: asyncSchema })
     .handler(({ errors }, input) => {
+      if (input === "sync") {
+        throw errors.SYNC_ERROR(input);
+      }
       if (!input) {
         throw errors.ASYNC_ERROR(input);
       }
@@ -246,6 +249,23 @@ test("Valibot async schemas produce async procedure types", () => {
   expectTypeOf<
     IsPromise<ReturnType<typeof asyncErrorProcedure>>
   >().toEqualTypeOf<true>();
+
+  type MixedErrorsMap =
+    | { SYNC_ERROR: typeof syncSchema }
+    | { ASYNC_ERROR: typeof asyncSchema };
+  const createMixedErrorsMapProcedure = (errorsMap: MixedErrorsMap) =>
+    zagora()
+      .input(syncSchema)
+      .errors(errorsMap)
+      .handler((_, input) => input)
+      .callable();
+  const mixedErrorsMapProcedure = createMixedErrorsMapProcedure({
+    SYNC_ERROR: syncSchema,
+  });
+  type MixedErrorsMapResult = ReturnType<typeof mixedErrorsMapProcedure>;
+  expectTypeOf<MixedErrorsMapResult>().toEqualTypeOf<
+    Awaited<MixedErrorsMapResult> | Promise<Awaited<MixedErrorsMapResult>>
+  >();
 
   const autoCallableProcedure = zagora({
     autoCallable: true,
