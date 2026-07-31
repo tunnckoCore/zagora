@@ -315,7 +315,7 @@ export function handleTupleDefaults(
 
   return rawArgs;
 }
-function isPlainObject(value: any) {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== "object") {
     return false;
   }
@@ -323,25 +323,17 @@ function isPlainObject(value: any) {
   return prototype === Object.prototype || prototype === null;
 }
 
-export function deepMerge(aaa: any, bbb: any) {
-  if (!isPlainObject(aaa)) {
-    throw new Error("Expects an object args");
-  }
+export function deepMerge(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+) {
+  const result: Record<string, any> = { ...a };
 
-  const result = { ...aaa };
-
-  if (!isPlainObject(bbb)) {
-    return result;
-  }
-
-  for (const key in bbb) {
-    if (Object.hasOwn(bbb, key)) {
-      if (isPlainObject(result[key]) && isPlainObject(bbb[key])) {
-        result[key] = deepMerge(result[key], bbb[key]);
-      } else {
-        result[key] = bbb[key];
-      }
-    }
+  for (const key of Object.keys(b)) {
+    result[key] =
+      isPlainObject(result[key]) && isPlainObject(b[key])
+        ? deepMerge(result[key], b[key])
+        : b[key];
   }
 
   return result;

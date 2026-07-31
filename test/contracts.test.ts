@@ -195,6 +195,9 @@ test("callable context works without an initial context value", () => {
 
   const result = procedure();
   expect(result).toMatchObject({ ok: true, data: "ok" });
+
+  // @ts-expect-error context roots must be object maps
+  zagora().context(new Date());
 });
 
 test("error helpers only use own keys and preserve the declared kind", () => {

@@ -130,4 +130,35 @@ test("deepMerge - merge nested objects", () => {
   expect(result.b.d).toBe(4);
   expect(result.b.e).toBe(5);
   expect(result.f).toBe(6);
+
+  // @ts-expect-error deepMerge only accepts object maps at the root
+  deepMerge(new Date(), {});
+});
+
+test("deepMerge - replace complex values from the source", () => {
+  class Database {
+    constructor(readonly name: string) {}
+  }
+
+  const originalDate = new Date("2025-01-01");
+  const replacementDate = new Date("2026-01-01");
+  const originalDatabase = new Database("production");
+  const replacementDatabase = new Database("test");
+
+  const result = deepMerge(
+    {
+      createdAt: originalDate,
+      db: originalDatabase,
+      nested: { keep: true, db: originalDatabase },
+    },
+    {
+      createdAt: replacementDate,
+      db: replacementDatabase,
+      nested: { db: "mock" },
+    },
+  );
+
+  expect(result.createdAt).toBe(replacementDate);
+  expect(result.db).toBe(replacementDatabase);
+  expect(result.nested).toEqual({ keep: true, db: "mock" });
 });
