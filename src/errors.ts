@@ -94,12 +94,12 @@ export function createErrorHelpers(
   errorMap: any,
 ): Record<string, (data: any) => any> {
   const helpers: any = {};
-  for (const key in errorMap) {
+  for (const key of Object.keys(errorMap)) {
     const schema = errorMap[key];
     if (!schema) continue;
 
     helpers[key] = (data: any) => {
-      return { kind: key, ...data };
+      return { ...data, kind: key };
     };
   }
   return helpers;

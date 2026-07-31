@@ -6,24 +6,39 @@ export function getCacheHash(data: string) {
   return nodeCrypto.createHash("sha256").update(data).digest("hex");
 }
 
+function createUnexpectedValidationError(
+  mode: "input" | "output" | "error data" | "env",
+  cause: unknown,
+) {
+  return createResult(
+    null,
+    createInternalError(`Unexpected failure during ${mode} validation`, cause),
+    false,
+  );
+}
+
 // TEST: with expect-type
 export function validateInputOutputOrEnv(
   mode: "input" | "output" | "env",
   schema: any,
   data: any,
 ) {
-  const result = schema["~standard"].validate(data);
-  if (result instanceof Promise) {
-    return result.then((or) =>
-      or.issues
-        ? createResult(null, createValidationError(mode, or.issues), false)
-        : createResult(or.value, null, false),
-    );
-  }
+  const processResult = (result: any) =>
+    result.issues
+      ? createResult(null, createValidationError(mode, result.issues), false)
+      : createResult(result.value, null, false);
 
-  return result.issues
-    ? createResult(null, createValidationError(mode, result.issues), false)
-    : createResult(result.value, null, false);
+  try {
+    const result = schema["~standard"].validate(data);
+    if (result instanceof Promise) {
+      return result
+        .then(processResult)
+        .catch((error) => createUnexpectedValidationError(mode, error));
+    }
+    return processResult(result);
+  } catch (error) {
+    return createUnexpectedValidationError(mode, error);
+  }
 }
 
 // TEST: with expect-type
@@ -44,11 +59,21 @@ export function validateError<TKindNames>(
   }
 
   const kind = error?.kind;
-  if (kind != null && Object.hasOwn(errorsMap, kind)) {
+  if (kind == null) {
+    return createResult(
+      null,
+      createInternalError(
+        `${isAsync ? "Async" : "Sync"} handler threw unknown error`,
+        error,
+      ),
+      false,
+    );
+  }
+
+  if (Object.hasOwn(errorsMap, kind)) {
     const kindName = kind as TKindNames;
     const schema = errorsMap[kindName as any] as any;
     const { kind: _, ...cleanedError } = error;
-    const result = schema["~standard"].validate(cleanedError);
     const processError = (res: any) =>
       res.issues
         ? createResult(
@@ -60,17 +85,29 @@ export function validateError<TKindNames>(
             ),
             false,
           )
-        : createResult(null, { kind, ...res.value } as const, true);
+        : createResult(null, { ...res.value, kind } as const, true);
 
-    if (result instanceof Promise) {
-      return result.then(processError);
+    try {
+      const result = schema["~standard"].validate(cleanedError);
+      if (result instanceof Promise) {
+        return result
+          .then(processError)
+          .catch((error) =>
+            createUnexpectedValidationError("error data", error),
+          );
+      }
+      return processError(result);
+    } catch (error) {
+      return createUnexpectedValidationError("error data", error);
     }
-    return processError(result);
   }
 
   return createResult(
     null,
-    createInternalError(`Typed Error ${kind} is not defined in errors map`),
+    createInternalError(
+      `Typed Error ${kind} is not defined in errors map`,
+      error,
+    ),
     false,
   );
 }
@@ -188,8 +225,13 @@ export function tryCatch(fn: any, isHandler: boolean, method: string = "") {
         .then((data) => createResult(data, null, false))
         .catch((error) => {
           if (isHandler) {
-            const res = createResult(null, error, false);
-            return { ...res, handlerFailed: true, isAsync: true };
+            return {
+              ok: false as const,
+              isTypedError: false as const,
+              error,
+              handlerFailed: true,
+              isAsync: true,
+            };
           }
           return createResult(
             null,
@@ -204,8 +246,13 @@ export function tryCatch(fn: any, isHandler: boolean, method: string = "") {
     return createResult(res, null, false);
   } catch (error: unknown) {
     if (isHandler) {
-      const res = createResult(null, error, false);
-      return { ...res, handlerFailed: true, isAsync: false };
+      return {
+        ok: false as const,
+        isTypedError: false as const,
+        error,
+        handlerFailed: true,
+        isAsync: false,
+      };
     }
 
     return createResult(
@@ -222,7 +269,7 @@ export function createResult(data: any, error: any, isTypedError: boolean) {
     return { ok: false, isTypedError, error: Object.freeze(error) } as const;
   }
 
-  return { ok: true, data } as const;
+  return { ok: true, data, error: undefined } as const;
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: it's fine
@@ -268,8 +315,12 @@ export function handleTupleDefaults(
 
   return rawArgs;
 }
-function isPlainObject(obj: any) {
-  return obj && typeof obj === "object";
+function isPlainObject(value: any) {
+  if (value === null || typeof value !== "object") {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 export function deepMerge(aaa: any, bbb: any) {
