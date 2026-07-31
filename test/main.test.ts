@@ -230,6 +230,27 @@ test("Valibot async schemas always return promises", async () => {
   expect((await failedErrorResult).ok).toBe(false);
 });
 
+test("union-typed Valibot schemas preserve runtime return shape", async () => {
+  const syncSchema = v.string();
+  const asyncSchema = v.pipeAsync(
+    v.string(),
+    v.checkAsync(async () => true),
+  );
+  const createProcedure = (schema: typeof syncSchema | typeof asyncSchema) =>
+    zagora()
+      .input(schema)
+      .handler((_, input) => input)
+      .callable();
+
+  const syncResult = createProcedure(syncSchema)("sync");
+  expect(syncResult).not.toBeInstanceOf(Promise);
+  expect((await syncResult).ok).toBe(true);
+
+  const asyncResult = createProcedure(asyncSchema)("async");
+  expect(asyncResult).toBeInstanceOf(Promise);
+  expect((await asyncResult).ok).toBe(true);
+});
+
 test("handleError with async schema validation", async () => {
   const asyncErrorSchema = z.object({
     message: z

@@ -8,6 +8,7 @@ import type { ConditionalAsync, IsPromise } from "./is-promise";
 import type {
   AnySchema,
   CacheAdapter,
+  ConditionalSchemaAsync,
   HasAsyncSchema,
   InferOutput,
   InferSchemaInput,
@@ -260,14 +261,16 @@ export class Zagora<
   ): TAutoCallable extends true
     ? ResolvedProcedure<
         TInputSchema,
-        HasAsyncSchema<TInputSchema, TOutputSchema, TErrorsMap> extends true
-          ? Promise<
-              ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
-            >
-          : ConditionalAsync<
-              ReturnType<TFn>,
-              ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
-            >
+        ConditionalSchemaAsync<
+          HasAsyncSchema<TInputSchema, TOutputSchema, TErrorsMap>,
+          ConditionalAsync<
+            ReturnType<TFn>,
+            ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
+          >,
+          Promise<
+            ZagoraResult<InferOutput<TOutputSchema, TFn>, TErrorsMap, any>
+          >
+        >
       >
     : Zagora<
         TFn,
@@ -450,13 +453,11 @@ export class Zagora<
       TResolvedResult
     >;
 
-    type TResult = HasAsyncSchema<
-      TInputSchema,
-      TOutputSchema,
-      TErrorsMap
-    > extends true
-      ? Promise<Result>
-      : ConditionalAsync<ReturnType<THandlerFn>, Result>;
+    type TResult = ConditionalSchemaAsync<
+      HasAsyncSchema<TInputSchema, TOutputSchema, TErrorsMap>,
+      ConditionalAsync<ReturnType<THandlerFn>, Result>,
+      Promise<Result>
+    >;
 
     type TFinalResult = TCache extends {
       has(key: string): infer A;
