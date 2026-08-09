@@ -146,18 +146,19 @@ test("context merges plain containers and preserves dependencies", () => {
     }
   }
 
-  type Context = {
+  interface Context {
     db: Database;
     config: { timeout?: number; retries?: number };
-  };
+  }
 
   const production = new Database("production");
   const testDatabase = new Database("test");
+  const initialContext: Context = {
+    db: production,
+    config: { timeout: 5, retries: 1 },
+  };
   const procedure = zagora()
-    .context<Context>({
-      db: production,
-      config: { timeout: 5, retries: 1 },
-    })
+    .context(initialContext)
     .handler(({ context }) => ({
       db: context.db,
       name: context.db.query(),
@@ -196,8 +197,8 @@ test("callable context works without an initial context value", () => {
   const result = procedure();
   expect(result).toMatchObject({ ok: true, data: "ok" });
 
-  // @ts-expect-error context roots must be object maps
-  zagora().context(new Date());
+  // @ts-expect-error context roots must be objects
+  zagora().context("invalid");
 });
 
 test("error helpers only use own keys and preserve the declared kind", () => {

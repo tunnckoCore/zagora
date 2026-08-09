@@ -173,7 +173,7 @@ export class Zagora<
     });
   }
 
-  context<TNewContext extends Record<string, unknown>>(
+  context<TNewContext extends object>(
     initialContext?: TNewContext,
   ): Zagora<
     THandlerFn,
