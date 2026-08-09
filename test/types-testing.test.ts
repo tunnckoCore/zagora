@@ -412,6 +412,15 @@ test("handler and cache Promise branches stay visible in procedure types", () =>
     | Promise<Awaited<OptionallyOverriddenResult>>
   >();
 
+  const undefinedOverrideProcedure = cacheConfigurableProcedure.callable({
+    cache: undefined,
+  });
+  type UndefinedOverrideResult = ReturnType<typeof undefinedOverrideProcedure>;
+  expectTypeOf<UndefinedOverrideResult>().toEqualTypeOf<
+    | Awaited<UndefinedOverrideResult>
+    | Promise<Awaited<UndefinedOverrideResult>>
+  >();
+
   // @ts-expect-error callable options reject unknown properties
   cacheConfigurableProcedure.callable({ cache: syncCache, typo: true });
 

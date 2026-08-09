@@ -525,12 +525,10 @@ export class Zagora<
     } & TOptions &
       Record<Exclude<keyof TOptions, "context" | "cache" | "env">, never>,
   ) {
-    type TProvidedCache = Extract<
-      TOptions[keyof TOptions & "cache"],
-      CacheAdapter
-    >;
+    type TOptionCache = TOptions[keyof TOptions & "cache"];
+    type TProvidedCache = Extract<TOptionCache, CacheAdapter>;
     type TEffectiveCacheAdapter = "cache" extends keyof TOptions
-      ? {} extends Pick<TOptions, keyof TOptions & "cache">
+      ? undefined extends TOptionCache
         ? TCacheAdapter | TProvidedCache
         : TProvidedCache
       : TCacheAdapter;

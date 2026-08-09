@@ -323,17 +323,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-export function deepMerge(
-  a: Record<string, unknown>,
-  b: Record<string, unknown>,
-) {
-  const result: Record<string, any> = { ...a };
+export function deepMerge(base: object, override: object) {
+  const baseRecord = base as Record<string, unknown>;
+  const overrideRecord = override as Record<string, unknown>;
+  const result: Record<string, any> = { ...baseRecord };
 
-  for (const key of Object.keys(b)) {
+  for (const key of Object.keys(overrideRecord)) {
     result[key] =
-      isPlainObject(result[key]) && isPlainObject(b[key])
-        ? deepMerge(result[key], b[key])
-        : b[key];
+      isPlainObject(result[key]) && isPlainObject(overrideRecord[key])
+        ? deepMerge(result[key], overrideRecord[key])
+        : overrideRecord[key];
   }
 
   return result;
