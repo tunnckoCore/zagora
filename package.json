@@ -88,7 +88,6 @@
     "shiki": "^0.14.1",
     "shiki-twoslash": "^3.1.2",
     "tsdown": "^0.16.6",
-    "tsgo-dev": "^2025.11.23",
     "typescript": "5.9.3",
     "valibot": "^1.1.0",
     "vite": "^7.2.4",

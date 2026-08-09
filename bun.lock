@@ -21,7 +21,6 @@
         "shiki": "^0.14.1",
         "shiki-twoslash": "^3.1.2",
         "tsdown": "^0.16.6",
-        "tsgo-dev": "^2025.11.23",
         "typescript": "5.9.3",
         "valibot": "^1.1.0",
         "vite": "^7.2.4",
@@ -547,18 +546,6 @@
     "@tailwindcss/vite": ["@tailwindcss/vite@4.1.15", "", { "dependencies": { "@tailwindcss/node": "4.1.15", "@tailwindcss/oxide": "4.1.15", "tailwindcss": "4.1.15" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7" } }, "sha512-B6s60MZRTUil+xKoZoGe6i0Iar5VuW+pmcGlda2FX+guDuQ1G1sjiIy1W0frneVpeL/ZjZ4KEgWZHNrIm++2qA=="],
 
     "@trpc/server": ["@trpc/server@11.6.0", "", { "peerDependencies": { "typescript": ">=5.7.2" } }, "sha512-skTso0AWbOZck40jwNeYv++AMZXNWLUWdyk+pB5iVaYmEKTuEeMoPrEudR12VafbEU6tZa8HK3QhBfTYYHDCdg=="],
-
-    "@tsgo-dev/darwin-amd64": ["@tsgo-dev/darwin-amd64@2025.11.23", "", { "os": "darwin", "cpu": "x64", "bin": { "tsgo": "tsgo" } }, "sha512-yVH7MScKnAXoeLf1ytnL/sfkXTgms8QZtsb5Y+/CMU+9TB1GUCizdCPrEwJGeQqIULNsYsXmFcKEXkUk3CMM4g=="],
-
-    "@tsgo-dev/darwin-arm64": ["@tsgo-dev/darwin-arm64@2025.11.23", "", { "os": "darwin", "cpu": "arm64", "bin": { "tsgo": "tsgo" } }, "sha512-D2Z1swuPcvuhSTRgE6nNAHp1Nv5ESv3uHvdkWNpTnvsPytH4XhpAk+pG+4UoTWJCRg/+hZwKjxdPVL7HHkQXGA=="],
-
-    "@tsgo-dev/linux-amd64": ["@tsgo-dev/linux-amd64@2025.11.23", "", { "os": "linux", "cpu": "x64", "bin": { "tsgo": "tsgo" } }, "sha512-A/G0YsBKlSqSx0Sy040SuCAjl3nZZUrOLdTyEH1TQcMjgglcK/O2U3Cy0bPuf5tMpOjKYN+H1kM/bjjhisckeg=="],
-
-    "@tsgo-dev/linux-arm64": ["@tsgo-dev/linux-arm64@2025.11.23", "", { "os": "linux", "cpu": "arm64", "bin": { "tsgo": "tsgo" } }, "sha512-T+xNHYKdzDS2jQjT27YeWvQ1Cb7yW4Wid/HMrfvJuJsE5LrFLU/smr4Vf5VXGqsFC7C0N0hnsUfuTf/bVktV3g=="],
-
-    "@tsgo-dev/windows-amd64": ["@tsgo-dev/windows-amd64@2025.11.23", "", { "os": "win32", "cpu": "x64", "bin": { "tsgo": "tsgo.exe" } }, "sha512-ohd1Nq0hPJ+2+AAyEY0wl/MVX4N+K1oug03OV/GdOfX+ygp8494TthKtkPDBiTbnVYe21djlq8vswsj/bTOIUw=="],
-
-    "@tsgo-dev/windows-arm64": ["@tsgo-dev/windows-arm64@2025.11.23", "", { "os": "win32", "cpu": "arm64", "bin": { "tsgo": "tsgo.exe" } }, "sha512-BVlB59Ny8YqAXTPi01sTtWEsJkAezhOy60WHKoailBTtHMXq5OaVk5TRGhEl0VdvNylcJIyICEXs6kTvUH+iYA=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 
@@ -1691,8 +1678,6 @@
     "ts-dedent": ["ts-dedent@2.2.0", "", {}, "sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ=="],
 
     "tsdown": ["tsdown@0.16.6", "", { "dependencies": { "ansis": "^4.2.0", "cac": "^6.7.14", "chokidar": "^4.0.3", "diff": "^8.0.2", "empathic": "^2.0.0", "hookable": "^5.5.3", "obug": "^2.1.0", "rolldown": "1.0.0-beta.51", "rolldown-plugin-dts": "^0.18.0", "semver": "^7.7.3", "tinyexec": "^1.0.2", "tinyglobby": "^0.2.15", "tree-kill": "^1.2.2", "unconfig-core": "^7.4.1", "unrun": "^0.2.11" }, "peerDependencies": { "@arethetypeswrong/core": "^0.18.1", "@vitejs/devtools": "^0.0.0-alpha.17", "publint": "^0.3.0", "typescript": "^5.0.0", "unplugin-lightningcss": "^0.4.0", "unplugin-unused": "^0.5.0" }, "optionalPeers": ["@arethetypeswrong/core", "@vitejs/devtools", "publint", "typescript", "unplugin-lightningcss", "unplugin-unused"], "bin": { "tsdown": "dist/run.mjs" } }, "sha512-g3xHEnGdfwJTlXhEkqww3Q/KlCfyNFw4rnzuQ9Gqw8T2xjDYrw94qmSw5wYYTAW5zV1sEfWDlfgxZo5mmtu0NQ=="],
-
-    "tsgo-dev": ["tsgo-dev@2025.11.23", "", { "optionalDependencies": { "@tsgo-dev/darwin-amd64": "2025.11.23", "@tsgo-dev/darwin-arm64": "2025.11.23", "@tsgo-dev/linux-amd64": "2025.11.23", "@tsgo-dev/linux-arm64": "2025.11.23", "@tsgo-dev/windows-amd64": "2025.11.23", "@tsgo-dev/windows-arm64": "2025.11.23" }, "bin": { "tsgo": "tsgo" } }, "sha512-eSrC7eGi28Kp+PTLH2ShOADl1NJTfVF+y6BtoOl+O5K7+keYVgkjlvaAVwUkjfdOzGazCgGa1Ef9KteFwgklbw=="],
 
     "tslib": ["tslib@2.1.0", "", {}, "sha512-hcVC3wYEziELGGmEEXue7D75zbwIIVUMWAVbHItGPx0ziyXxrOMQx4rQEVEV45Ut/1IotuEvwqPopzIOkDMf0A=="],
 
