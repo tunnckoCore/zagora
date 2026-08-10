@@ -5,7 +5,7 @@ import z from "zod";
 import { isInternalError } from "../src/errors";
 import { zagora } from "../src/index";
 
-test("typed errors should be in options - when input schema is defined", async () => {
+test("typed errors should be in options - when input schema is defined", () => {
   const errorSchemas = {
     BAR_ERR: z.object({
       msg: z.string(),
@@ -27,7 +27,7 @@ test("typed errors should be in options - when input schema is defined", async (
     })
     .callable();
 
-  const res = await func();
+  const res = func();
   expect(res.ok).toBe(false);
 
   if (res.error) {
@@ -57,7 +57,7 @@ test("Zod tuple with default values - basic case", async () => {
     })
     .callable();
 
-  const res = await hello("fast");
+  const res = hello("fast");
 
   expect(res.ok).toBe(true);
   if (res.ok) {
@@ -305,7 +305,7 @@ test("Zod Tuple without defaults - missing required arg should fail", async () =
   expect(res.error?.message).toContain("Input validation failed");
 });
 
-test("Handler without input schema should work", async () => {
+test("Handler without input schema should work", () => {
   const errorSchemas = {
     BARRY_ERR: z.object({
       msg: z.string(),
@@ -323,7 +323,7 @@ test("Handler without input schema should work", async () => {
     })
     .callable();
 
-  const res = await func();
+  const res = func();
   expect(res.ok).toBe(false);
 
   if (res.error) {
@@ -429,7 +429,7 @@ test("wrapping sync throwing functions (JSON.parse -> safeJsonParse) in .handler
     .handler((_, input) => JSON.parse(input))
     .callable();
 
-  const res = await safeJsonParse(someJson);
+  const res = safeJsonParse(someJson);
   expect(res.ok).toBe(true);
 
   if (res.ok) {
@@ -438,7 +438,7 @@ test("wrapping sync throwing functions (JSON.parse -> safeJsonParse) in .handler
     expect(false, "Should not have error").toBeInstanceOf(true);
   }
 
-  const res2 = await safeJsonParse(`foo": 123`);
+  const res2 = safeJsonParse(`foo": 123`);
   expect(res2.ok).toBe(false);
 
   if (res2.error && isInternalError(res2.error)) {

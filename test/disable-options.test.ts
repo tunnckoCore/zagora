@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 import z from "zod";
 import { zagora } from "../src/index";
 
-test("disableOptions: false (default) - handler receives options as first arg", async () => {
+test("disableOptions: false (default) - handler receives options as first arg", () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
@@ -14,7 +14,7 @@ test("disableOptions: false (default) - handler receives options as first arg", 
     })
     .callable();
 
-  const res = await fn("hello");
+  const res = fn("hello");
   if (res.ok) {
     expect(res.data).toBe("hello-123");
   } else {
@@ -22,7 +22,7 @@ test("disableOptions: false (default) - handler receives options as first arg", 
   }
 });
 
-test("disableOptions: true - handler receives only input", async () => {
+test("disableOptions: true - handler receives only input", () => {
   const fn = zagora({ disableOptions: true })
     .input(z.string())
     .output(z.string())
@@ -31,7 +31,7 @@ test("disableOptions: true - handler receives only input", async () => {
     })
     .callable();
 
-  const res = await fn("hello");
+  const res = fn("hello");
   if (res.ok) {
     expect(res.data).toBe("HELLO");
   } else {
@@ -39,7 +39,7 @@ test("disableOptions: true - handler receives only input", async () => {
   }
 });
 
-test("disableOptions: true - handler with tuple input spreads args", async () => {
+test("disableOptions: true - handler with tuple input spreads args", () => {
   const fn = zagora({ disableOptions: true })
     .input(z.tuple([z.number(), z.string()]))
     .output(z.string())
@@ -48,7 +48,7 @@ test("disableOptions: true - handler with tuple input spreads args", async () =>
     })
     .callable();
 
-  const res = await fn(42, "answer");
+  const res = fn(42, "answer");
   if (res.ok) {
     expect(res.data).toBe("answer-42");
   } else {
@@ -56,7 +56,7 @@ test("disableOptions: true - handler with tuple input spreads args", async () =>
   }
 });
 
-test("disableOptions: true - handler with no input", async () => {
+test("disableOptions: true - handler with no input", () => {
   const fn = zagora({ disableOptions: true })
     .output(z.string())
     .handler(() => {
@@ -64,7 +64,7 @@ test("disableOptions: true - handler with no input", async () => {
     })
     .callable();
 
-  const res = await fn();
+  const res = fn();
   if (res.ok) {
     expect(res.data).toBe("no input needed");
   } else {
@@ -90,7 +90,7 @@ test("disableOptions: true - async handler receives only input", async () => {
   }
 });
 
-test("disableOptions: true - defined errors & context are ignored & not passed", async () => {
+test("disableOptions: true - defined errors & context are ignored & not passed", () => {
   const fn = zagora({ disableOptions: true })
     .input(z.string())
     .output(z.string())
@@ -103,7 +103,7 @@ test("disableOptions: true - defined errors & context are ignored & not passed",
     .handler((input) => `foo-${input}`)
     .callable();
 
-  const success = await fn("xyz");
+  const success = fn("xyz");
   if (success.ok) {
     expect(success.data).toBe("foo-xyz");
   } else {

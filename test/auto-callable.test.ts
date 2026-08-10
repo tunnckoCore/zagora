@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import z from "zod";
 import { zagora } from "../src/index";
 
-test("autoCallable: false (default) - requires .callable() call", async () => {
+test("autoCallable: false (default) - requires .callable() call", () => {
   const builder = zagora()
     .input(z.string())
     .output(z.string())
@@ -14,7 +14,7 @@ test("autoCallable: false (default) - requires .callable() call", async () => {
   expect(typeof builder.callable).toBe("function");
 
   const fn = builder.callable();
-  const res = await fn("hello");
+  const res = fn("hello");
 
   if (res.ok) {
     expect(res.data).toBe("HELLO");
@@ -72,7 +72,7 @@ describe("callable procedure metadata", () => {
   });
 });
 
-test("autoCallable: true - handler returns procedure directly", async () => {
+test("autoCallable: true - handler returns procedure directly", () => {
   const fn = zagora({ autoCallable: true })
     .input(z.string())
     .output(z.string())
@@ -81,7 +81,7 @@ test("autoCallable: true - handler returns procedure directly", async () => {
   // fn should be callable directly
   expect(typeof fn).toBe("function");
 
-  const res = await fn("WORLD");
+  const res = fn("WORLD");
   if (res.ok) {
     expect(res.data).toBe("world");
   } else {
@@ -89,13 +89,13 @@ test("autoCallable: true - handler returns procedure directly", async () => {
   }
 });
 
-test("autoCallable: true - with tuple input", async () => {
+test("autoCallable: true - with tuple input", () => {
   const fn = zagora({ autoCallable: true })
     .input(z.tuple([z.number(), z.string()]))
     .output(z.string())
     .handler((_, num, str) => `${str}-${num}`);
 
-  const res = await fn(42, "answer");
+  const res = fn(42, "answer");
   if (res.ok) {
     expect(res.data).toBe("answer-42");
   } else {
@@ -118,7 +118,7 @@ test("autoCallable: true - with context", async () => {
   }
 });
 
-test("autoCallable: true - with errors", async () => {
+test("autoCallable: true - with errors", () => {
   const fn = zagora({ autoCallable: true })
     .input(z.string())
     .output(z.string())
@@ -134,14 +134,14 @@ test("autoCallable: true - with errors", async () => {
       return input;
     });
 
-  const success = await fn("pass");
+  const success = fn("pass");
   if (success.ok) {
     expect(success.data).toBe("pass");
   } else {
     expect(false, "Expected success").toBe(true);
   }
 
-  const failure = await fn("fail");
+  const failure = fn("fail");
   if (!failure.ok) {
     expect(failure.error.kind).toBe("CUSTOM_ERROR");
   } else {
@@ -166,13 +166,13 @@ test("autoCallable: true - async handler", async () => {
   }
 });
 
-test("autoCallable: true + disableOptions: true - handler receives only input", async () => {
+test("autoCallable: true + disableOptions: true - handler receives only input", () => {
   const fn = zagora({ autoCallable: true, disableOptions: true })
     .input(z.string())
     .output(z.string())
     .handler((input) => input.toUpperCase());
 
-  const res = await fn("combined");
+  const res = fn("combined");
   if (res.ok) {
     expect(res.data).toBe("COMBINED");
   } else {
@@ -180,13 +180,13 @@ test("autoCallable: true + disableOptions: true - handler receives only input", 
   }
 });
 
-test("autoCallable: true + disableOptions: true - with tuple", async () => {
+test("autoCallable: true + disableOptions: true - with tuple", () => {
   const fn = zagora({ autoCallable: true, disableOptions: true })
     .input(z.tuple([z.number(), z.string()]))
     .output(z.string())
     .handler((num, str) => `${str}:${num}`);
 
-  const res = await fn(100, "value");
+  const res = fn(100, "value");
   if (res.ok) {
     expect(res.data).toBe("value:100");
   } else {
@@ -194,7 +194,7 @@ test("autoCallable: true + disableOptions: true - with tuple", async () => {
   }
 
   // @ts-expect-error - expected to fail, because second argument is missing
-  const res2 = await fn(100);
+  const res2 = fn(100);
   expect(res2.ok).toBe(false);
 });
 
@@ -209,12 +209,12 @@ test("autoCallable: true - no input schema", () => {
   }
 });
 
-test("autoCallable: true + disableOptions: true - no input schema", async () => {
+test("autoCallable: true + disableOptions: true - no input schema", () => {
   const fn = zagora({ autoCallable: true, disableOptions: true })
     .output(z.string())
     .handler(() => "no input no options");
 
-  const res = await fn();
+  const res = fn();
   if (res.ok) {
     expect(res.data).toBe("no input no options");
   } else {

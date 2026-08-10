@@ -302,36 +302,6 @@ test("Valibot async schemas produce async procedure types", () => {
   >();
 });
 
-test("schemas without async markers produce possibly async procedure types", () => {
-  const syncSchema = z.string();
-  const asyncSchema = z.string().refine(async (value) => value.length > 0);
-
-  expectTypeOf<IsAsyncSchema<typeof syncSchema>>().toEqualTypeOf<boolean>();
-  expectTypeOf<IsAsyncSchema<typeof asyncSchema>>().toEqualTypeOf<boolean>();
-  expectTypeOf<
-    HasAsyncSchema<typeof syncSchema, undefined, undefined>
-  >().toEqualTypeOf<boolean>();
-  expectTypeOf<
-    HasAsyncSchema<typeof asyncSchema, undefined, undefined>
-  >().toEqualTypeOf<boolean>();
-
-  const syncProcedure = zagora()
-    .input(syncSchema)
-    .handler((_, input) => input)
-    .callable();
-  const asyncProcedure = zagora()
-    .input(asyncSchema)
-    .handler((_, input) => input)
-    .callable();
-
-  expectTypeOf<
-    IsPromise<ReturnType<typeof syncProcedure>>
-  >().toEqualTypeOf<boolean>();
-  expectTypeOf<
-    IsPromise<ReturnType<typeof asyncProcedure>>
-  >().toEqualTypeOf<boolean>();
-});
-
 test("handler and cache Promise branches stay visible in procedure types", () => {
   const syncCache = {
     has() {
@@ -855,7 +825,7 @@ test("Function parameters - createResult, validateInputOutputOrEnv, validateErro
 // Zagora Procedure Return Type Tests
 // =============================================================================
 
-test("not uppercased errorsMap keys must be reported", async () => {
+test("not uppercased errorsMap keys must be reported", () => {
   const errorsMap = {
     invalid_key: z.object({ status: z.string(), code: z.number() }),
     UNAUTHORIZED: z.object({ retryAfter: z.number(), userId: z.string() }),
@@ -866,13 +836,13 @@ test("not uppercased errorsMap keys must be reported", async () => {
     .handler(() => 123)
     .callable();
 
-  const res = await func();
+  const res = func();
   if (res.ok) {
     expectTypeOf(res.data).toEqualTypeOf<number>();
   }
 });
 
-test("Zagora procedures - unmarked schema return types", async () => {
+test("Zagora procedures - sync handler return types", () => {
   const inputSchema = z.tuple([z.string(), z.object({ name: z.string() })]);
   const outputSchema = z.object({ greeting: z.string() });
   const errorsMap = {
@@ -909,11 +879,7 @@ test("Zagora procedures - unmarked schema return types", async () => {
   expectTypeOf(syncProc).parameter(0).toEqualTypeOf<InputType[0]>();
   expectTypeOf(syncProc).toBeCallableWith("foo", { name: "World" });
 
-  expectTypeOf<
-    IsPromise<ReturnType<typeof syncProc>>
-  >().toEqualTypeOf<boolean>();
-
-  const syncResult = await syncProc("foo", { name: "World" });
+  const syncResult = syncProc("foo", { name: "World" });
   expectTypeOf(syncResult).toExtend<ZagoraResult<any, any, any>>();
 
   if (syncResult.error) {

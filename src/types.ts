@@ -16,15 +16,15 @@ export type AnySchema = Schema<any, any>;
 // TEST: with expect-type
 export type IsAsyncSchema<T> = [T] extends [never]
   ? false
-  : T extends AnySchema
+  : T extends unknown
     ? "async" extends keyof T
       ? [T["async" & keyof T]] extends [true]
         ? true
         : true extends T["async" & keyof T]
           ? boolean
           : false
-      : boolean
-    : false;
+      : false
+    : never;
 
 type SchemaMapAsyncState<T> = T extends Record<string, AnySchema>
   ? true extends {
