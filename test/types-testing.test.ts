@@ -24,7 +24,7 @@
  * - Bare `any` is explicitly treated as non-promise, but `Promise<any>` is a promise
  * - Optional tuple parameters and their overload signatures
  *
- * Run with: `bun run typecheck`
+ * Run with: `bun run check:types`
  */
 
 import type { StandardSchemaV1 } from "@standard-schema/spec";

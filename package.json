@@ -57,7 +57,7 @@
     "check": "bun run check:copy-rules && bun run check:format && bun run check:types && bun run check:repo",
     "check:copy-rules": "cp AGENTS.md .rules/zagora.md",
     "check:format": "bunx @biomejs/biome check --fix --unsafe",
-    "check:types": "bunx @typescript/native-preview -p tsconfig.json",
+    "check:types": "bunx --package @typescript/native-preview tsgo -p tsconfig.json",
     "check:repo": "bunx sherif -r root-package-dependencies -r root-package-private-field",
     "test:cov-spa": "vite serve ./coverage",
     "test:gen-cov": "bun scripts/coverage-badge.ts",
