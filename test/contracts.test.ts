@@ -115,7 +115,7 @@ test.each([
   false,
   0,
   "",
-])("a handler throwing %j still returns a failure", (thrown) => {
+])("a handler throwing %j still returns a failure", async (thrown) => {
   const procedure = zagora()
     .input(z.boolean())
     .handler((_, shouldThrow) => {
@@ -126,7 +126,7 @@ test.each([
     })
     .callable();
 
-  const result = procedure(true);
+  const result = await procedure(true);
   expect(result.ok).toBe(false);
   if (!result.ok) {
     expect(result.isTypedError).toBe(false);

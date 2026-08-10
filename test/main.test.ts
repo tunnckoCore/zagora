@@ -23,7 +23,7 @@ const errorSchemas = {
   }),
 };
 
-test("typed error returns exact object with isDefined=true", () => {
+test("typed error returns exact object with isDefined=true", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
@@ -39,14 +39,14 @@ test("typed error returns exact object with isDefined=true", () => {
     })
     .callable();
 
-  const success = fn("hello");
+  const success = await fn("hello");
   if (success.ok) {
     expect(success.data).toBe("hello");
   } else {
     expect(false, "Expected success for hello").toBe(true);
   }
 
-  const res = fn("fail");
+  const res = await fn("fail");
   if (res.error && res.error.kind === "NETWORK_ERROR") {
     expect(res.error.statusCode).toBe(503);
   } else {
@@ -54,7 +54,7 @@ test("typed error returns exact object with isDefined=true", () => {
   }
 });
 
-test("context method works", () => {
+test("context method works", async () => {
   const fn = zagora()
     .context({ db: "mock" })
     .input(z.number())
@@ -67,7 +67,7 @@ test("context method works", () => {
     })
     .callable();
 
-  const res = fn(1001);
+  const res = await fn(1001);
   if (res.ok) {
     expect(res.data).toBe("1001-mock");
   } else {
@@ -75,7 +75,7 @@ test("context method works", () => {
   }
 });
 
-test("context override in callable", () => {
+test("context override in callable", async () => {
   const fn = zagora()
     .context({ db: "default" })
     .input(z.string())
@@ -85,7 +85,7 @@ test("context override in callable", () => {
     })
     .callable({ context: { db: "override" } });
 
-  const res = fn("baz");
+  const res = await fn("baz");
   if (res.ok) {
     expect(res.data).toBe("baz-override");
   } else {
@@ -93,7 +93,7 @@ test("context override in callable", () => {
   }
 });
 
-test("untyped error wrapped in ZagoraError with isDefined=false", () => {
+test("untyped error wrapped in ZagoraError with isDefined=false", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
@@ -105,7 +105,7 @@ test("untyped error wrapped in ZagoraError with isDefined=false", () => {
     })
     .callable();
 
-  const res = fn("crash");
+  const res = await fn("crash");
   if (!res.ok && isInternalError(res.error)) {
     expect(res.error.cause).toBeInstanceOf(Error);
     expect((res.error.cause as Error).message).toBe("Something broke");
@@ -114,7 +114,7 @@ test("untyped error wrapped in ZagoraError with isDefined=false", () => {
   }
 });
 
-test("multiple typed errors discriminated union", () => {
+test("multiple typed errors discriminated union", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
@@ -130,14 +130,14 @@ test("multiple typed errors discriminated union", () => {
     })
     .callable();
 
-  const netRes = fn("net");
+  const netRes = await fn("net");
   if (!netRes.ok && isDefinedError(netRes.error)) {
     expect(netRes.error.kind).toBe("NETWORK_ERROR");
   } else {
     expect(false, "Expected NETWORK_ERROR").toBe(true);
   }
 
-  const valRes = fn("val");
+  const valRes = await fn("val");
   if (!valRes.ok && isDefinedError(valRes.error)) {
     expect(valRes.error.kind).toBe("AUTH_ERR");
   } else {
@@ -326,7 +326,7 @@ test("async handler regular untyped error thrown", async () => {
   }
 });
 
-test("Error.cause is set on wrapped errors", () => {
+test("Error.cause is set on wrapped errors", async () => {
   const originalError = new Error("Original message");
 
   const fn = zagora()
@@ -341,7 +341,7 @@ test("Error.cause is set on wrapped errors", () => {
     })
     .callable();
 
-  const res = fn("fail");
+  const res = await fn("fail");
   if (!res.ok && isInternalError(res.error)) {
     expect(res.error.cause).toBe(originalError);
     expect(res.error.message).toBe("Sync handler threw unknown error");
@@ -352,7 +352,7 @@ test("Error.cause is set on wrapped errors", () => {
 });
 
 // TODO: fix to support array schemas, and not treat it as tuple schemas!
-test("input schema array of string should work", () => {
+test("input schema array of string should work", async () => {
   const fn = zagora()
     .input(z.array(z.string()))
     .output(z.array(z.string()))
@@ -367,7 +367,7 @@ test("input schema array of string should work", () => {
     })
     .callable();
 
-  const res = fn(["foo", "bar"]);
+  const res = await fn(["foo", "bar"]);
 
   if (res.ok) {
     expect(res.data).toStrictEqual(["FOO", "BAR"]);
@@ -376,14 +376,14 @@ test("input schema array of string should work", () => {
   }
 });
 
-test("input validation failure", () => {
+test("input validation failure", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
     .handler((_, input) => input)
     .callable();
 
-  const res = fn(123 as any);
+  const res = await fn(123 as any);
   if (!res.ok) {
     expect(true).toBe(true); // Just check it's not ok
   } else {
@@ -391,14 +391,14 @@ test("input validation failure", () => {
   }
 });
 
-test("output validation failure", () => {
+test("output validation failure", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.number())
     .handler((_, input) => input)
     .callable();
 
-  const res = fn("foo");
+  const res = await fn("foo");
   if (!res.ok) {
     expect(true).toBe(true); // Just check it's not ok
     expect(res.error.kind).toBe("VALIDATION_ERROR");
@@ -408,7 +408,7 @@ test("output validation failure", () => {
   }
 });
 
-test("no error schema works", () => {
+test("no error schema works", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
@@ -422,7 +422,7 @@ test("no error schema works", () => {
     })
     .callable();
 
-  const res = fn("fail");
+  const res = await fn("fail");
   if (!res.ok && isInternalError(res.error)) {
     expect(true).toBe(true);
   } else {
@@ -430,7 +430,7 @@ test("no error schema works", () => {
   }
 });
 
-test("tuple input arguments", () => {
+test("tuple input arguments", async () => {
   const fn = zagora()
     .input(z.tuple([z.string(), z.number()]))
     .output(z.string())
@@ -442,7 +442,7 @@ test("tuple input arguments", () => {
     })
     .callable();
 
-  const res = fn("hello", 42);
+  const res = await fn("hello", 42);
   if (res.ok) {
     expect(res.data).toBe("hello-42");
   } else {
@@ -450,7 +450,7 @@ test("tuple input arguments", () => {
   }
 });
 
-test("thrown ZagoraError passed through", () => {
+test("thrown ZagoraError passed through", async () => {
   const customErr = { kind: "CUSTOM_ERROR", message: "qux" };
 
   const fn = zagora()
@@ -466,7 +466,7 @@ test("thrown ZagoraError passed through", () => {
     })
     .callable();
 
-  const res = fn("throw now");
+  const res = await fn("throw now");
   if (!res.ok && isInternalError(res.error)) {
     expect(res.error.cause).toEqual(customErr);
   } else {
@@ -474,7 +474,7 @@ test("thrown ZagoraError passed through", () => {
   }
 });
 
-test("multiple procedures (calculator) from single instance (autoCallable:true)", () => {
+test("multiple procedures (calculator) from single instance (autoCallable:true)", async () => {
   const za = zagora({ autoCallable: true, disableOptions: true });
 
   const add = za.input(z.tuple([z.number(), z.number()])).handler((a, b) => {
@@ -498,7 +498,7 @@ test("multiple procedures (calculator) from single instance (autoCallable:true)"
     .input(z.tuple([z.number(), z.number()]))
     .handler((a, b) => a / b);
 
-  const added = add(1, 2);
+  const added = await add(1, 2);
   if (added.ok) {
     expectTypeOf(added.data).toEqualTypeOf<number>();
     expect(added.data).toBe(3);
@@ -508,7 +508,7 @@ test("multiple procedures (calculator) from single instance (autoCallable:true)"
     expect(false, "added should be ok").toBe(true);
   }
 
-  const subtracted = subtract(10, 5);
+  const subtracted = await subtract(10, 5);
   if (subtracted.ok) {
     expectTypeOf(subtracted.data).toEqualTypeOf<number>();
     expect(subtracted.data).toBe(5);
@@ -518,7 +518,7 @@ test("multiple procedures (calculator) from single instance (autoCallable:true)"
     expect(false, "subtracted should be ok").toBe(true);
   }
 
-  const multiplied = multiply(2, 3);
+  const multiplied = await multiply(2, 3);
   if (multiplied.ok) {
     expectTypeOf(multiplied.data).toEqualTypeOf<number>();
     expect(multiplied.data).toBe(6);
@@ -528,7 +528,7 @@ test("multiple procedures (calculator) from single instance (autoCallable:true)"
     expect(false, "multiplied should be ok").toBe(true);
   }
 
-  const divided = divide(10, 2);
+  const divided = await divide(10, 2);
   if (divided.ok) {
     expectTypeOf(divided.data).toEqualTypeOf<number>();
     expect(divided.data).toBe(5);
@@ -829,7 +829,7 @@ test("cache adapter passed through `.callable` method", async () => {
   await fixture(false, false, true);
 });
 
-test("failing env validation schema through `.env` method", () => {
+test("failing env validation schema through `.env` method", async () => {
   const envPopulatedProcedure = zagora()
     .input(z.string())
     .env(
@@ -853,7 +853,7 @@ test("failing env validation schema through `.env` method", () => {
       env: { SOME_SECRET: "sasa" } as any,
     });
 
-  const res = envPopulatedProcedure("foo");
+  const res = await envPopulatedProcedure("foo");
   if (!res.ok && isValidationError(res.error)) {
     expect(res.error.kind).toBe("VALIDATION_ERROR");
     expect(res.error.message).toContain("Env validation failed");
@@ -930,7 +930,7 @@ test("passning and sync env schema", () => {
   }
 });
 
-test("4-argument tuple with all required", () => {
+test("4-argument tuple with all required", async () => {
   const fn = zagora()
     .input(
       z.tuple([
@@ -951,7 +951,7 @@ test("4-argument tuple with all required", () => {
     })
     .callable();
 
-  const res = fn("hello", 42, true, { id: "test" });
+  const res = await fn("hello", 42, true, { id: "test" });
   if (res.ok) {
     expect(res.data).toBe("hello-42-true-test");
   } else {
@@ -959,7 +959,7 @@ test("4-argument tuple with all required", () => {
   }
 });
 
-test("4-argument tuple with last optional", () => {
+test("4-argument tuple with last optional", async () => {
   const fn = zagora()
     .input(
       z.tuple([
@@ -981,7 +981,7 @@ test("4-argument tuple with last optional", () => {
     .callable();
 
   // With all 4 args
-  const res1 = fn("hello", 42, true, { id: "test" });
+  const res1 = await fn("hello", 42, true, { id: "test" });
   if (res1.ok) {
     expect(res1.data).toBe("hello-42-true-test");
   } else {
@@ -989,7 +989,7 @@ test("4-argument tuple with last optional", () => {
   }
 
   // With 3 args (4th optional omitted)
-  const res2 = fn("hello", 42, true);
+  const res2 = await fn("hello", 42, true);
   if (res2.ok) {
     expect(res2.data).toBe("hello-42-true-none");
   } else {
@@ -997,7 +997,7 @@ test("4-argument tuple with last optional", () => {
   }
 });
 
-test("4-argument tuple with defaults", () => {
+test("4-argument tuple with defaults", async () => {
   const fn = zagora()
     .input(
       z.tuple([
@@ -1019,7 +1019,7 @@ test("4-argument tuple with defaults", () => {
     .callable();
 
   // With all 4 args
-  const res1 = fn("test", 10, true, { id: "custom" });
+  const res1 = await fn("test", 10, true, { id: "custom" });
   if (res1.ok) {
     expect(res1.data).toBe("test-10-true-custom");
   } else {
@@ -1027,7 +1027,7 @@ test("4-argument tuple with defaults", () => {
   }
 
   // With only first arg (rest use defaults)
-  const res2 = fn("test");
+  const res2 = await fn("test");
   if (res2.ok) {
     expect(res2.data).toBe("test-100-false-default");
   } else {

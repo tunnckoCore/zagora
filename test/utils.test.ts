@@ -5,14 +5,14 @@ import z from "zod";
 import { zagora } from "../src/index";
 import { deepMerge, handleTupleDefaults } from "../src/utils";
 
-test("validateInputOutput - sync validation with issues on input (line 82)", () => {
+test("validateInputOutput - sync validation with issues on input (line 82)", async () => {
   const fn = zagora()
     .input(z.number().min(10))
     .output(z.number())
     .handler((_, input) => input)
     .callable();
 
-  const res = fn(5);
+  const res = await fn(5);
   expect(res.ok).toBe(false);
   if (!res.ok) {
     expect(res.error.kind).toBe("VALIDATION_ERROR");
@@ -39,14 +39,14 @@ test("validateInputOutput - async validation success path (line 82)", async () =
   }
 });
 
-test("validateInputOutput - sync validation with issues on output (line 87)", () => {
+test("validateInputOutput - sync validation with issues on output (line 87)", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.number())
     .handler((_, input) => "not a number")
     .callable();
 
-  const res = fn("valid input");
+  const res = await fn("valid input");
   expect(res.ok).toBe(false);
   if (!res.ok) {
     expect(res.error.kind).toBe("VALIDATION_ERROR");
@@ -54,7 +54,7 @@ test("validateInputOutput - sync validation with issues on output (line 87)", ()
   }
 });
 
-test("validateError - error with kind not in errorsMap (line 130)", () => {
+test("validateError - error with kind not in errorsMap (line 130)", async () => {
   const fn = zagora()
     .input(z.string())
     .output(z.string())
@@ -71,7 +71,7 @@ test("validateError - error with kind not in errorsMap (line 130)", () => {
     })
     .callable();
 
-  const res = fn("unknown");
+  const res = await fn("unknown");
   expect(res.ok).toBe(false);
   if (!res.ok) {
     expect(res.error.message).toContain("is not defined in errors map");

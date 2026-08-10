@@ -62,7 +62,7 @@ test("should chain errors method", () => {
   expect(instance).toBeInstanceOf(Zagora);
 });
 
-test("should access error helpers from handler last arg", () => {
+test("should access error helpers from handler last arg", async () => {
   const fooFn = zagora()
     .input(z.string())
     .output(
@@ -77,7 +77,7 @@ test("should access error helpers from handler last arg", () => {
     })
     .callable();
 
-  const res = fooFn("barry");
+  const res = await fooFn("barry");
 
   if (res.ok) {
     expect(res.data.str).toBe("barry");
@@ -185,7 +185,7 @@ test("should allow method chaining in different orders", () => {
   expect(instance3).toBeInstanceOf(Zagora);
 });
 
-test("should work with array input schemas", () => {
+test("should work with array input schemas", async () => {
   const fn = zagora()
     .input(z.array(z.string()))
     .output(z.object({ arr: z.array(z.string()) }))
@@ -194,7 +194,7 @@ test("should work with array input schemas", () => {
 
   const input: string[] = ["foo", "bar", "qux"];
 
-  const res = fn(input as any);
+  const res = await fn(input as any);
 
   if (res.ok) {
     expect(res.data.arr).toBeInstanceOf(Array);
@@ -206,14 +206,14 @@ test("should work with array input schemas", () => {
   }
 });
 
-test("should spread with tuple input schemas to handler args", () => {
+test("should spread with tuple input schemas to handler args", async () => {
   const func = zagora()
     .input(z.tuple([z.number(), z.number()]))
     .output(z.number())
     .handler((_, x, y) => x + y)
     .callable();
 
-  const res = func(10, 20);
+  const res = await func(10, 20);
 
   if (res.ok) {
     expect(res.data).toBe(30);
@@ -222,14 +222,14 @@ test("should spread with tuple input schemas to handler args", () => {
   }
 });
 
-test("should support overriding schemas", () => {
+test("should support overriding schemas", async () => {
   const funcOne = zagora()
     .input(z.string())
     .input(z.number()) // Override input
     .handler((_, x) => x)
     .callable();
 
-  const res1 = funcOne(120);
+  const res1 = await funcOne(120);
 
   if (res1.ok) {
     expect(res1.data).toBe(120);
@@ -244,7 +244,7 @@ test("should support overriding schemas", () => {
     .handler((_, x) => x)
     .callable();
 
-  const res2 = funcTwo(120);
+  const res2 = await funcTwo(120);
 
   if (res2.ok) {
     expect(typeof res2.data).toBe("number");
@@ -263,7 +263,7 @@ test("should support overriding schemas", () => {
     )
     .callable();
 
-  const res3 = funcThree("barry");
+  const res3 = await funcThree("barry");
 
   if (res3.ok) {
     expect(res3.data).toBe("barry-1-function");
