@@ -178,15 +178,22 @@ test("Valibot async schemas produce async procedure types", () => {
   );
 
   type MixedSchema = typeof syncSchema | typeof asyncSchema;
+  type OptionalAsyncSchema = StandardSchemaV1<string, string> & {
+    readonly async?: true;
+  };
 
   expectTypeOf<IsAsyncSchema<typeof syncSchema>>().toEqualTypeOf<false>();
   expectTypeOf<IsAsyncSchema<typeof asyncSchema>>().toEqualTypeOf<true>();
   expectTypeOf<IsAsyncSchema<MixedSchema>>().toEqualTypeOf<boolean>();
+  expectTypeOf<IsAsyncSchema<OptionalAsyncSchema>>().toEqualTypeOf<boolean>();
   expectTypeOf<
     HasAsyncSchema<typeof asyncSchema, undefined, undefined>
   >().toEqualTypeOf<true>();
   expectTypeOf<
     HasAsyncSchema<MixedSchema, undefined, undefined>
+  >().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    HasAsyncSchema<OptionalAsyncSchema, undefined, undefined>
   >().toEqualTypeOf<boolean>();
   expectTypeOf<
     HasAsyncSchema<
@@ -914,6 +921,22 @@ test("Zagora procedures - sync handler return types", () => {
       ErrorsResolvedType["UNAUTHORIZED"]["userId"]
     >();
   }
+});
+
+test("declared error kinds override transformed schema output kinds", () => {
+  const transformedError = z
+    .object({ message: z.string() })
+    .transform(({ message }) => ({ kind: "OTHER" as const, message }));
+
+  type ResolvedError = InferSchemaMapPlain<
+    { DECLARED: typeof transformedError },
+    true
+  >["DECLARED"];
+
+  expectTypeOf<ResolvedError>().toEqualTypeOf<{
+    kind: "DECLARED";
+    message: string;
+  }>();
 });
 
 test("Zagora procedures - async handler return types", async () => {

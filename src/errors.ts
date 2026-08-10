@@ -120,7 +120,7 @@ export type InferSchemaMapPlain<
   ResolveErr extends boolean,
 > = {
   [K in keyof T]: ResolveErr extends true
-    ? Prettify<{ kind: K } & InferSchemaOutput<T[K]>>
+    ? Prettify<{ kind: K } & Omit<InferSchemaOutput<T[K]>, "kind">>
     : Prettify<InferSchemaOutput<T[K]>>;
 };
 
