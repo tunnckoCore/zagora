@@ -542,7 +542,7 @@ Zagora is fully async-aware at every level of the system:
 - **Promise-returning handler**: handler returns a promise -> procedure is async -> `Promise<ZagoraResult>`
 - **Async Handler**: Procedure is async -> returns `Promise<ZagoraResult>`
 - **Sync/async Schemas**: Input/output/error validation can be async -> procedure becomes async
-- **Sync/async Cache**: If any cache method is async -> procedure becomes async (returns `Promise<ZagoraResult>`)
+- **Sync/async Cache**: If any cache method is async -> procedure becomes async (returns `ZagoraResult | Promise<ZagoraResult>`)
 
 **Important:** Standard Schema does not currently identify async schemas in its type contract. Zagora detects validators whose schema type exposes `async: true` (including Valibot), so those procedures correctly return `Promise<ZagoraResult>` at type level. For validators that do not expose such a marker (like Zod), **always `await` when you know any part of the schema or the cache is async**. Follow [Standard Schema issue #22](https://github.com/standard-schema/standard-schema/issues/22) for the upstream discussion.
 

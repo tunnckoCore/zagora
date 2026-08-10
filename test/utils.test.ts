@@ -121,17 +121,8 @@ test("handleTupleDefaults - non-tuple schema returns rawArgs (lines 208-209)", (
 });
 
 test("deepMerge - merge nested objects", () => {
-  interface Target {
-    a: number;
-    b: { c: number; d: number };
-  }
-  interface Source {
-    b: { d: number; e: number };
-    f: number;
-  }
-
-  const target: Target = { a: 1, b: { c: 2, d: 3 } };
-  const source: Source = { b: { d: 4, e: 5 }, f: 6 };
+  const target = { a: 1, b: { c: 2, d: 3 } };
+  const source = { b: { d: 4, e: 5 }, f: 6 };
   const result = deepMerge(target, source);
 
   expect(result.a).toBe(1);
@@ -139,9 +130,6 @@ test("deepMerge - merge nested objects", () => {
   expect(result.b.d).toBe(4);
   expect(result.b.e).toBe(5);
   expect(result.f).toBe(6);
-
-  // @ts-expect-error deepMerge only accepts objects at the root
-  deepMerge("invalid", {});
 });
 
 test("deepMerge - replace complex values from the source", () => {

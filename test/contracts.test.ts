@@ -146,10 +146,10 @@ test("context merges plain containers and preserves dependencies", () => {
     }
   }
 
-  interface Context {
+  type Context = {
     db: Database;
     config: { timeout?: number; retries?: number };
-  }
+  };
 
   const production = new Database("production");
   const testDatabase = new Database("test");
@@ -196,9 +196,6 @@ test("callable context works without an initial context value", () => {
 
   const result = procedure();
   expect(result).toMatchObject({ ok: true, data: "ok" });
-
-  // @ts-expect-error context roots must be objects
-  zagora().context("invalid");
 });
 
 test("error helpers only use own keys and preserve the declared kind", () => {

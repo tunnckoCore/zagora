@@ -60,6 +60,7 @@ import type {
 } from "../src/types";
 import {
   createResult,
+  deepMerge,
   validateError,
   type validateInputOutputOrEnv,
 } from "../src/utils";
@@ -417,8 +418,7 @@ test("handler and cache Promise branches stay visible in procedure types", () =>
   });
   type UndefinedOverrideResult = ReturnType<typeof undefinedOverrideProcedure>;
   expectTypeOf<UndefinedOverrideResult>().toEqualTypeOf<
-    | Awaited<UndefinedOverrideResult>
-    | Promise<Awaited<UndefinedOverrideResult>>
+    Awaited<UndefinedOverrideResult> | Promise<Awaited<UndefinedOverrideResult>>
   >();
 
   // @ts-expect-error callable options reject unknown properties
@@ -1004,6 +1004,56 @@ test("type test zagora options", () => {
     // @ts-expect-error - foo is not a valid option so it is expected to report error here!
     foo: true,
   });
+});
+
+test("context and deepMerge only accept record-shaped roots", () => {
+  interface InterfaceContext {
+    value: string;
+  }
+
+  const interfaceContext = { value: "interface" } as InterfaceContext;
+
+  const assertInvalidRoots = () => {
+    // @ts-expect-error interface-shaped roots are intentionally unsupported
+    zagora().context(interfaceContext);
+    // @ts-expect-error context roots must be records
+    zagora().context(new Date());
+    // @ts-expect-error context roots must be records
+    zagora().context("invalid");
+    // @ts-expect-error deepMerge roots must be records
+    deepMerge(new Date(), {});
+    // @ts-expect-error deepMerge roots must be records
+    deepMerge("invalid", {});
+  };
+
+  expectTypeOf(assertInvalidRoots).toBeFunction();
+});
+
+test("callable env accepts indexed sources only after declaring a schema", () => {
+  const indexedEnv: Record<string, string | undefined> = {
+    PORT: "3000",
+  };
+
+  zagora()
+    .env(z.object({ PORT: z.string().optional() }))
+    .handler(({ env }) => env.PORT)
+    .callable({ env: indexedEnv });
+
+  const exactEnvProcedure = zagora()
+    .env(z.object({ PORT: z.string() }))
+    .handler(({ env }) => env.PORT);
+
+  exactEnvProcedure.callable({
+    // @ts-expect-error finite env objects reject keys absent from the schema
+    env: { PORT: "3000", TYPO: "unexpected" },
+  });
+
+  zagora()
+    .handler(() => undefined)
+    // @ts-expect-error runtime env requires a declared env schema
+    .callable({
+      env: { PORT: "3000" },
+    });
 });
 
 test("should have ~zagora property typed correctly on buiulder and on callable", () => {

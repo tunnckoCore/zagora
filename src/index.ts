@@ -40,6 +40,21 @@ export * as utils from "./utils";
 
 type KeysOfUnion<T> = T extends unknown ? keyof T : never;
 
+type ResolveCallableEnv<TOptions, TEnvVarsMap> = TEnvVarsMap extends AnySchema
+  ? InferSchemaInputSafe<TEnvVarsMap> &
+      ("env" extends keyof TOptions
+        ? string extends keyof NonNullable<TOptions[keyof TOptions & "env"]>
+          ? unknown
+          : Record<
+              Exclude<
+                keyof NonNullable<TOptions[keyof TOptions & "env"]>,
+                KeysOfUnion<InferSchemaInputSafe<TEnvVarsMap>>
+              >,
+              never
+            >
+        : unknown)
+  : never;
+
 export interface ZagoraConfig {
   disableOptions?: boolean;
   autoCallable?: boolean;
@@ -173,7 +188,7 @@ export class Zagora<
     });
   }
 
-  context<TNewContext extends object>(
+  context<TNewContext extends Record<string, unknown>>(
     initialContext?: TNewContext,
   ): Zagora<
     THandlerFn,
@@ -504,16 +519,7 @@ export class Zagora<
     options: {
       context?: TNewContext;
       cache?: CacheAdapter;
-      env?: InferSchemaInputSafe<TEnvVarsMap> &
-        ("env" extends keyof TOptions
-          ? Record<
-              Exclude<
-                keyof NonNullable<TOptions[keyof TOptions & "env"]>,
-                KeysOfUnion<InferSchemaInputSafe<TEnvVarsMap>>
-              >,
-              never
-            >
-          : unknown);
+      env?: ResolveCallableEnv<TOptions, TEnvVarsMap>;
     } & TOptions &
       Record<
         Exclude<keyof TOptions, "context" | "cache" | "env">,
@@ -521,7 +527,7 @@ export class Zagora<
       > = {} as {
       context?: TNewContext;
       cache?: CacheAdapter;
-      env?: InferSchemaInputSafe<TEnvVarsMap>;
+      env?: ResolveCallableEnv<TOptions, TEnvVarsMap>;
     } & TOptions &
       Record<Exclude<keyof TOptions, "context" | "cache" | "env">, never>,
   ) {
