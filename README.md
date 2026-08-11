@@ -544,7 +544,7 @@ Zagora is fully async-aware at every level of the system:
 - **Sync/async Schemas**: Input/output/error validation can be async -> procedure becomes async
 - **Sync/async Cache**: If any cache method is async -> procedure becomes async
 
-**Important:** Due to StandardSchema limitation, if you provide async schema, the created procedure will be with synchronous signature, and will return a `ZagoraResult` object, instead of `Promise<ZagoraResult>`. That is because we cannot know on type-level whether the schema is async or not. So, make sure you always `await` at procedure callsite when you know the that any part of the schema is async! There is an opened issue in the StandardSchema issue tracker, we will see.
+**Important:** Standard Schema does not currently identify async schemas in its type contract. Zagora detects validators whose schema type exposes `async: true` (including Valibot), so those procedures correctly return `Promise<ZagoraResult>` at type level. For validators that do not expose such a marker (including Zod), always `await` when you know any part of the schema is async. Follow [Standard Schema issue #22](https://github.com/standard-schema/standard-schema/issues/22) for the upstream contract.
 
 Funnily, ArkType does not support async schemas and it's incredibly fast, so using it you won't have that problem to begin with.
 

@@ -28,6 +28,7 @@
  */
 
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import * as v from "valibot";
 import { expect, expectTypeOf, test } from "vitest";
 import { z } from "zod";
 import type {
@@ -41,8 +42,11 @@ import { Zagora, zagora } from "../src/index";
 import type {
   AnySchema,
   ConditionalAsync,
+  ConditionalSchemaAsync,
+  HasAsyncSchema,
   InferSchemaOutputSafe,
   IsAny,
+  IsAsyncSchema,
   IsOptional,
   IsPromise,
   ResolvedProcedure,
@@ -155,6 +159,131 @@ test("ConditionalAsync<T, Result> - conditionally wraps result in Promise", () =
   // Should wrap when explicitly Promise<any>
   expectTypeOf<ConditionalAsync<Promise<any>, string>>().toEqualTypeOf<
     Promise<string>
+  >();
+});
+
+test("Valibot async schemas produce async procedure types", () => {
+  const syncSchema = v.string();
+  const asyncSchema = v.pipeAsync(
+    v.string(),
+    v.checkAsync(async (value) => value.length > 0),
+  );
+
+  type MixedSchema = typeof syncSchema | typeof asyncSchema;
+
+  expectTypeOf<IsAsyncSchema<typeof syncSchema>>().toEqualTypeOf<false>();
+  expectTypeOf<IsAsyncSchema<typeof asyncSchema>>().toEqualTypeOf<true>();
+  expectTypeOf<IsAsyncSchema<MixedSchema>>().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    HasAsyncSchema<typeof asyncSchema, undefined, undefined>
+  >().toEqualTypeOf<true>();
+  expectTypeOf<
+    HasAsyncSchema<MixedSchema, undefined, undefined>
+  >().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    HasAsyncSchema<
+      undefined,
+      undefined,
+      { SYNC: typeof syncSchema; ASYNC: typeof asyncSchema }
+    >
+  >().toEqualTypeOf<true>();
+  expectTypeOf<
+    HasAsyncSchema<
+      undefined,
+      undefined,
+      { VALUE: typeof syncSchema } | { VALUE: typeof asyncSchema }
+    >
+  >().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    ConditionalSchemaAsync<boolean, "sync", "async">
+  >().toEqualTypeOf<"sync" | "async">();
+
+  const syncProcedure = zagora()
+    .input(syncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof syncProcedure>>
+  >().toEqualTypeOf<false>();
+
+  const asyncInputProcedure = zagora()
+    .input(asyncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncInputProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const createMixedProcedure = (schema: MixedSchema) =>
+    zagora()
+      .input(schema)
+      .handler((_, input) => input)
+      .callable();
+  const mixedProcedure = createMixedProcedure(syncSchema);
+  expectTypeOf<ReturnType<typeof mixedProcedure>>().toEqualTypeOf<
+    ReturnType<typeof syncProcedure> | ReturnType<typeof asyncInputProcedure>
+  >();
+
+  const asyncOutputProcedure = zagora()
+    .input(syncSchema)
+    .output(asyncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncOutputProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const asyncErrorProcedure = zagora()
+    .input(syncSchema)
+    .errors({ SYNC_ERROR: syncSchema, ASYNC_ERROR: asyncSchema })
+    .handler(({ errors }, input) => {
+      if (input === "sync") {
+        throw errors.SYNC_ERROR(input);
+      }
+      if (!input) {
+        throw errors.ASYNC_ERROR(input);
+      }
+      return input;
+    })
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncErrorProcedure>>
+  >().toEqualTypeOf<true>();
+
+  type MixedErrorsMap =
+    | { SYNC_ERROR: typeof syncSchema }
+    | { ASYNC_ERROR: typeof asyncSchema };
+  const createMixedErrorsMapProcedure = (errorsMap: MixedErrorsMap) =>
+    zagora()
+      .input(syncSchema)
+      .errors(errorsMap)
+      .handler((_, input) => input)
+      .callable();
+  const mixedErrorsMapProcedure = createMixedErrorsMapProcedure({
+    SYNC_ERROR: syncSchema,
+  });
+  type MixedErrorsMapResult = ReturnType<typeof mixedErrorsMapProcedure>;
+  expectTypeOf<MixedErrorsMapResult>().toEqualTypeOf<
+    Awaited<MixedErrorsMapResult> | Promise<Awaited<MixedErrorsMapResult>>
+  >();
+
+  const autoCallableProcedure = zagora({
+    autoCallable: true,
+    disableOptions: true,
+  })
+    .input(asyncSchema)
+    .handler((input) => input);
+  expectTypeOf<
+    IsPromise<ReturnType<typeof autoCallableProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const createMixedAutoCallable = (schema: MixedSchema) =>
+    zagora({ autoCallable: true, disableOptions: true })
+      .input(schema)
+      .handler((input) => input);
+  const mixedAutoCallableProcedure = createMixedAutoCallable(syncSchema);
+  expectTypeOf<ReturnType<typeof mixedAutoCallableProcedure>>().toEqualTypeOf<
+    ReturnType<typeof mixedProcedure>
   >();
 });
 
