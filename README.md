@@ -542,11 +542,13 @@ Zagora is fully async-aware at every level of the system:
 - **Promise-returning handler**: handler returns a promise -> procedure is async -> `Promise<ZagoraResult>`
 - **Async Handler**: Procedure is async -> returns `Promise<ZagoraResult>`
 - **Sync/async Schemas**: Input/output/error validation can be async -> procedure becomes async
-- **Sync/async Cache**: If any cache method is async -> procedure becomes async (returns `ZagoraResult | Promise<ZagoraResult>`)
+- **Sync/async Cache**: If any cache method is async -> procedure becomes async but returns `ZagoraResult` (in Zod) - you may need to add `await`.
 
-**Important:** Standard Schema does not currently identify async schemas in its type contract. Zagora detects validators whose schema type exposes `async: true` (including Valibot), so those procedures correctly return `Promise<ZagoraResult>` at type level. For validators that do not expose such a marker (like Zod), **always `await` when you know any part of the schema or the cache is async**. Follow [Standard Schema issue #22](https://github.com/standard-schema/standard-schema/issues/22) for the upstream discussion.
+**Important:** Standard Schema does not currently identify async schemas in its type contract. Zagora detects validators whose schema type exposes `async: true` (like Valibot), so those procedures correctly return `Promise<ZagoraResult>` at type level. For validators that do not expose such a marker (like Zod), you need to add `await` (and TypeScript will hint that you may not need it - don't listen, add it) when you know any part of the schema or the cache is async. Follow [Standard Schema issue #22](https://github.com/standard-schema/standard-schema/issues/22) for the upstream discussion.
 
 Funnily, ArkType does not support async schemas and it's incredibly fast, so using it you won't have that problem to begin with.
+
+**Zod** example, notice and read the code comments.
 
 ```ts
 // Async handler
@@ -593,6 +595,56 @@ const procAsyncOutput = zagora()
 // NOTE: TypeScript will REPORT as warning that you may not need `await` but you do,
 // because async schemas force the handler to become async
 const result2 = await procAsyncOutput('hello'); // ZagoraResult
+```
+
+**Valibot** has native support for async schemas on both the runtime and the type-level.
+
+```ts
+import * as v from "valibot";
+import { zagora } from "zagora";
+
+const asyncSchema = v.pipeAsync(
+  v.string(),
+  v.checkAsync(async (value) => value.length > 2),
+);
+
+const syncSchema = v.string()
+
+const syncProcedureAsyncSchema = zagora()
+  .input(asyncSchema)
+  .handler((_, value) => value.toUpperCase())
+  .callable();
+
+const syncProcedureSyncSchema = zagora()
+  .input(syncSchema)
+  .handler((_, value) => value.toUpperCase())
+  .callable();
+
+const asyncProcedure = zagora()
+  .input(syncSchema)
+  .handler(async (_, value) => value.toUpperCase())
+  .callable();
+
+// typed as Promise<ZagoraResult>
+const promiseResult = syncProcedureAsyncSchema("hello");
+promiseResult.then();
+// @ts-expect-error - it's a promise, not a result
+promiseResult.ok;
+
+// typed as ZagoraResult
+const syncProdcedureAsyncResult = await syncProcedureAsyncSchema("hello");
+// @ts-expect-error - it's a result, not a promise
+syncProdcedureAsyncResult.then();
+syncProdcedureAsyncResult.ok;
+
+const syncResult = syncProcedureSyncSchema("hello");
+syncResult.ok;
+
+const asyncResult = await asyncProcedure("hello");
+asyncResult.ok;
+
+// @ts-expect-error - it's result, because it was awaited
+asyncResult.then()
 ```
 
 [**Back to top**](#table-of-contents)

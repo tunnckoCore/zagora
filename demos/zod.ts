@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { z } from "zod";
-import { zagora } from "./src/index";
+import { zagora } from "../src/index.ts";
 
 // Define input/output schemas
 const SpeedSchema = z.enum(["slow", "normal", "fast"]);
