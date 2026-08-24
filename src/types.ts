@@ -5,12 +5,62 @@ import type {
   InternalError,
   ValidationError,
 } from "./errors";
+import type { IsPromise } from "./is-promise";
 
 export * from "./is-promise";
 
 export type Schema<I, O = I> = StandardSchemaV1<I, O>;
 
 export type AnySchema = Schema<any, any>;
+
+// TEST: with expect-type
+export type IsAsyncSchema<T> = [T] extends [never]
+  ? false
+  : T extends unknown
+    ? "async" extends keyof T
+      ? [T["async" & keyof T]] extends [true]
+        ? true
+        : true extends T["async" & keyof T]
+          ? boolean
+          : false
+      : false
+    : never;
+
+type SchemaMapAsyncState<T> = T extends Record<string, AnySchema>
+  ? true extends {
+      [K in keyof T]: [IsAsyncSchema<T[K]>] extends [true] ? true : false;
+    }[keyof T]
+    ? true
+    : true extends {
+          [K in keyof T]: true extends IsAsyncSchema<T[K]> ? true : false;
+        }[keyof T]
+      ? boolean
+      : false
+  : false;
+
+type IsDefinitelyAsync<T extends boolean> = [T] extends [true] ? true : false;
+type IsPossiblyAsync<T extends boolean> = true extends T ? true : false;
+
+// TEST: with expect-type
+export type HasAsyncSchema<TInputSchema, TOutputSchema, TErrorsMap> =
+  true extends
+    | IsDefinitelyAsync<IsAsyncSchema<TInputSchema>>
+    | IsDefinitelyAsync<IsAsyncSchema<TOutputSchema>>
+    | IsDefinitelyAsync<SchemaMapAsyncState<TErrorsMap>>
+    ? true
+    : true extends
+          | IsPossiblyAsync<IsAsyncSchema<TInputSchema>>
+          | IsPossiblyAsync<IsAsyncSchema<TOutputSchema>>
+          | IsPossiblyAsync<SchemaMapAsyncState<TErrorsMap>>
+      ? boolean
+      : false;
+
+// TEST: with expect-type
+export type ConditionalSchemaAsync<
+  TAsync extends boolean,
+  TSync,
+  TAsyncResult,
+> = TAsync extends true ? TAsyncResult : TSync;
 
 export type SchemaIssue = StandardSchemaV1.Issue;
 
@@ -63,53 +113,73 @@ export type IsOptional<T> = undefined extends T ? true : false;
 
 export type ObjectToUnion<T> = T[keyof T];
 
-export type CacheAdapter =
-  | {
-      has(key: string): boolean;
-      get(key: string): unknown;
-      set(key: string, value: unknown): any;
-    }
-  | {
-      has(key: string): Promise<boolean>;
-      get(key: string): Promise<unknown>;
-      // NOTE: if we gotta be strict, it should be Promise<any> or Promise<void>
-      // but it's fine, cuz we don't really care and we never await it anyway
-      // NOTE: Making it the same as the "sync version" above
-      // allows end users to provide CacheAdapters with mixed sync & async methods,
-      // without reporting them an error, because we allow and handle
-      // ALL the cases at runtime anyway
-      set(key: string, value: unknown): any;
-    };
+export type CacheAdapter = {
+  has(key: string): boolean | Promise<boolean>;
+  get(key: string): unknown;
+  set(key: string, value: unknown): any;
+};
+
+// TEST: with expect-type
+export type HasAsyncCache<TCache> = TCache extends {
+  has(key: string): infer THas;
+  get(key: string): infer TGet;
+  set(key: string, value: unknown): infer TSet;
+}
+  ? true extends
+      | IsDefinitelyAsync<IsPromise<THas>>
+      | IsDefinitelyAsync<IsPromise<TGet>>
+      | IsDefinitelyAsync<IsPromise<TSet>>
+    ? true
+    : true extends
+          | IsPossiblyAsync<IsPromise<THas>>
+          | IsPossiblyAsync<IsPromise<TGet>>
+          | IsPossiblyAsync<IsPromise<TSet>>
+      ? boolean
+      : false
+  : false;
+
+// Cache methods run only on the paths that need them, so even a definitely
+// async method makes the procedure possibly async rather than always async.
+export type ConditionalCacheAsync<TCache, TResult> = [
+  HasAsyncCache<TCache>,
+] extends [false]
+  ? TResult
+  : TResult | Promise<Awaited<TResult>>;
 
 // TEST: with expect-type
 export type ZagoraResult<
   TOutput,
   TErrorsMap extends Record<string, AnySchema> | any,
   TResolvedResult,
-  IsTypedError = TErrorsMap extends Record<string, any> ? true : false,
+  IsTypedError = TErrorsMap extends Record<string, any> ? boolean : false,
 > = TResolvedResult extends { readonly ok: true }
   ? {
       readonly ok: true;
       data: TOutput;
       readonly error: undefined;
     }
-  : TErrorsMap extends Record<string, any>
-    ? {
-        readonly ok: false;
-        readonly isTypedError: IsTypedError;
-        readonly error:
-          | Prettify<
-              Readonly<
-                Prettify<ObjectToUnion<InferSchemaMapPlain<TErrorsMap, true>>>
-              >
+  : IsTypedError extends true
+    ? TErrorsMap extends Record<string, AnySchema>
+      ? {
+          readonly ok: false;
+          readonly isTypedError: true;
+          readonly error: Prettify<
+            Readonly<
+              Prettify<ObjectToUnion<InferSchemaMapPlain<TErrorsMap, true>>>
             >
-          | ValidationError<keyof TErrorsMap>
-          | InternalError;
-      }
+          >;
+        }
+      : never
     : {
         readonly ok: false;
-        readonly isTypedError: IsTypedError;
-        readonly error: InternalError | ValidationError<never>;
+        readonly isTypedError: false;
+        readonly error:
+          | InternalError
+          | ValidationError<
+              TErrorsMap extends Record<string, AnySchema>
+                ? keyof TErrorsMap
+                : never
+            >;
       };
 
 export interface ZagoraDef<

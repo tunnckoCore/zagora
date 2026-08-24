@@ -9,7 +9,7 @@
 export type IsAny<T> = 0 extends 1 & T ? true : false;
 
 /**
- * Returns `true` if the supplied value type `V` is a concrete promise.
+ * Reports whether the supplied value type `V` is definitely, possibly, or never promise-like.
  *
  * ## Behavior:
  * - `string | number | { … }`         → `false`
@@ -24,25 +24,23 @@ export type IsAny<T> = 0 extends 1 & T ? true : false;
  * ## Special Notes
  * - The literal value `any` is explicitly treated as "not a promise"
  * - However, `Promise<any>` IS detected as a promise (since we know it's wrapped)
- * - Uses array wrapper `[T]` to prevent distributive conditional types
+ * - Mixed promise/non-promise unions produce `boolean` to preserve uncertainty
  *
  * @template V - The value type you want to test
  */
 // TEST: with expect-type
 export type IsPromise<V> = IsAny<V> extends true
-  ? false // Bare `any` → treat as non-promise
-  : [V] extends [Promise<any>]
-    ? true // Explicitly Promise<T> → is a promise
+  ? false
+  : [V] extends [never]
+    ? false
     : [V] extends [PromiseLike<any>]
-      ? true // PromiseLike<T> → is a promise
-      : [Awaited<V>] extends [V]
-        ? false // Awaiting V gives us V → not a promise
-        : IsAny<Awaited<V>> extends true
-          ? false // If Awaited<V> is any, we can't tell → treat as non-promise
-          : true; // Awaiting V gives us something different → is a promise
+      ? true
+      : [Extract<V, PromiseLike<any>>] extends [never]
+        ? false
+        : boolean;
 
 /**
- * Conditionally wraps a result type in a Promise based on whether the input type is a Promise.
+ * Preserves sync, async, and possibly-async return shapes from the input type.
  *
  * ## Use Case
  * Perfect for functions that should return `Promise<Result>` for async handlers
@@ -51,6 +49,7 @@ export type IsPromise<V> = IsAny<V> extends true
  * ## Behavior:
  * - `ConditionalAsync<Promise<T>, Result>` → `Promise<Result>`
  * - `ConditionalAsync<T, Result>`          → `Result`
+ * - `ConditionalAsync<T | Promise<T>, Result>` → `Result | Promise<Result>`
  * - `ConditionalAsync<any, Result>`        → `Result` (bare `any` is treated as sync)
  * - `ConditionalAsync<Promise<any>, Result>` → `Promise<Result>` (Promise<any> is treated as async)
  *
@@ -68,6 +67,8 @@ export type IsPromise<V> = IsAny<V> extends true
  * @template Result - The result type to wrap conditionally
  */
 // TEST: with expect-type
-export type ConditionalAsync<T, Result> = IsPromise<T> extends true
-  ? Promise<Result> // Is a promise → wrap in Promise
-  : Result; // Not a promise (including bare `any`) → return as-is
+type ResolvePromise<TAsync extends boolean, Result> = TAsync extends true
+  ? Promise<Result>
+  : Result;
+
+export type ConditionalAsync<T, Result> = ResolvePromise<IsPromise<T>, Result>;

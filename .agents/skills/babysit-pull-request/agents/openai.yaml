@@ -1,0 +1,4 @@
+interface:
+  display_name: "Babysit Pull Request"
+  short_description: "Monitor and finish pull requests with judgment"
+  default_prompt: "Use $babysit-pull-request to monitor this pull request, fix meaningful feedback, and stop when it is ready."

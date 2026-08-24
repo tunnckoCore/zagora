@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import * as v from "valibot";
 import { expect, expectTypeOf, test } from "vitest";
 import z from "zod";
 import {
@@ -184,6 +185,70 @@ test("async output schema", async () => {
   } else {
     expect(false, "Expected validation error").toBe(true);
   }
+});
+
+test("Valibot async schemas always return promises", async () => {
+  const asyncOutput = v.pipeAsync(
+    v.string(),
+    v.checkAsync(async (value) => value !== "bad"),
+  );
+  const outputProcedure = zagora()
+    .input(v.string())
+    .output(asyncOutput)
+    .handler((_, input) => input)
+    .callable();
+
+  const invalidInputResult = outputProcedure(123 as any);
+  expect(invalidInputResult).toBeInstanceOf(Promise);
+  expect((await invalidInputResult).ok).toBe(false);
+
+  const invalidOutputResult = outputProcedure("bad");
+  expect(invalidOutputResult).toBeInstanceOf(Promise);
+  expect((await invalidOutputResult).ok).toBe(false);
+
+  const asyncError = v.pipeAsync(
+    v.object({ message: v.string() }),
+    v.checkAsync(async () => true),
+  );
+  const errorProcedure = zagora()
+    .input(v.string())
+    .errors({ ASYNC_ERROR: asyncError })
+    .handler(({ errors }, input) => {
+      if (input === "fail") {
+        throw errors.ASYNC_ERROR({ message: "failed" });
+      }
+      return input;
+    })
+    .callable();
+
+  const successResult = errorProcedure("success");
+  expect(successResult).toBeInstanceOf(Promise);
+  expect((await successResult).ok).toBe(true);
+
+  const failedErrorResult = errorProcedure("fail");
+  expect(failedErrorResult).toBeInstanceOf(Promise);
+  expect((await failedErrorResult).ok).toBe(false);
+});
+
+test("union-typed Valibot schemas preserve runtime return shape", async () => {
+  const syncSchema = v.string();
+  const asyncSchema = v.pipeAsync(
+    v.string(),
+    v.checkAsync(async () => true),
+  );
+  const createProcedure = (schema: typeof syncSchema | typeof asyncSchema) =>
+    zagora()
+      .input(schema)
+      .handler((_, input) => input)
+      .callable();
+
+  const syncResult = createProcedure(syncSchema)("sync");
+  expect(syncResult).not.toBeInstanceOf(Promise);
+  expect((await syncResult).ok).toBe(true);
+
+  const asyncResult = createProcedure(asyncSchema)("async");
+  expect(asyncResult).toBeInstanceOf(Promise);
+  expect((await asyncResult).ok).toBe(true);
 });
 
 test("handleError with async schema validation", async () => {

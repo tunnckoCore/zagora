@@ -19,15 +19,16 @@
  *
  * ## Edge cases covered:
  *
- * - `never` type extends everything (including Promise), so IsPromise<never> = true
- * - Union types with Promise (e.g., `string | Promise<number>`) are treated as promise-like
+ * - `never` represents no runtime value, so IsPromise<never> = false
+ * - Union types with Promise preserve uncertainty instead of collapsing to true or false
  * - Bare `any` is explicitly treated as non-promise, but `Promise<any>` is a promise
  * - Optional tuple parameters and their overload signatures
  *
- * Run with: `bun run typecheck`
+ * Run with: `bun run check:types`
  */
 
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import * as v from "valibot";
 import { expect, expectTypeOf, test } from "vitest";
 import { z } from "zod";
 import type {
@@ -40,9 +41,14 @@ import type {
 import { Zagora, zagora } from "../src/index";
 import type {
   AnySchema,
+  CacheAdapter,
   ConditionalAsync,
+  ConditionalSchemaAsync,
+  HasAsyncCache,
+  HasAsyncSchema,
   InferSchemaOutputSafe,
   IsAny,
+  IsAsyncSchema,
   IsOptional,
   IsPromise,
   ResolvedProcedure,
@@ -54,6 +60,7 @@ import type {
 } from "../src/types";
 import {
   createResult,
+  deepMerge,
   validateError,
   type validateInputOutputOrEnv,
 } from "../src/utils";
@@ -111,16 +118,16 @@ test("IsPromise<V> - detects Promise and PromiseLike types", () => {
   expectTypeOf<IsPromise<undefined>>().toEqualTypeOf<false>();
   expectTypeOf<IsPromise<void>>().toEqualTypeOf<false>();
   expectTypeOf<IsPromise<unknown>>().toEqualTypeOf<false>();
-  // `never` extends everything including Promise, so it's detected as a promise
-  expectTypeOf<IsPromise<never>>().toEqualTypeOf<true>();
+  // A function that never returns is not asynchronous by itself.
+  expectTypeOf<IsPromise<never>>().toEqualTypeOf<false>();
   expectTypeOf<IsPromise<object>>().toEqualTypeOf<false>();
   expectTypeOf<IsPromise<{}>>().toEqualTypeOf<false>();
   expectTypeOf<IsPromise<{ foo: string }>>().toEqualTypeOf<false>();
   expectTypeOf<IsPromise<string[]>>().toEqualTypeOf<false>();
 
-  // Should handle union types - unions with Promise are detected as promise-like
-  // because Awaited<string | Promise<number>> = string | number, which differs from the input
-  expectTypeOf<IsPromise<string | Promise<number>>>().toEqualTypeOf<true>();
+  // A union with a Promise is possibly async, regardless of its resolved value.
+  expectTypeOf<IsPromise<string | Promise<string>>>().toEqualTypeOf<boolean>();
+  expectTypeOf<IsPromise<string | Promise<number>>>().toEqualTypeOf<boolean>();
 });
 
 // =============================================================================
@@ -156,6 +163,296 @@ test("ConditionalAsync<T, Result> - conditionally wraps result in Promise", () =
   expectTypeOf<ConditionalAsync<Promise<any>, string>>().toEqualTypeOf<
     Promise<string>
   >();
+
+  // Should preserve uncertainty when only some branches return a Promise.
+  expectTypeOf<
+    ConditionalAsync<string | Promise<string>, { data: string }>
+  >().toEqualTypeOf<{ data: string } | Promise<{ data: string }>>();
+});
+
+test("Valibot async schemas produce async procedure types", () => {
+  const syncSchema = v.string();
+  const asyncSchema = v.pipeAsync(
+    v.string(),
+    v.checkAsync(async (value) => value.length > 0),
+  );
+
+  type MixedSchema = typeof syncSchema | typeof asyncSchema;
+  type OptionalAsyncSchema = StandardSchemaV1<string, string> & {
+    readonly async?: true;
+  };
+
+  expectTypeOf<IsAsyncSchema<typeof syncSchema>>().toEqualTypeOf<false>();
+  expectTypeOf<IsAsyncSchema<typeof asyncSchema>>().toEqualTypeOf<true>();
+  expectTypeOf<IsAsyncSchema<MixedSchema>>().toEqualTypeOf<boolean>();
+  expectTypeOf<IsAsyncSchema<OptionalAsyncSchema>>().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    HasAsyncSchema<typeof asyncSchema, undefined, undefined>
+  >().toEqualTypeOf<true>();
+  expectTypeOf<
+    HasAsyncSchema<MixedSchema, undefined, undefined>
+  >().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    HasAsyncSchema<OptionalAsyncSchema, undefined, undefined>
+  >().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    HasAsyncSchema<
+      undefined,
+      undefined,
+      { SYNC: typeof syncSchema; ASYNC: typeof asyncSchema }
+    >
+  >().toEqualTypeOf<true>();
+  expectTypeOf<
+    HasAsyncSchema<
+      undefined,
+      undefined,
+      { VALUE: typeof syncSchema } | { VALUE: typeof asyncSchema }
+    >
+  >().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    ConditionalSchemaAsync<boolean, "sync", "async">
+  >().toEqualTypeOf<"sync" | "async">();
+
+  const syncProcedure = zagora()
+    .input(syncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof syncProcedure>>
+  >().toEqualTypeOf<false>();
+
+  const asyncInputProcedure = zagora()
+    .input(asyncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncInputProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const createMixedProcedure = (schema: MixedSchema) =>
+    zagora()
+      .input(schema)
+      .handler((_, input) => input)
+      .callable();
+  const mixedProcedure = createMixedProcedure(syncSchema);
+  expectTypeOf<ReturnType<typeof mixedProcedure>>().toEqualTypeOf<
+    ReturnType<typeof syncProcedure> | ReturnType<typeof asyncInputProcedure>
+  >();
+
+  const asyncOutputProcedure = zagora()
+    .input(syncSchema)
+    .output(asyncSchema)
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncOutputProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const asyncErrorProcedure = zagora()
+    .input(syncSchema)
+    .errors({ SYNC_ERROR: syncSchema, ASYNC_ERROR: asyncSchema })
+    .handler(({ errors }, input) => {
+      if (input === "sync") {
+        throw errors.SYNC_ERROR(input);
+      }
+      if (!input) {
+        throw errors.ASYNC_ERROR(input);
+      }
+      return input;
+    })
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncErrorProcedure>>
+  >().toEqualTypeOf<true>();
+
+  type MixedErrorsMap =
+    | { SYNC_ERROR: typeof syncSchema }
+    | { ASYNC_ERROR: typeof asyncSchema };
+  const createMixedErrorsMapProcedure = (errorsMap: MixedErrorsMap) =>
+    zagora()
+      .input(syncSchema)
+      .errors(errorsMap)
+      .handler((_, input) => input)
+      .callable();
+  const mixedErrorsMapProcedure = createMixedErrorsMapProcedure({
+    SYNC_ERROR: syncSchema,
+  });
+  type MixedErrorsMapResult = ReturnType<typeof mixedErrorsMapProcedure>;
+  expectTypeOf<MixedErrorsMapResult>().toEqualTypeOf<
+    Awaited<MixedErrorsMapResult> | Promise<Awaited<MixedErrorsMapResult>>
+  >();
+
+  const autoCallableProcedure = zagora({
+    autoCallable: true,
+    disableOptions: true,
+  })
+    .input(asyncSchema)
+    .handler((input) => input);
+  expectTypeOf<
+    IsPromise<ReturnType<typeof autoCallableProcedure>>
+  >().toEqualTypeOf<true>();
+
+  const createMixedAutoCallable = (schema: MixedSchema) =>
+    zagora({ autoCallable: true, disableOptions: true })
+      .input(schema)
+      .handler((input) => input);
+  const mixedAutoCallableProcedure = createMixedAutoCallable(syncSchema);
+  expectTypeOf<ReturnType<typeof mixedAutoCallableProcedure>>().toEqualTypeOf<
+    ReturnType<typeof mixedProcedure>
+  >();
+});
+
+test("handler and cache Promise branches stay visible in procedure types", () => {
+  const syncCache = {
+    has() {
+      return false;
+    },
+    get() {
+      return undefined;
+    },
+    set() {},
+  };
+  const asyncHasCache = {
+    async has() {
+      return false;
+    },
+    get() {
+      return undefined;
+    },
+    set() {},
+  };
+  const asyncGetCache = {
+    has() {
+      return true;
+    },
+    async get() {
+      return "cached";
+    },
+    set() {},
+  };
+  const asyncSetCache = {
+    has() {
+      return false;
+    },
+    get() {
+      return undefined;
+    },
+    async set() {},
+  };
+
+  const mixedAdapter: CacheAdapter = asyncHasCache;
+  expectTypeOf(mixedAdapter).toExtend<CacheAdapter>();
+
+  type MaybeAsyncHasCache = {
+    has(key: string): boolean | Promise<boolean>;
+    get(key: string): undefined;
+    set(key: string, value: unknown): void;
+  };
+  expectTypeOf<HasAsyncCache<typeof syncCache>>().toEqualTypeOf<false>();
+  expectTypeOf<HasAsyncCache<typeof asyncHasCache>>().toEqualTypeOf<true>();
+  expectTypeOf<HasAsyncCache<typeof asyncGetCache>>().toEqualTypeOf<true>();
+  expectTypeOf<HasAsyncCache<typeof asyncSetCache>>().toEqualTypeOf<true>();
+  expectTypeOf<HasAsyncCache<MaybeAsyncHasCache>>().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    HasAsyncCache<typeof syncCache | typeof asyncHasCache>
+  >().toEqualTypeOf<boolean>();
+
+  const syncCachedProcedure = zagora()
+    .cache(syncCache)
+    .input(v.string())
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof syncCachedProcedure>>
+  >().toEqualTypeOf<false>();
+
+  const builderCachedProcedure = zagora()
+    .cache(asyncSetCache)
+    .input(v.string())
+    .handler((_, input) => input)
+    .callable();
+  type BuilderCachedResult = ReturnType<typeof builderCachedProcedure>;
+  expectTypeOf<BuilderCachedResult>().toEqualTypeOf<
+    Awaited<BuilderCachedResult> | Promise<Awaited<BuilderCachedResult>>
+  >();
+
+  const callableCachedProcedure = zagora()
+    .input(v.string())
+    .handler((_, input) => input)
+    .callable({ cache: asyncHasCache });
+  type CallableCachedResult = ReturnType<typeof callableCachedProcedure>;
+  expectTypeOf<CallableCachedResult>().toEqualTypeOf<
+    Awaited<CallableCachedResult> | Promise<Awaited<CallableCachedResult>>
+  >();
+
+  const autoCachedProcedure = zagora({
+    autoCallable: true,
+    disableOptions: true,
+  })
+    .cache(asyncGetCache)
+    .input(v.string())
+    .handler((input) => input);
+  type AutoCachedResult = ReturnType<typeof autoCachedProcedure>;
+  expectTypeOf<AutoCachedResult>().toEqualTypeOf<
+    Awaited<AutoCachedResult> | Promise<Awaited<AutoCachedResult>>
+  >();
+
+  const cacheConfigurableProcedure = zagora()
+    .cache(asyncSetCache)
+    .input(v.string())
+    .handler((_, input) => input);
+
+  const syncOverrideProcedure = cacheConfigurableProcedure.callable({
+    cache: syncCache,
+  });
+  expectTypeOf<
+    IsPromise<ReturnType<typeof syncOverrideProcedure>>
+  >().toEqualTypeOf<false>();
+
+  const optionalSyncOverride: { cache?: typeof syncCache } = {};
+  const optionallyOverriddenProcedure =
+    cacheConfigurableProcedure.callable(optionalSyncOverride);
+  type OptionallyOverriddenResult = ReturnType<
+    typeof optionallyOverriddenProcedure
+  >;
+  expectTypeOf<OptionallyOverriddenResult>().toEqualTypeOf<
+    | Awaited<OptionallyOverriddenResult>
+    | Promise<Awaited<OptionallyOverriddenResult>>
+  >();
+
+  const undefinedOverrideProcedure = cacheConfigurableProcedure.callable({
+    cache: undefined,
+  });
+  type UndefinedOverrideResult = ReturnType<typeof undefinedOverrideProcedure>;
+  expectTypeOf<UndefinedOverrideResult>().toEqualTypeOf<
+    Awaited<UndefinedOverrideResult> | Promise<Awaited<UndefinedOverrideResult>>
+  >();
+
+  // @ts-expect-error callable options reject unknown properties
+  cacheConfigurableProcedure.callable({ cache: syncCache, typo: true });
+
+  const maybeHandlerProcedure = zagora()
+    .input(v.string())
+    .handler((_, input) => (input.length > 0 ? input : Promise.resolve(input)))
+    .callable();
+  type MaybeHandlerResult = ReturnType<typeof maybeHandlerProcedure>;
+  expectTypeOf<MaybeHandlerResult>().toEqualTypeOf<
+    Awaited<MaybeHandlerResult> | Promise<Awaited<MaybeHandlerResult>>
+  >();
+
+  const asyncSchemaAndCacheProcedure = zagora()
+    .cache(asyncSetCache)
+    .input(
+      v.pipeAsync(
+        v.string(),
+        v.checkAsync(async () => true),
+      ),
+    )
+    .handler((_, input) => input)
+    .callable();
+  expectTypeOf<
+    IsPromise<ReturnType<typeof asyncSchemaAndCacheProcedure>>
+  >().toEqualTypeOf<true>();
 });
 
 // =============================================================================
@@ -254,10 +551,36 @@ test("ZagoraResult<...> - result type structure for success/error cases", () => 
     TestErrorsMap,
     { readonly ok: false }
   >;
-  expectTypeOf<ErrorWithMap>().toMatchObjectType<{
-    readonly ok: false;
-    readonly isTypedError: true;
-  }>();
+  expectTypeOf<ErrorWithMap["isTypedError"]>().toEqualTypeOf<boolean>();
+  expectTypeOf<
+    Extract<ErrorWithMap, { readonly isTypedError: true }>["isTypedError"]
+  >().toEqualTypeOf<true>();
+  expectTypeOf<
+    Extract<ErrorWithMap, { readonly isTypedError: false }>["isTypedError"]
+  >().toEqualTypeOf<false>();
+
+  const invalidSchema = z.object({ message: z.string() });
+  const missingSchema = z.object({ id: z.number() });
+  type ConcreteErrorsMap = {
+    NOT_VALID: typeof invalidSchema;
+    NOT_FOUND: typeof missingSchema;
+  };
+  type ConcreteError = ZagoraResult<
+    string,
+    ConcreteErrorsMap,
+    { readonly ok: false }
+  >;
+  expectTypeOf<
+    Extract<ConcreteError, { readonly isTypedError: true }>["error"]
+  >().toEqualTypeOf<
+    | { readonly kind: "NOT_VALID"; readonly message: string }
+    | { readonly kind: "NOT_FOUND"; readonly id: number }
+  >();
+  expectTypeOf<
+    Extract<ConcreteError, { readonly isTypedError: false }>["error"]
+  >().toEqualTypeOf<
+    InternalError | ValidationError<"NOT_VALID" | "NOT_FOUND">
+  >();
 });
 
 // =============================================================================
@@ -600,6 +923,22 @@ test("Zagora procedures - sync handler return types", () => {
   }
 });
 
+test("declared error kinds override transformed schema output kinds", () => {
+  const transformedError = z
+    .object({ message: z.string() })
+    .transform(({ message }) => ({ kind: "OTHER" as const, message }));
+
+  type ResolvedError = InferSchemaMapPlain<
+    { DECLARED: typeof transformedError },
+    true
+  >["DECLARED"];
+
+  expectTypeOf<ResolvedError>().toEqualTypeOf<{
+    kind: "DECLARED";
+    message: string;
+  }>();
+});
+
 test("Zagora procedures - async handler return types", async () => {
   const someJson = `{"name": "zagora"}`;
   const safeAsyncParse = zagora()
@@ -688,6 +1027,56 @@ test("type test zagora options", () => {
     // @ts-expect-error - foo is not a valid option so it is expected to report error here!
     foo: true,
   });
+});
+
+test("context and deepMerge only accept record-shaped roots", () => {
+  interface InterfaceContext {
+    value: string;
+  }
+
+  const interfaceContext = { value: "interface" } as InterfaceContext;
+
+  const assertInvalidRoots = () => {
+    // @ts-expect-error interface-shaped roots are intentionally unsupported
+    zagora().context(interfaceContext);
+    // @ts-expect-error context roots must be records
+    zagora().context(new Date());
+    // @ts-expect-error context roots must be records
+    zagora().context("invalid");
+    // @ts-expect-error deepMerge roots must be records
+    deepMerge(new Date(), {});
+    // @ts-expect-error deepMerge roots must be records
+    deepMerge("invalid", {});
+  };
+
+  expectTypeOf(assertInvalidRoots).toBeFunction();
+});
+
+test("callable env accepts indexed sources only after declaring a schema", () => {
+  const indexedEnv: Record<string, string | undefined> = {
+    PORT: "3000",
+  };
+
+  zagora()
+    .env(z.object({ PORT: z.string().optional() }))
+    .handler(({ env }) => env.PORT)
+    .callable({ env: indexedEnv });
+
+  const exactEnvProcedure = zagora()
+    .env(z.object({ PORT: z.string() }))
+    .handler(({ env }) => env.PORT);
+
+  exactEnvProcedure.callable({
+    // @ts-expect-error finite env objects reject keys absent from the schema
+    env: { PORT: "3000", TYPO: "unexpected" },
+  });
+
+  zagora()
+    .handler(() => undefined)
+    // @ts-expect-error runtime env requires a declared env schema
+    .callable({
+      env: { PORT: "3000" },
+    });
 });
 
 test("should have ~zagora property typed correctly on buiulder and on callable", () => {
